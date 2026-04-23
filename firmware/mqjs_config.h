@@ -1,0 +1,27 @@
+// This file is Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
+// SPDX-License-Identifier: BSD-2-Clause
+
+#ifndef LITEX_MQJS_CONFIG_H
+#define LITEX_MQJS_CONFIG_H
+
+/* Size of the mquickjs memory arena (JS heap). The JS engine allocates
+ * everything inside this buffer via its own allocator — the C library
+ * malloc() is not used. Sized for comfortable runs of mandelbrot.js,
+ * the REPL parser, and a few kilobytes of user script. Fits easily
+ * inside litex_sim's default 16 MiB main_ram. */
+#ifndef LITEX_MQJS_HEAP_SIZE
+#define LITEX_MQJS_HEAP_SIZE (1u << 20)   /* 1 MiB */
+#endif
+
+/* Maximum length of a REPL input line. Multi-line input is not
+ * supported — one expression per line. */
+#ifndef LITEX_MQJS_LINE_MAX
+#define LITEX_MQJS_LINE_MAX 1024
+#endif
+
+/* Marker printed when the embedded script has finished executing.
+ * The test harness scrapes UART output for this string. */
+#define LITEX_MQJS_DONE_MARKER "[mqjs] done"
+#define LITEX_MQJS_FAIL_MARKER "[mqjs] fail"
+
+#endif
