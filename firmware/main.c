@@ -162,6 +162,11 @@ int main(void)
         rc = run_source(ctx, (const char *)user_script, user_script_len,
                         "user_script.js", 0);
     }
+    /* Run GC before dumping so the numbers reflect live state rather
+     * than the watermark at program exit. */
+    JS_GC(ctx);
+    fputs("mqjs memory: ", stdout);
+    JS_DumpMemory(ctx, 0);
     puts(rc == 0 ? LITEX_MQJS_DONE_MARKER : LITEX_MQJS_FAIL_MARKER);
 #else
     repl(ctx);

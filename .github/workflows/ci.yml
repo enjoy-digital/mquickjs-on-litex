@@ -65,6 +65,9 @@ jobs:
       - name: Run bytecode test
         run: python3 -m pytest -v -s test/test_bytecode.py
 
+      - name: Run mandelbrot test
+        run: python3 -m pytest -v -s test/test_mandelbrot.py
+
       - name: Upload firmware artefacts on failure
         if: failure()
         uses: actions/upload-artifact@v4

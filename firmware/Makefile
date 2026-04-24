@@ -9,6 +9,14 @@
 
 # --- Inputs ----------------------------------------------------------
 
+# `clean` and `help` can run without a LiteX SoC build directory — only
+# compile / link targets need one. Including variables.mak with an empty
+# BUILD_DIRECTORY yields a noisy cascade of failures; guard explicitly
+# instead but let the clean path through.
+
+NO_BUILDDIR_TARGETS := clean help
+
+ifeq ($(filter $(NO_BUILDDIR_TARGETS),$(MAKECMDGOALS)),)
 ifeq ($(BUILD_DIRECTORY),)
 $(error BUILD_DIRECTORY is not set. Point it at a litex_sim output directory \
 (e.g. make BUILD_DIRECTORY=/path/to/sim-build). Run sim/gen_soc.py to \
@@ -21,6 +29,7 @@ BUILD_DIR := $(abspath $(BUILD_DIRECTORY))
 # and common.mak (CFLAGS/LDFLAGS/compile helpers).
 include $(BUILD_DIR)/software/include/generated/variables.mak
 include $(SOC_DIRECTORY)/software/common.mak
+endif
 
 MQJS_DIR := $(abspath third_party/mquickjs)
 FW_DIR   := $(abspath .)
@@ -93,9 +102,20 @@ STDLIB_GEN_FLAGS := -m32
 
 # --- Top-level targets --------------------------------------------------
 
-.PHONY: all clean
+.PHONY: all clean help
 
 all: firmware.bin
+
+help:
+	@echo "Usage:"
+	@echo "  make BUILD_DIRECTORY=<litex_sim output dir>               # REPL firmware"
+	@echo "  make BUILD_DIRECTORY=<...> SCRIPT=../examples/hello.js    # embed script"
+	@echo "  make BUILD_DIRECTORY=<...> SCRIPT=hello.bin               # embed bytecode"
+	@echo "  make clean                                                # no BUILD_DIRECTORY needed"
+	@echo ""
+	@echo "Variables:"
+	@echo "  SCRIPT   path to .js source or .bin bytecode to embed (default: REPL)"
+	@echo "  V=1      verbose compile lines"
 
 firmware.elf: $(OBJECTS) linker.ld
 	$(CC) $(LDFLAGS) -T linker.ld -N -o $@ \
