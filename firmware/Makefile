@@ -49,6 +49,12 @@ EMBED_CFLAGS  := -DMQJS_SCRIPT_EMBEDDED
 USER_SCRIPT_H := $(GEN_DIR)/user_script.h
 endif
 
+# Optional: override the mquickjs heap size at build time. Drops the
+# define straight into CFLAGS; the header's #ifndef guard lets us win.
+ifneq ($(HEAP_SIZE),)
+EMBED_CFLAGS += -DLITEX_MQJS_HEAP_SIZE=$(HEAP_SIZE)
+endif
+
 # --- Sources ------------------------------------------------------------
 
 MQJS_OBJS := mquickjs.o cutils.o dtoa.o libm.o

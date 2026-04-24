@@ -49,10 +49,11 @@ generation, GC, VM execution all happen on VexRiscv.
 
 Two alternate modes exist:
 
-- **Bytecode**: host-side `mqjs -m32 -o hello.bin hello.js` compiles to
-  a relocatable bytecode blob, the firmware detects it via
-  `JS_IsBytecode()` and skips parsing. Useful when boot-time parse cost
-  matters or you want to ship something less readable.
+- **Bytecode**: host-side `tools/js2bin.sh hello.js` compiles to a
+  relocatable bytecode blob, the firmware detects it via
+  `JS_IsBytecode()` at runtime and skips parsing. Useful when
+  boot-time parse cost matters or you want to ship something less
+  readable. Then: `./sim/run_sim.py --script examples/hello.bin`.
 - **REPL**: build the firmware without `SCRIPT=`, and source arrives
   live over the UART one line at a time.
 
@@ -92,8 +93,10 @@ and re-launches the cached simulator — seconds per run.
 |--------------------------|-------------------------------------------------|
 | `examples/hello.js`      | `console.log` — smallest sanity check           |
 | `examples/fib.js`        | recursion + `performance.now()` timing          |
+| `examples/json.js`       | `JSON.parse`/`stringify`, Array methods, Int32Array |
 | `examples/leds.js`       | `litex.setLeds()` / `.getSwitches()` bindings   |
 | `examples/mandelbrot.js` | soft-float through `libm`/`dtoa` + nested loops |
+| `examples/unicode.js`    | UTF-8 comments (regression for the NUL-sentinel fix) |
 
 Sample output from `fib.js`:
 
@@ -176,10 +179,21 @@ and `firmware/mqjs_stdlib_litex.c` — see
 
 ## Tunables
 
-| Variable (in `firmware/mqjs_config.h`) | Default | Notes                                                    |
-|----------------------------------------|---------|----------------------------------------------------------|
-| `LITEX_MQJS_HEAP_SIZE`                 | 1 MiB   | Sized for mandelbrot + REPL + user script; 256 KiB works for the smaller demos |
-| `LITEX_MQJS_LINE_MAX`                  | 1024    | REPL line buffer                                         |
+The JS heap is sized at compile time, but the Makefile lets you
+override it without editing the header:
+
+```sh
+# Showcase mquickjs's low-memory claim: hello fits in 32 KiB.
+./sim/run_sim.py --script examples/hello.js --heap-size 32768
+
+# Default value (fine for everything including mandelbrot).
+./sim/run_sim.py --script examples/mandelbrot.js  # 1 MiB heap
+```
+
+| Variable (in `firmware/mqjs_config.h`) | Default | Override with                 |
+|----------------------------------------|---------|-------------------------------|
+| `LITEX_MQJS_HEAP_SIZE`                 | 1 MiB   | `make HEAP_SIZE=<bytes>` / `run_sim.py --heap-size <bytes>` |
+| `LITEX_MQJS_LINE_MAX`                  | 1024    | edit the header (REPL only)   |
 
 SoC knobs are exposed by `sim/gen_soc.py`: `--ram-size`,
 `--output-dir`, `--force`.

@@ -56,6 +56,12 @@ jobs:
       - name: Run hello test
         run: python3 -m pytest -v -s test/test_hello.py
 
+      - name: Run unicode regression test
+        run: python3 -m pytest -v -s test/test_unicode.py
+
+      - name: Run JSON + typed-arrays test
+        run: python3 -m pytest -v -s test/test_json.py
+
       - name: Run leds test
         run: python3 -m pytest -v -s test/test_leds.py
 
