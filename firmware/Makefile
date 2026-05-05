@@ -195,9 +195,13 @@ endif
 # Header dependencies.
 main.o:      $(STDLIB_H) $(ATOM_H) $(USER_SCRIPT_H)
 mqjs_port.o: $(STDLIB_H) $(ATOM_H)
-mquickjs.o:  $(ATOM_H)
+mquickjs.o:  $(ATOM_H) clean-mqjs-generated-headers
 
 # --- Compile rules ------------------------------------------------------
+
+.PHONY: clean-mqjs-generated-headers
+clean-mqjs-generated-headers:
+	$(RM) $(MQJS_DIR)/mquickjs_atom.h
 
 mquickjs.o: CFLAGS += $(MQJS_EXTRA_CFLAGS)
 dtoa.o    : CFLAGS += $(MQJS_EXTRA_CFLAGS)

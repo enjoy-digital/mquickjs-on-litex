@@ -165,7 +165,7 @@ int main(void)
     } else {
         puts("running embedded script...");
         rc = run_source(ctx, (const char *)user_script, user_script_len,
-                        "user_script.js", 0);
+                        "user_script.js", JS_EVAL_REPL);
     }
     /* Run GC before dumping so the numbers reflect live state rather
      * than the watermark at program exit. */
