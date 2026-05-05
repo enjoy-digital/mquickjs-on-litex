@@ -126,6 +126,12 @@ make arty-sdcard-prepare ARTY_BUILD_DIR=/tmp/arty_mqjs_sd ARTY_SDCARD=/media/$US
 make arty-load ARTY_BUILD_DIR=/tmp/arty_mqjs_sd
 ```
 
+Use `make arty-sdcard-clean-prepare ...` instead of
+`arty-sdcard-prepare` to remove known stale Linux-on-LiteX boot files
+from the card before copying the demo files. Use
+`make arty-sdcard-check ...` to verify the card is writable and has
+`boot.bin`/`main.js`.
+
 At reset, LiteX BIOS loads `boot.bin` from the SDCard, then the
 firmware auto-runs `main.js`. Edit `main.js` on the card and press
 BTN0 to reload it without rebuilding or uploading firmware.

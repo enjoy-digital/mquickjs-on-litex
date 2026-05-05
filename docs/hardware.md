@@ -143,6 +143,22 @@ make arty-sdcard-prepare ARTY_BUILD_DIR=/tmp/arty_mqjs_sd ARTY_SDCARD=/media/$US
 make arty-load ARTY_BUILD_DIR=/tmp/arty_mqjs_sd
 ```
 
+If the card was previously used for Linux-on-LiteX or another demo,
+use the clean variant. It removes known stale root files such as
+`boot.json`, Linux images, OpenSBI, rootfs archives, and DTBs before
+copying the two mquickjs demo files:
+
+```sh
+make arty-sdcard-clean-prepare ARTY_BUILD_DIR=/tmp/arty_mqjs_sd ARTY_SDCARD=/media/$USER/LITEX
+```
+
+Both prepare targets refuse to write when the card is mounted
+read-only. To inspect an already prepared card:
+
+```sh
+make arty-sdcard-check ARTY_SDCARD=/media/$USER/LITEX
+```
+
 On reset, LiteX BIOS tries serial boot first, then SDCard boot. With
 no host serial loader answering, it reads `boot.bin` from the SDCard,
 copies it to `main_ram`, and jumps to it. The firmware then mounts the
@@ -174,7 +190,7 @@ LED status:
 |------|---------|
 | `0x1` | Loader starting |
 | `0x2` | Loading/evaluating `main.js` |
-| `0x4` | Script completed |
+| `0x4`/`0x5` | Script completed; idle heartbeat |
 | `0x8` | Load/eval failed; see UART |
 
 The SDCard profile enables Ethernet too:

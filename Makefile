@@ -22,7 +22,7 @@ ifneq ($(HEAP_SIZE),)
 FIRMWARE_ARGS += HEAP_SIZE=$(HEAP_SIZE)
 endif
 
-.PHONY: help check-env sim-soc sim sim-repl firmware arty-gateware arty-load arty-run arty-demo arty-sdcard-demo arty-sdcard-prepare clean
+.PHONY: help check-env sim-soc sim sim-repl firmware arty-gateware arty-load arty-run arty-demo arty-sdcard-demo arty-sdcard-prepare arty-sdcard-clean-prepare arty-sdcard-check clean
 
 help:
 	@echo "mquickjs on LiteX demo targets"
@@ -40,6 +40,8 @@ help:
 	@echo "  make arty-demo"
 	@echo "  make arty-sdcard-demo"
 	@echo "  make arty-sdcard-prepare ARTY_SDCARD=/media/$(USER)/LITEX"
+	@echo "  make arty-sdcard-clean-prepare ARTY_SDCARD=/media/$(USER)/LITEX"
+	@echo "  make arty-sdcard-check ARTY_SDCARD=/media/$(USER)/LITEX"
 	@echo ""
 	@echo "Useful variables:"
 	@echo "  SCRIPT=$(SCRIPT)"
@@ -90,11 +92,14 @@ arty-sdcard-demo: arty-gateware firmware arty-load arty-run
 
 arty-sdcard-prepare: SCRIPT=examples/sdcard_button_loader.js
 arty-sdcard-prepare: firmware
-	@mkdir -p $(ARTY_SDCARD)
-	@cp firmware/firmware.bin $(ARTY_SDCARD)/boot.bin
-	@cp examples/sdcard/main.js $(ARTY_SDCARD)/main.js
-	@sync $(ARTY_SDCARD)/boot.bin $(ARTY_SDCARD)/main.js
-	@echo "Prepared $(ARTY_SDCARD) with boot.bin and main.js"
+	@tools/prepare_sdcard.py $(ARTY_SDCARD) --boot firmware/firmware.bin --main examples/sdcard/main.js
+
+arty-sdcard-clean-prepare: SCRIPT=examples/sdcard_button_loader.js
+arty-sdcard-clean-prepare: firmware
+	@tools/prepare_sdcard.py $(ARTY_SDCARD) --clean --boot firmware/firmware.bin --main examples/sdcard/main.js
+
+arty-sdcard-check:
+	@tools/prepare_sdcard.py $(ARTY_SDCARD) --check-only
 
 clean:
 	@$(MAKE) -C firmware clean

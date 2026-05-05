@@ -37,3 +37,6 @@ make firmware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd SCRIPT=examples/sdcard_button_loa
 make arty-sdcard-prepare ARTY_BUILD_DIR=/tmp/arty_mqjs_sd ARTY_SDCARD=/media/$USER/LITEX
 make arty-load ARTY_BUILD_DIR=/tmp/arty_mqjs_sd
 ```
+
+Use `make arty-sdcard-clean-prepare ...` when reusing a card that has
+old LiteX boot files on it.
