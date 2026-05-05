@@ -135,9 +135,9 @@ from the card before copying the demo files. Use
 At reset, LiteX BIOS loads `boot.bin` from the SDCard, then the
 firmware auto-runs `main.js`. Edit `main.js` on the card and press
 BTN0 to reload it without rebuilding or uploading firmware.
-The reference Arty run loads a `182776` byte `boot.bin`, prints the
-FPGA identifier, verifies the LiteX scratch register, and drives the
-LED/switch/button demo from SDCard JavaScript.
+The reference Arty run prints the FPGA identifier, verifies the LiteX
+scratch register, and drives the LED/switch/button demo from SDCard
+JavaScript.
 
 Or run the same firmware manually with `litex_term`:
 
