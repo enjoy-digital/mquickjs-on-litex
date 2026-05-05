@@ -80,6 +80,17 @@ The first run takes a couple of minutes while Verilator compiles the
 `Vsim` binary. After that `run_sim.py` just swaps `sim_main_ram.init`
 and re-launches the cached simulator — seconds per run.
 
+## Quick start (Digilent Arty A7)
+
+The same firmware has been tested on a Digilent Arty A7-35T using the
+board DDR as LiteX `main_ram` and the on-board FT2232 for JTAG/UART.
+Build the board SoC without integrated main RAM, build one of the
+examples against that SoC, load the bitstream, then upload
+`firmware.bin` with `litex_term`.
+
+See [docs/hardware.md](docs/hardware.md) for the exact commands and
+the tested `examples/leds.js` hardware demo.
+
 ## Examples
 
 ```sh

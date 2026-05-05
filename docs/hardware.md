@@ -3,7 +3,8 @@
 The simulator is the primary development target and the one the CI
 exercises. The same firmware also builds for physical boards — this
 page documents the path using the Digilent Arty A7 as the reference.
-It has been prepared but not yet bring-up-tested.
+This flow has been bring-up-tested on a Digilent Arty A7-35T with the
+on-board FT2232 JTAG/UART interface.
 
 ## Build a LiteX SoC for your board
 
@@ -18,12 +19,13 @@ python3 -m litex_boards.targets.digilent_arty \
     --cpu-type=vexriscv \
     --libc-mode=full \
     --timer-uptime \
-    --integrated-main-ram-size=0x01000000 \
     --output-dir=/tmp/arty_mqjs
 ```
 
-For targets with external DRAM you can skip the integrated main RAM and
-let the build system wire up the DRAM controller instead.
+On Arty, do not request a large integrated main RAM: the JavaScript
+heap wants more memory than the Artix-7 BRAM budget can provide. The
+command above uses the board DDR as `main_ram`, which gives the BIOS a
+256 MiB RAM region at `0x40000000`.
 
 ## Build the firmware against that SoC
 
@@ -40,8 +42,29 @@ Same invocation as for simulation — the Makefile reads
 
 ## Load and run
 
-Flash the gateware, then upload the firmware over the serial
-bootloader:
+Load the gateware into SRAM. The LiteX target's `--load` path uses
+OpenOCD; if your OpenOCD has FTDI support, this is enough:
+
+```sh
+python3 -m litex_boards.targets.digilent_arty \
+    --load \
+    --cpu-type=vexriscv \
+    --libc-mode=full \
+    --timer-uptime \
+    --output-dir=/tmp/arty_mqjs
+```
+
+If OpenOCD reports `invalid command name "ftdi"`, use
+`openFPGALoader` instead:
+
+```sh
+openFPGALoader -c digilent /tmp/arty_mqjs/gateware/digilent_arty.bit
+```
+
+Then upload the firmware over the serial bootloader. On the Arty
+FT2232, interface 1 is normally the UART, so this is commonly
+`/dev/ttyUSB2`; prefer the stable `/dev/serial/by-id/...if01...` path
+when available:
 
 ```sh
 litex_term /dev/ttyUSBn --kernel=firmware/firmware.bin
@@ -68,6 +91,25 @@ which compile to direct CSR accesses. If your board exposes those CSRs
 (they're standard on the Arty A7 target), the script will drive the
 LEDs visibly. If the CSRs aren't present, the bindings degrade
 gracefully — the firmware still links, calls become no-ops.
+
+Build and run it the same way:
+
+```sh
+make -C firmware \
+     BUILD_DIRECTORY=/tmp/arty_mqjs \
+     SCRIPT=$(pwd)/examples/leds.js
+
+litex_term /dev/ttyUSBn --kernel=firmware/firmware.bin
+```
+
+On the tested Arty A7-35T run, the script completed with:
+
+```
+counter took 17 ms
+shift took 17 ms
+switches = 0
+[mqjs] done
+```
 
 ## Custom hardware bindings
 
