@@ -29,8 +29,8 @@ Two consequences for the port:
 
 `firmware/mqjs_stdlib_litex.c` is a trimmed copy of upstream
 `mqjs_stdlib.c`: no `setTimeout`/`clearTimeout`, plus a small `litex`
-object with LED/switch/button/CSR helpers and optional SDCard file
-loading.
+object with LED/switch/button, identifier, scratch-register, raw CSR,
+and optional SDCard file-loading helpers.
 
 At build time it is compiled **natively** as a host tool — see the
 `$(STDLIB_GEN)` rule in the Makefile — and then executed twice to
@@ -43,6 +43,20 @@ produce two C headers:
 
 We pass the `-m32` flag at runtime so the table layout matches the
 rv32 target regardless of the host word size.
+
+Two build details are important when extending the stdlib:
+
+- `mquickjs_build.c` uses `ATOM_ALIGN` for the ROM atom table. If you
+  add enough global properties to the stdlib generator, the old
+  alignment can corrupt keyword atom offsets and embedded source will
+  fail with errors such as `[mtag]: unexpected character in
+  expression`. The pinned submodule uses a larger alignment for this
+  LiteX stdlib.
+- A host-side `make mqjs` in the submodule also generates
+  `third_party/mquickjs/mquickjs_atom.h`. The firmware Makefile removes
+  that stale host header before compiling `mquickjs.o`, so the target
+  always uses `firmware/build/mquickjs_atom.h` generated for the
+  embedded stdlib.
 
 ## Firmware entry and UART plumbing
 

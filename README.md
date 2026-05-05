@@ -184,6 +184,8 @@ litex.getSwitches()
 | `examples/json.js`       | `JSON.parse`/`stringify`, Array methods, Int32Array |
 | `examples/leds.js`       | `litex.setLeds()` / `.getSwitches()` bindings   |
 | `examples/arty_showcase.js` | visible Arty LED patterns + switch sampling  |
+| `examples/sdcard_button_loader.js` | Arty SDCard `boot.bin` loader + BTN0 live reload |
+| `examples/sdcard/main.js` | SDCard-edited script: identifier, scratch, LEDs, switches/buttons |
 | `examples/mandelbrot.js` | soft-float through `libm`/`dtoa` + nested loops |
 | `examples/unicode.js`    | UTF-8 comments (regression for the NUL-sentinel fix) |
 
@@ -254,6 +256,9 @@ Scripts can poke the SoC through a small `litex` global object:
 litex.setLeds(0xa5);                   // write CSR_LEDS
 var s = litex.getSwitches();           // read CSR_SWITCHES
 var b = litex.getButtons();            // read CSR_BUTTONS
+var id = litex.getIdentifier();        // LiteX build identifier
+var old = litex.getScratch();          // CSR_CTRL scratch register
+litex.setScratch(0x51c0ffee);          // write CSR_CTRL scratch
 var t = litex.millis();                // uptime in ms
 litex.delay(10);                       // busy-wait
 var src = litex.readFile("main.js");   // FAT/SDCard file read

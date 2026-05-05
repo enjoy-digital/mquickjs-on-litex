@@ -1,4 +1,4 @@
-# Convenience entry points for litex_mquickjs.
+# Convenience entry points for mquickjs on LiteX.
 #
 # The real build logic lives in sim/run_sim.py, sim/gen_soc.py and
 # firmware/Makefile. These targets keep the common demo flows short.
@@ -25,7 +25,7 @@ endif
 .PHONY: help check-env sim-soc sim sim-repl firmware arty-gateware arty-load arty-run arty-demo arty-sdcard-demo arty-sdcard-prepare clean
 
 help:
-	@echo "litex_mquickjs demo targets"
+	@echo "mquickjs on LiteX demo targets"
 	@echo ""
 	@echo "Simulation:"
 	@echo "  make check-env"
