@@ -31,8 +31,8 @@ or clone the sibling repositories into a directory on `PYTHONPATH`.
 ## One-shot build
 
 ```sh
-git clone --recursive https://github.com/enjoy-digital/litex_mquickjs
-cd litex_mquickjs
+git clone --recursive https://github.com/enjoy-digital/mquickjs-on-litex
+cd mquickjs-on-litex
 make check-env
 make sim SCRIPT=examples/hello.js
 ```

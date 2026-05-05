@@ -1,4 +1,4 @@
-# Firmware build for litex_mquickjs.
+# Firmware build for mquickjs on LiteX.
 #
 # Invocation:
 #   make BUILD_DIRECTORY=<litex_sim output dir>               # REPL mode

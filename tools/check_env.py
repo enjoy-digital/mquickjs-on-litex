@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the host tools commonly needed by litex_mquickjs demos."""
+"""Check the host tools commonly needed by mquickjs on LiteX demos."""
 
 import importlib.util
 import shutil

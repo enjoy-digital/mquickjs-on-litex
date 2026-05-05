@@ -1,4 +1,13 @@
-# litex_mquickjs
+# mquickjs on LiteX
+
+```
+   __  _______       _     __      ______              __   _ __      _  __
+  /  |/  / __ \__ __(_)___/ /____ / / __/ ___  ___    / /  (_) /____ | |/_/
+ / /|_/ / /_/ / // / / __/  '_/ // /\ \  / _ \/ _ \  / /__/ / __/ -_)>  <
+/_/  /_/\___\_\_,_/_/\__/_/\_\\___/___/  \___/_//_/ /____/_/\__/\__/_/|_|
+```
+
+Copyright (c) 2026 EnjoyDigital.
 
 Run Fabrice Bellard's [mquickjs](https://github.com/bellard/mquickjs)
 JavaScript engine as a bare-metal firmware on a [LiteX](https://github.com/enjoy-digital/litex)
@@ -6,11 +15,11 @@ SoC, fully parsed and executed on the CPU — validated end-to-end in
 `litex_sim` with a VexRiscv RISC-V soft core, no FPGA required.
 
 ```
---========= litex_mquickjs =========--
+--========= mquickjs on LiteX =========--
 mquickjs heap:   1048576 bytes
 CPU:             VexRiscv @ 1000000 Hz
 running embedded script...
-hello from mquickjs on litex!
+hello from mquickjs on LiteX!
 [mqjs] done
 ```
 
@@ -66,8 +75,8 @@ Requirements: `riscv64-unknown-elf-gcc` with `rv32im/ilp32` multilib,
 package names on Ubuntu.
 
 ```sh
-git clone --recursive https://github.com/enjoy-digital/litex_mquickjs
-cd litex_mquickjs
+git clone --recursive https://github.com/enjoy-digital/mquickjs-on-litex
+cd mquickjs-on-litex
 
 # Check the host tools and submodule.
 make check-env

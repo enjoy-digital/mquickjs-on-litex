@@ -76,11 +76,11 @@ You should see the LiteX BIOS banner, the transfer, then:
 Executing booted program at 0x40000000
 --============= Liftoff! ===============--
 
---========= litex_mquickjs =========--
+--========= mquickjs on LiteX =========--
 mquickjs heap:   1048576 bytes
 CPU:             VexRiscv @ 100000000 Hz
 running embedded script...
-hello from mquickjs on litex!
+hello from mquickjs on LiteX!
 [mqjs] done
 ```
 
