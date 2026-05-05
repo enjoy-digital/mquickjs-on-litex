@@ -64,6 +64,7 @@ GENERATED_SOC_HEADERS := \
 	$(BUILD_DIR)/software/include/generated/csr.h \
 	$(BUILD_DIR)/software/include/generated/soc.h \
 	$(BUILD_DIR)/software/include/generated/variables.mak
+BUILD_CONTEXT := $(GEN_DIR)/build_context.mk
 
 # Tell make where to find .c / .S sources without also declaring .o
 # search paths. A plain VPATH= would also match .o files, and the
@@ -112,7 +113,7 @@ STDLIB_GEN_FLAGS := -m32
 
 # --- Top-level targets --------------------------------------------------
 
-.PHONY: all clean help
+.PHONY: all clean help FORCE
 
 all: firmware.bin
 
@@ -141,7 +142,20 @@ ifneq ($(OS),Windows_NT)
 	chmod -x $@
 endif
 
-main.o mqjs_port.o: $(GENERATED_SOC_HEADERS)
+$(BUILD_CONTEXT): FORCE | $(GEN_DIR)
+	@{ \
+	    echo "BUILD_DIRECTORY=$(BUILD_DIR)"; \
+	    echo "PACKAGES=$(PACKAGES)"; \
+	    echo "LIBS=$(LIBS)"; \
+	} | cmp -s - $@ || { \
+	    { \
+	        echo "BUILD_DIRECTORY=$(BUILD_DIR)"; \
+	        echo "PACKAGES=$(PACKAGES)"; \
+	        echo "LIBS=$(LIBS)"; \
+	    } > $@; \
+	}
+
+main.o mqjs_port.o: $(GENERATED_SOC_HEADERS) $(BUILD_CONTEXT)
 
 %.bin: %.elf
 	$(OBJCOPY) -O binary $< $@
@@ -171,7 +185,6 @@ ifneq ($(SCRIPT),)
 # script when the user passes a different SCRIPT= on the command line.
 # .PHONY would fight the "pre-req for main.o" relationship; an empty
 # FORCE target is the idiomatic workaround.
-.PHONY: FORCE
 FORCE:
 
 $(USER_SCRIPT_H): $(SCRIPT) FORCE | $(GEN_DIR)
