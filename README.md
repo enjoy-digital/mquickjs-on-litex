@@ -123,7 +123,17 @@ FAT-formatted SDCard as `main.js`, then:
 make arty-sdcard-demo ARTY_BUILD_DIR=/tmp/arty_mqjs_sd
 ```
 
-Press BTN0 to reload and execute `main.js` from the card.
+Or run the same flow manually with `litex_term`:
+
+```sh
+make arty-gateware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd ARTY_EXTRA="--with-sdcard --with-ethernet"
+make arty-load ARTY_BUILD_DIR=/tmp/arty_mqjs_sd
+make firmware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd SCRIPT=examples/sdcard_button_loader.js
+litex_term /dev/ttyUSB2 --kernel=firmware/firmware.bin
+```
+
+When the loader prints `waiting for BTN0`, press BTN0 to reload and
+execute `main.js` from the card.
 
 See [docs/hardware.md](docs/hardware.md) for the exact commands and
 the tested hardware demos.

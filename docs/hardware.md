@@ -161,6 +161,42 @@ make arty-gateware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd ARTY_EXTRA="--with-sdcard --
 make firmware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd SCRIPT=examples/sdcard_button_loader.js
 ```
 
+To test the firmware upload manually with `litex_term`, split the
+steps:
+
+```sh
+make arty-gateware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd ARTY_EXTRA="--with-sdcard --with-ethernet"
+make arty-load ARTY_BUILD_DIR=/tmp/arty_mqjs_sd
+make firmware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd SCRIPT=examples/sdcard_button_loader.js
+litex_term /dev/ttyUSB2 --kernel=firmware/firmware.bin
+```
+
+If the UART number moved after reloading the bitstream, check:
+
+```sh
+ls -l /dev/ttyUSB*
+```
+
+On Arty FT2232, the LiteX UART is usually the second FT2232 interface;
+on the tested setup it was `/dev/ttyUSB2`. `litex_term` should show the
+BIOS serial boot request, upload `firmware.bin`, boot it, and then the
+mquickjs loader should print:
+
+```text
+[sd] waiting for BTN0 to load main.js
+[sd] edit main.js on the SDCard, reinsert it, then press BTN0
+```
+
+Press BTN0. With `examples/sdcard/main.js` copied to the card root as
+`main.js`, the expected output is:
+
+```text
+[sd] loading main.js run 1
+[main.js] hello from SDCard
+[main.js] switches = 0
+[sd] done
+```
+
 This keeps the LiteX BIOS SDCard boot helpers linkable with the LiteX
 revision used for bring-up, while mquickjs itself uses only the SDCard,
 button, LED, timer, and UART CSRs for this demo.
