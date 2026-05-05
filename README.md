@@ -11,16 +11,27 @@ Copyright (c) 2026 EnjoyDigital
 
 Run Fabrice Bellard's [mquickjs](https://github.com/bellard/mquickjs)
 JavaScript engine as a bare-metal firmware on a [LiteX](https://github.com/enjoy-digital/litex)
-SoC, fully parsed and executed on the CPU — validated end-to-end in
-`litex_sim` with a VexRiscv RISC-V soft core, no FPGA required.
+SoC, fully parsed and executed on the CPU — validated both in
+`litex_sim` and on a Digilent Arty A7 with SDCard boot/live reload.
 
 ```
+Booting from SDCard in SD-Mode...
+Booting from boot.bin...
+Executing booted program at 0x40000000
+
+--============= Liftoff! ===============--
+
 --========= mquickjs on LiteX =========--
 mquickjs heap:   1048576 bytes
-CPU:             VexRiscv @ 1000000 Hz
+CPU:             VexRiscv @ 100000000 Hz
 running embedded script...
-hello from mquickjs on LiteX!
-[mqjs] done
+[sd] auto-loading main.js from SDCard
+[sd] loading main.js run 1 (boot)
+[main.js] hello from SDCard
+[main.js] identifier = LiteX SoC on Arty A7 2026-05-05 15:06:23
+[main.js] scratch test = 0x51c0ffee OK
+[main.js] LED scanner, then live switch/button mirror
+[sd] done
 ```
 
 Why mquickjs? It's a ~100 kB JavaScript engine with its own
