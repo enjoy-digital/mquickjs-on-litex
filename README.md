@@ -5,12 +5,9 @@
   /  |/  / __ \__ __(_)___/ /____ / / __/ ___  ___    / /  (_) /____ | |/_/
  / /|_/ / /_/ / // / / __/  '_/ // /\ \  / _ \/ _ \  / /__/ / __/ -_)>  <
 /_/  /_/\___\_\_,_/_/\__/_/\_\\___/___/  \___/_//_/ /____/_/\__/\__/_/|_|
+
+Copyright (c) 2026 EnjoyDigital
 ```
-
-Copyright (c) 2026 EnjoyDigital.
-
-This demo repository was put in place with guided AI agents, with the
-hardware flow validated on a real Digilent Arty A7.
 
 Run Fabrice Bellard's [mquickjs](https://github.com/bellard/mquickjs)
 JavaScript engine as a bare-metal firmware on a [LiteX](https://github.com/enjoy-digital/litex)
@@ -35,29 +32,41 @@ micro-benchmarks shipped upstream.
 ## What actually runs on the SoC
 
 ```
-host side                              |   target side (VexRiscv in sim)
----------------------------------------+----------------------------------
-examples/hello.js       (source)       |
-   |                                   |
-   v                                   |
-tools/embed_script.py   (just wraps    |
-   |                     bytes in a    |
-   v                     C array)      |
-firmware/build/user_script.h           |
-   |                                   |
-   v                                   |
-make / riscv-gcc                       |   firmware.bin loaded to main_ram
-   |                                   |          |
-   v                                   |          v
-firmware.bin                           |   JS_Eval(ctx, user_script, len)
-                                       |    -> tokenize + parse + compile
-                                       |    -> VM executes bytecode
-                                       |    -> console.log -> UART
+          build host                         LiteX SoC / VexRiscv
+          ----------                         --------------------
+
+ examples/hello.js  or  hello.bin
+          |
+          |  tools/embed_script.py
+          v
+ firmware/build/user_script.h
+          |
+          |  riscv64-unknown-elf-gcc
+          v
+ firmware/firmware.bin  --loaded to main_ram-->  _start()
+                                                   |
+                                                   v
+                                           JS_NewContext(heap)
+                                                   |
+                                                   v
+                                      JS_Eval(raw JS source)
+                                      or JS_LoadBytecode(blob)
+                                                   |
+                                                   v
+                                      mquickjs parser / compiler
+                                      bytecode VM / GC / stdlib
+                                                   |
+                                                   v
+                                    console.log -> LiteX UART
+                                    litex.*     -> LiteX CSRs
 ```
 
 The default build embeds the **raw `.js` bytes** and parses them on the
 SoC. The host doesn't preprocess the source — parsing, bytecode
 generation, GC, VM execution all happen on VexRiscv.
+
+This demo repository was put in place with guided AI agents, with the
+hardware flow validated on a real Digilent Arty A7.
 
 Two alternate modes exist:
 
