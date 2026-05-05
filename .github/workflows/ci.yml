@@ -68,6 +68,9 @@ jobs:
       - name: Run leds test
         run: python3 -m pytest -v -s test/test_leds.py
 
+      - name: Run SDCard loader parse test
+        run: python3 -m pytest -v -s test/test_sdcard_loader.py
+
       - name: Run fib test
         run: python3 -m pytest -v -s test/test_fib.py
 

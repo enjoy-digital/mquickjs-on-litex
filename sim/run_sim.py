@@ -147,6 +147,9 @@ def watch(proc, timeout: float, expect: str | None, keep_running: bool) -> int:
             if not line:
                 if proc.poll() is not None:
                     break
+                if time.time() - start > timeout:
+                    print(f"\n[run_sim] timeout after {timeout:.1f}s", file=sys.stderr)
+                    return 2
                 time.sleep(0.01)
                 continue
             sys.stdout.write(line)
