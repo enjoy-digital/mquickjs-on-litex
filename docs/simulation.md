@@ -24,6 +24,14 @@ Use `--expect STR` to also require a specific string in the output
 before declaring success. Use `--keep-running` to stay attached after
 `done` — useful for the REPL.
 
+The top-level Makefile wraps the common cases:
+
+```sh
+make sim SCRIPT=examples/hello.js
+make sim SCRIPT=examples/mandelbrot.js TIMEOUT=600
+make sim-repl
+```
+
 ## Custom SoC options
 
 `sim/gen_soc.py` accepts:

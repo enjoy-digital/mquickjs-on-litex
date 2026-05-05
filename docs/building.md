@@ -33,8 +33,8 @@ or clone the sibling repositories into a directory on `PYTHONPATH`.
 ```sh
 git clone --recursive https://github.com/enjoy-digital/litex_mquickjs
 cd litex_mquickjs
-./sim/gen_soc.py
-./sim/run_sim.py --script examples/hello.js
+make check-env
+make sim SCRIPT=examples/hello.js
 ```
 
 The first run bootstraps everything:
@@ -48,6 +48,14 @@ The first run bootstraps everything:
    requested script embedded, then calls `litex_sim` once more — on
    that pass LiteX compiles the Verilator simulator. After that,
    `obj_dir/Vsim` is cached and re-used.
+
+The `make sim` target is only a convenience wrapper. The equivalent
+manual commands are:
+
+```sh
+./sim/gen_soc.py
+./sim/run_sim.py --script examples/hello.js
+```
 
 ## Manual firmware build
 
@@ -74,8 +82,8 @@ hardware).
 Omit `SCRIPT` and the firmware is built in line-based REPL mode:
 
 ```sh
-make -C firmware BUILD_DIRECTORY=$(pwd)/build/sim
-./sim/run_sim.py --keep-running          # no --script, interactive
+make firmware SCRIPT=
+make sim-repl
 ```
 
 Each line is evaluated, the result printed. Type `.exit` to quit or
