@@ -24,6 +24,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential \
             gcc-riscv64-unknown-elf \
+            libevent-dev \
             picolibc-riscv64-unknown-elf \
             verilator \
             meson \
