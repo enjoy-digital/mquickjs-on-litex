@@ -8,6 +8,8 @@ SIM_BUILD_DIR ?= build/sim
 ARTY_BUILD_DIR ?= /tmp/arty_mqjs
 ARTY_SERIAL ?= /dev/ttyUSB2
 ARTY_CABLE ?= digilent
+ARTY_TARGET ?= ./targets/arty_mquickjs.py
+ARTY_EXTRA ?=
 HEAP_SIZE ?=
 TIMEOUT ?= 120
 
@@ -19,7 +21,7 @@ ifneq ($(HEAP_SIZE),)
 FIRMWARE_ARGS += HEAP_SIZE=$(HEAP_SIZE)
 endif
 
-.PHONY: help check-env sim-soc sim sim-repl firmware arty-gateware arty-load arty-run arty-demo clean
+.PHONY: help check-env sim-soc sim sim-repl firmware arty-gateware arty-load arty-run arty-demo arty-sdcard-demo clean
 
 help:
 	@echo "litex_mquickjs demo targets"
@@ -35,6 +37,7 @@ help:
 	@echo "  make arty-load"
 	@echo "  make arty-run ARTY_SERIAL=/dev/ttyUSB2"
 	@echo "  make arty-demo"
+	@echo "  make arty-sdcard-demo"
 	@echo ""
 	@echo "Useful variables:"
 	@echo "  SCRIPT=$(SCRIPT)"
@@ -42,6 +45,8 @@ help:
 	@echo "  SIM_BUILD_DIR=$(SIM_BUILD_DIR)"
 	@echo "  ARTY_BUILD_DIR=$(ARTY_BUILD_DIR)"
 	@echo "  ARTY_SERIAL=$(ARTY_SERIAL)"
+	@echo "  ARTY_EXTRA=$(ARTY_EXTRA)"
+	@echo "  ARTY_TARGET=$(ARTY_TARGET)"
 
 check-env:
 	@python3 tools/check_env.py
@@ -59,11 +64,12 @@ firmware:
 	@$(MAKE) -C firmware $(FIRMWARE_ARGS)
 
 arty-gateware:
-	@python3 -m litex_boards.targets.digilent_arty \
+	@$(ARTY_TARGET) \
 		--build \
 		--cpu-type=vexriscv \
 		--libc-mode=full \
 		--timer-uptime \
+		$(ARTY_EXTRA) \
 		--output-dir=$(ARTY_BUILD_DIR)
 
 arty-load:
@@ -74,6 +80,10 @@ arty-run:
 
 arty-demo: SCRIPT=examples/leds.js
 arty-demo: firmware arty-load arty-run
+
+arty-sdcard-demo: SCRIPT=examples/sdcard_button_loader.js
+arty-sdcard-demo: ARTY_EXTRA=--with-sdcard --with-ethernet
+arty-sdcard-demo: arty-gateware firmware arty-load arty-run
 
 clean:
 	@$(MAKE) -C firmware clean

@@ -28,8 +28,9 @@ Two consequences for the port:
 ## Host-side stdlib generation
 
 `firmware/mqjs_stdlib_litex.c` is a trimmed copy of upstream
-`mqjs_stdlib.c`: no `load()`, no `setTimeout`/`clearTimeout`, plus a
-small `litex` object with LED/switch/CSR helpers.
+`mqjs_stdlib.c`: no `setTimeout`/`clearTimeout`, plus a small `litex`
+object with LED/switch/button/CSR helpers and optional SDCard file
+loading.
 
 At build time it is compiled **natively** as a host tool — see the
 `$(STDLIB_GEN)` rule in the Makefile — and then executed twice to
@@ -98,11 +99,17 @@ extra `0x00` byte after the last source byte; `user_script_len` is
 still the original source size. Upstream does the same implicitly by
 allocating `malloc(len + 1)` and setting `buf[len] = '\0'`.
 
+## Optional filesystem bindings
+
+`litex.readFile(path)` and `litex.load(path)` are available when the
+SoC exposes `CSR_SDCARD_BASE` or `CSR_SPISDCARD_BASE`. The binding
+mounts the FAT volume on first use, reads files up to 64 KiB into a
+static buffer, and evaluates source with `JS_Eval`. On a simulation or
+minimal board build without SDCard support, the functions throw a
+JavaScript exception instead of failing at link time.
+
 ## Things intentionally not ported
 
-- `load(filename)` — no filesystem in the simulated target. Adding
-  support requires wiring a filesystem (fatfs on an SD card, LittleFS
-  over SPI flash) and exposing it as a mquickjs binding.
 - `setTimeout` / `clearTimeout` — no event loop. If you add a cooperative
   scheduler you can lift the upstream implementation verbatim; it's
   ~50 lines and uses the same `performance.now()` clock we already

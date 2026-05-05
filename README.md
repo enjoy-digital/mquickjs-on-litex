@@ -116,6 +116,15 @@ make arty-load
 make arty-run ARTY_SERIAL=/dev/ttyUSB2
 ```
 
+For the SDCard live-reload demo, put `examples/sdcard/main.js` on a
+FAT-formatted SDCard as `main.js`, then:
+
+```sh
+make arty-sdcard-demo ARTY_BUILD_DIR=/tmp/arty_mqjs_sd
+```
+
+Press BTN0 to reload and execute `main.js` from the card.
+
 See [docs/hardware.md](docs/hardware.md) for the exact commands and
 the tested hardware demos.
 
@@ -195,7 +204,7 @@ firmware/
     main.c                  boot + REPL / script runner
     mqjs_port.c             js_print, litex.* bindings, time, CSR
     mqjs_stdlib_litex.c     host-compiled stdlib generator
-                            (trimmed mqjs_stdlib.c — no load/setTimeout,
+                            (trimmed mqjs_stdlib.c — no event loop,
                              adds a small `litex` hardware object)
     linker.ld               everything lands in main_ram
     Makefile                requires BUILD_DIRECTORY=<sim output>
@@ -224,8 +233,11 @@ Scripts can poke the SoC through a small `litex` global object:
 ```js
 litex.setLeds(0xa5);                   // write CSR_LEDS
 var s = litex.getSwitches();           // read CSR_SWITCHES
+var b = litex.getButtons();            // read CSR_BUTTONS
 var t = litex.millis();                // uptime in ms
 litex.delay(10);                       // busy-wait
+var src = litex.readFile("main.js");   // FAT/SDCard file read
+litex.load("main.js");                 // read + JS_Eval from SDCard
 var x = litex.csrRead32(0xf0001000);   // raw CSR poke
 litex.csrWrite32(0xf0001000, 0x42);
 litex.reboot();                        // CSR_CTRL reset
@@ -273,10 +285,8 @@ SoC knobs are exposed by `sim/gen_soc.py`: `--ram-size`,
   [stricter-mode notes](https://github.com/bellard/mquickjs#stricter-mode):
   no array holes, only global `eval`, no value boxing, ASCII-only
   case-folding.
-- No filesystem, no event loop — no `load()`, no
-  `setTimeout`/`clearTimeout`. Adding either is a matter of hooking
-  libfatfs (for the former) or a cooperative scheduler on the LiteX
-  timer IRQ (for the latter); see
+- No event loop — no `setTimeout`/`clearTimeout`. Adding one is a
+  matter of hooking a cooperative scheduler on the LiteX timer IRQ; see
   [docs/porting.md](docs/porting.md#things-intentionally-not-ported).
 
 ## License

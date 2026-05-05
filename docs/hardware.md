@@ -14,7 +14,7 @@ an SoC with the same options we use in simulation (libc-mode=full,
 timer-uptime, VexRiscv CPU):
 
 ```sh
-python3 -m litex_boards.targets.digilent_arty \
+./targets/arty_mquickjs.py \
     --build \
     --cpu-type=vexriscv \
     --libc-mode=full \
@@ -25,7 +25,9 @@ python3 -m litex_boards.targets.digilent_arty \
 On Arty, do not request a large integrated main RAM: the JavaScript
 heap wants more memory than the Artix-7 BRAM budget can provide. The
 command above uses the board DDR as `main_ram`, which gives the BIOS a
-256 MiB RAM region at `0x40000000`.
+256 MiB RAM region at `0x40000000`. The repository target also exposes
+the Arty LEDs, switches, and user buttons as LiteX CSRs so JavaScript
+can access them directly.
 
 ## Build the firmware against that SoC
 
@@ -46,7 +48,7 @@ Load the gateware into SRAM. The LiteX target's `--load` path uses
 OpenOCD; if your OpenOCD has FTDI support, this is enough:
 
 ```sh
-python3 -m litex_boards.targets.digilent_arty \
+./targets/arty_mquickjs.py \
     --load \
     --cpu-type=vexriscv \
     --libc-mode=full \
@@ -87,10 +89,10 @@ hello from mquickjs on LiteX!
 ## LED / switch demos
 
 `examples/leds.js` uses `litex.setLeds(n)` and `litex.getSwitches()`
-which compile to direct CSR accesses. If your board exposes those CSRs
-(they're standard on the Arty A7 target), the script will drive the
-LEDs visibly. If the CSRs aren't present, the bindings degrade
-gracefully — the firmware still links, calls become no-ops.
+which compile to direct CSR accesses. The repository's Arty target
+enables `leds`, `switches`, and `buttons` CSRs by default. If the CSRs
+aren't present on another SoC, the bindings degrade gracefully — the
+firmware still links, calls become no-ops.
 
 For a quick smoke test, build and run `examples/leds.js` the same way:
 
@@ -121,6 +123,47 @@ make arty-run ARTY_SERIAL=/dev/ttyUSB2
 It runs a binary counter, a scanner pattern, a short switch-mirror
 window, and a heartbeat pattern, all from JavaScript running on the
 VexRiscv CPU.
+
+## SDCard live-reload demo
+
+This is the more interactive Arty demo:
+
+1. Format an SDCard as FAT.
+2. Copy `examples/sdcard/main.js` to the card root as `main.js`.
+3. Insert the card in the Arty SDCard PMOD.
+4. Build and run the SDCard loader:
+
+```sh
+make arty-sdcard-demo ARTY_BUILD_DIR=/tmp/arty_mqjs_sd
+```
+
+The loader firmware embeds `examples/sdcard_button_loader.js`. It sits
+in a JavaScript loop polling `litex.getButtons()`. Press BTN0 and the
+VexRiscv-side JS engine reads `main.js` from FAT using
+`litex.load("main.js")`, evaluates it, and returns to the wait loop.
+
+LED status:
+
+| LEDs | Meaning |
+|------|---------|
+| `0x1` | Waiting for BTN0 |
+| `0x2` | Loading/evaluating `main.js` |
+| `0x4` | Script completed |
+| `0x8` | Load/eval failed; see UART |
+
+Edit `main.js` on the SDCard, reinsert the card, and press BTN0 again
+to run the new script without rebuilding gateware or firmware.
+
+The SDCard profile enables Ethernet too:
+
+```sh
+make arty-gateware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd ARTY_EXTRA="--with-sdcard --with-ethernet"
+make firmware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd SCRIPT=examples/sdcard_button_loader.js
+```
+
+This keeps the LiteX BIOS SDCard boot helpers linkable with the LiteX
+revision used for bring-up, while mquickjs itself uses only the SDCard,
+button, LED, timer, and UART CSRs for this demo.
 
 ## Custom hardware bindings
 
