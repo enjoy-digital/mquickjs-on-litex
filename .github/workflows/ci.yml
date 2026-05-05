@@ -25,6 +25,7 @@ jobs:
             build-essential \
             gcc-riscv64-unknown-elf \
             libevent-dev \
+            libjson-c-dev \
             picolibc-riscv64-unknown-elf \
             verilator \
             meson \
