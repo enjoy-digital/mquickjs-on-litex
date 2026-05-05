@@ -84,7 +84,7 @@ hello from mquickjs on litex!
 [mqjs] done
 ```
 
-## LEDs / switches binding
+## LED / switch demos
 
 `examples/leds.js` uses `litex.setLeds(n)` and `litex.getSwitches()`
 which compile to direct CSR accesses. If your board exposes those CSRs
@@ -92,7 +92,7 @@ which compile to direct CSR accesses. If your board exposes those CSRs
 LEDs visibly. If the CSRs aren't present, the bindings degrade
 gracefully — the firmware still links, calls become no-ops.
 
-Build and run it the same way:
+For a quick smoke test, build and run `examples/leds.js` the same way:
 
 ```sh
 make -C firmware \
@@ -110,6 +110,17 @@ shift took 17 ms
 switches = 0
 [mqjs] done
 ```
+
+For a more visible demo, use `examples/arty_showcase.js`:
+
+```sh
+make firmware SCRIPT=examples/arty_showcase.js
+make arty-run ARTY_SERIAL=/dev/ttyUSB2
+```
+
+It runs a binary counter, a scanner pattern, a short switch-mirror
+window, and a heartbeat pattern, all from JavaScript running on the
+VexRiscv CPU.
 
 ## Custom hardware bindings
 

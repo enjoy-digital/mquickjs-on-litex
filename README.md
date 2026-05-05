@@ -90,13 +90,13 @@ examples against that SoC, load the bitstream, then upload
 
 ```sh
 make arty-gateware
-make firmware SCRIPT=examples/leds.js
+make firmware SCRIPT=examples/arty_showcase.js
 make arty-load
 make arty-run ARTY_SERIAL=/dev/ttyUSB2
 ```
 
 See [docs/hardware.md](docs/hardware.md) for the exact commands and
-the tested `examples/leds.js` hardware demo.
+the tested hardware demos.
 
 ## Live JavaScript REPL
 
@@ -133,6 +133,7 @@ litex.getSwitches()
 | `examples/fib.js`        | recursion + `performance.now()` timing          |
 | `examples/json.js`       | `JSON.parse`/`stringify`, Array methods, Int32Array |
 | `examples/leds.js`       | `litex.setLeds()` / `.getSwitches()` bindings   |
+| `examples/arty_showcase.js` | visible Arty LED patterns + switch sampling  |
 | `examples/mandelbrot.js` | soft-float through `libm`/`dtoa` + nested loops |
 | `examples/unicode.js`    | UTF-8 comments (regression for the NUL-sentinel fix) |
 
@@ -179,6 +180,7 @@ firmware/
     Makefile                requires BUILD_DIRECTORY=<sim output>
     third_party/mquickjs    git submodule, pinned commit
 examples/                   .js scripts ready to run
+    README.md               example guide
 sim/
     gen_soc.py              one-time SoC generation (VexRiscv)
     run_sim.py              build + fast re-run harness
