@@ -9,6 +9,9 @@
 
 Copyright (c) 2026 EnjoyDigital.
 
+This demo repository was put in place with guided AI agents, with the
+hardware flow validated on a real Digilent Arty A7.
+
 Run Fabrice Bellard's [mquickjs](https://github.com/bellard/mquickjs)
 JavaScript engine as a bare-metal firmware on a [LiteX](https://github.com/enjoy-digital/litex)
 SoC, fully parsed and executed on the CPU — validated end-to-end in
