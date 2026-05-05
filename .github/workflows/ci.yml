@@ -35,6 +35,9 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install Python test dependencies
+        run: python3 -m pip install pytest
+
       - name: Install LiteX
         run: |
           mkdir -p $HOME/litex && cd $HOME/litex
