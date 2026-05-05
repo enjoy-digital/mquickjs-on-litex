@@ -214,14 +214,29 @@ With `examples/sdcard/main.js` copied to the card root as `main.js`,
 the expected boot output is:
 
 ```text
+Booting from SDCard in SD-Mode...
+Booting from boot.json...
+boot.json file not found.
+Booting from boot.bin...
+Copying boot.bin to 0x40000000 (182776 bytes)...
+Executing booted program at 0x40000000
+
+--============= Liftoff! ===============--
+
+--========= mquickjs on LiteX =========--
+mquickjs heap:   1048576 bytes
+CPU:             VexRiscv @ 100000000 Hz
+running embedded script...
+[sd] auto-loading main.js from SDCard
+[sd] edit main.js on the SDCard, reinsert it, then press BTN0 to reload
 [sd] loading main.js run 1 (boot)
 [main.js] hello from SDCard
-[main.js] identifier = LiteX SoC on Arty A7 ...
-[main.js] scratch before = 0x...
+[main.js] identifier = LiteX SoC on Arty A7 2026-05-05 15:06:23
+[main.js] scratch before = 0x12345678
 [main.js] scratch test = 0x51c0ffee OK
 [main.js] switches = 0 buttons = 0
 [main.js] LED scanner, then live switch/button mirror
-[main.js] restored scratch = 0x...
+[main.js] restored scratch = 0x12345678
 [sd] done
 ```
 
