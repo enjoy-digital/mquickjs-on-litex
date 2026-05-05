@@ -69,11 +69,11 @@ package names on Ubuntu.
 git clone --recursive https://github.com/enjoy-digital/litex_mquickjs
 cd litex_mquickjs
 
-# 1. Generate the simulated SoC (VexRiscv, 16 MiB main_ram, timer-uptime).
-./sim/gen_soc.py
+# Check the host tools and submodule.
+make check-env
 
-# 2. Build & run the hello example end-to-end.
-./sim/run_sim.py --script examples/hello.js
+# Build & run the hello example end-to-end.
+make sim SCRIPT=examples/hello.js
 ```
 
 The first run takes a couple of minutes while Verilator compiles the
@@ -88,8 +88,35 @@ Build the board SoC without integrated main RAM, build one of the
 examples against that SoC, load the bitstream, then upload
 `firmware.bin` with `litex_term`.
 
+```sh
+make arty-gateware
+make firmware SCRIPT=examples/leds.js
+make arty-load
+make arty-run ARTY_SERIAL=/dev/ttyUSB2
+```
+
 See [docs/hardware.md](docs/hardware.md) for the exact commands and
 the tested `examples/leds.js` hardware demo.
+
+## Live JavaScript REPL
+
+Omit `SCRIPT` and the firmware starts a line-based JavaScript REPL.
+That is the most direct demo on hardware: type JavaScript over UART and
+watch it control board peripherals.
+
+```sh
+make firmware SCRIPT=
+make arty-load
+make arty-run ARTY_SERIAL=/dev/ttyUSB2
+```
+
+Then enter one line at a time:
+
+```js
+litex.setLeds(0xa5)
+for (var i = 0; i < 16; i++) { litex.setLeds(i); litex.delay(100); }
+litex.getSwitches()
+```
 
 ## Examples
 
@@ -157,7 +184,9 @@ sim/
     run_sim.py              build + fast re-run harness
 test/                       pytest integration tests (drive the sim)
 tools/embed_script.py       .js / .bin -> C byte-array header
+tools/check_env.py          host tool sanity check
 docs/                       longer-form documentation
+    README.md               documentation map
     building.md             dependencies and build flow
     simulation.md           how the sim harness works
     hardware.md             running on a real board (Arty A7 reference)
