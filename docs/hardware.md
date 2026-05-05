@@ -124,35 +124,58 @@ It runs a binary counter, a scanner pattern, a short switch-mirror
 window, and a heartbeat pattern, all from JavaScript running on the
 VexRiscv CPU.
 
-## SDCard live-reload demo
+## SDCard auto-boot/live-reload demo
 
 This is the more interactive Arty demo:
 
 1. Format an SDCard as FAT.
-2. Copy `examples/sdcard/main.js` to the card root as `main.js`.
-3. Insert the card in the Arty SDCard PMOD.
-4. Build and run the SDCard loader:
+2. Copy the loader firmware to the card root as `boot.bin`.
+3. Copy `examples/sdcard/main.js` to the card root as `main.js`.
+4. Insert the card in the Arty SDCard PMOD.
+5. Load the SDCard-capable bitstream.
+
+The Makefile can prepare the card once it is mounted on the host:
+
+```sh
+make arty-gateware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd ARTY_EXTRA="--with-sdcard --with-ethernet"
+make firmware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd SCRIPT=examples/sdcard_button_loader.js
+make arty-sdcard-prepare ARTY_BUILD_DIR=/tmp/arty_mqjs_sd ARTY_SDCARD=/media/$USER/LITEX
+make arty-load ARTY_BUILD_DIR=/tmp/arty_mqjs_sd
+```
+
+On reset, LiteX BIOS tries serial boot first, then SDCard boot. With
+no host serial loader answering, it reads `boot.bin` from the SDCard,
+copies it to `main_ram`, and jumps to it. The firmware then mounts the
+same card and auto-runs `main.js`.
+
+The embedded loader script stays alive after the first run. Edit
+`main.js` on the SDCard, reinsert the card, and press BTN0 to run the
+new script without rebuilding gateware or firmware.
+
+The SDCard `main.js` demo prints the FPGA identifier, tests the LiteX
+scratch register, runs a LED scanner, then mirrors switches/buttons to
+the LEDs for a short live-control window.
+
+To test the firmware upload path instead of SDCard boot:
 
 ```sh
 make arty-sdcard-demo ARTY_BUILD_DIR=/tmp/arty_mqjs_sd
 ```
 
 The loader firmware embeds `examples/sdcard_button_loader.js`. It sits
-in a JavaScript loop polling `litex.getButtons()`. Press BTN0 and the
-VexRiscv-side JS engine reads `main.js` from FAT using
-`litex.load("main.js")`, evaluates it, and returns to the wait loop.
+in a JavaScript loop polling `litex.getButtons()`. It auto-runs
+`main.js` once at firmware start. Press BTN0 and the VexRiscv-side JS
+engine reads `main.js` from FAT again using `litex.load("main.js")`,
+evaluates it, and returns to the wait loop.
 
 LED status:
 
 | LEDs | Meaning |
 |------|---------|
-| `0x1` | Waiting for BTN0 |
+| `0x1` | Loader starting |
 | `0x2` | Loading/evaluating `main.js` |
 | `0x4` | Script completed |
 | `0x8` | Load/eval failed; see UART |
-
-Edit `main.js` on the SDCard, reinsert the card, and press BTN0 again
-to run the new script without rebuilding gateware or firmware.
 
 The SDCard profile enables Ethernet too:
 
@@ -183,19 +206,26 @@ BIOS serial boot request, upload `firmware.bin`, boot it, and then the
 mquickjs loader should print:
 
 ```text
-[sd] waiting for BTN0 to load main.js
-[sd] edit main.js on the SDCard, reinsert it, then press BTN0
+[sd] auto-loading main.js from SDCard
+[sd] edit main.js on the SDCard, reinsert it, then press BTN0 to reload
 ```
 
-Press BTN0. With `examples/sdcard/main.js` copied to the card root as
-`main.js`, the expected output is:
+With `examples/sdcard/main.js` copied to the card root as `main.js`,
+the expected boot output is:
 
 ```text
-[sd] loading main.js run 1
+[sd] loading main.js run 1 (boot)
 [main.js] hello from SDCard
-[main.js] switches = 0
+[main.js] identifier = LiteX SoC on Arty A7 ...
+[main.js] scratch before = 0x...
+[main.js] scratch test = 0x51c0ffee OK
+[main.js] switches = 0 buttons = 0
+[main.js] LED scanner, then live switch/button mirror
+[main.js] restored scratch = 0x...
 [sd] done
 ```
+
+Press BTN0 to repeat the same sequence with `run 2 (BTN0)`.
 
 This keeps the LiteX BIOS SDCard boot helpers linkable with the LiteX
 revision used for bring-up, while mquickjs itself uses only the SDCard,

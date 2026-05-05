@@ -116,14 +116,21 @@ make arty-load
 make arty-run ARTY_SERIAL=/dev/ttyUSB2
 ```
 
-For the SDCard live-reload demo, put `examples/sdcard/main.js` on a
-FAT-formatted SDCard as `main.js`, then:
+For the SDCard auto-boot/live-reload demo, put `boot.bin` and
+`main.js` on a FAT-formatted SDCard, then:
 
 ```sh
-make arty-sdcard-demo ARTY_BUILD_DIR=/tmp/arty_mqjs_sd
+make arty-gateware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd ARTY_EXTRA="--with-sdcard --with-ethernet"
+make firmware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd SCRIPT=examples/sdcard_button_loader.js
+make arty-sdcard-prepare ARTY_BUILD_DIR=/tmp/arty_mqjs_sd ARTY_SDCARD=/media/$USER/LITEX
+make arty-load ARTY_BUILD_DIR=/tmp/arty_mqjs_sd
 ```
 
-Or run the same flow manually with `litex_term`:
+At reset, LiteX BIOS loads `boot.bin` from the SDCard, then the
+firmware auto-runs `main.js`. Edit `main.js` on the card and press
+BTN0 to reload it without rebuilding or uploading firmware.
+
+Or run the same firmware manually with `litex_term`:
 
 ```sh
 make arty-gateware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd ARTY_EXTRA="--with-sdcard --with-ethernet"
@@ -132,8 +139,8 @@ make firmware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd SCRIPT=examples/sdcard_button_loa
 litex_term /dev/ttyUSB2 --kernel=firmware/firmware.bin
 ```
 
-When the loader prints `waiting for BTN0`, press BTN0 to reload and
-execute `main.js` from the card.
+The loader auto-runs `main.js` once at boot. Press BTN0 to reload and
+execute it again from the card.
 
 See [docs/hardware.md](docs/hardware.md) for the exact commands and
 the tested hardware demos.

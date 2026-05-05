@@ -375,6 +375,9 @@ static const JSPropDef js_litex[] = {
     JS_CFUNC_DEF("setLeds",     1, js_litex_set_leds),
     JS_CFUNC_DEF("getSwitches", 0, js_litex_get_switches),
     JS_CFUNC_DEF("getButtons",  0, js_litex_get_buttons),
+    JS_CFUNC_DEF("getIdentifier", 0, js_litex_get_identifier),
+    JS_CFUNC_DEF("getScratch",  0, js_litex_get_scratch),
+    JS_CFUNC_DEF("setScratch",  1, js_litex_set_scratch),
     /* Timing */
     JS_CFUNC_DEF("millis",      0, js_litex_millis),
     JS_CFUNC_DEF("delay",       1, js_litex_delay),

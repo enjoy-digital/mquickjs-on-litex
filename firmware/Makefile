@@ -60,6 +60,10 @@ endif
 MQJS_OBJS := mquickjs.o cutils.o dtoa.o libm.o
 FW_OBJS   := main.o mqjs_port.o crt0.o
 OBJECTS   := $(FW_OBJS) $(MQJS_OBJS)
+GENERATED_SOC_HEADERS := \
+	$(BUILD_DIR)/software/include/generated/csr.h \
+	$(BUILD_DIR)/software/include/generated/soc.h \
+	$(BUILD_DIR)/software/include/generated/variables.mak
 
 # Tell make where to find .c / .S sources without also declaring .o
 # search paths. A plain VPATH= would also match .o files, and the
@@ -136,6 +140,8 @@ firmware.elf: $(OBJECTS) linker.ld
 ifneq ($(OS),Windows_NT)
 	chmod -x $@
 endif
+
+main.o mqjs_port.o: $(GENERATED_SOC_HEADERS)
 
 %.bin: %.elf
 	$(OBJCOPY) -O binary $< $@

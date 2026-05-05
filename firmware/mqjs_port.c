@@ -145,6 +145,42 @@ JSValue js_litex_get_buttons(JSContext *ctx, JSValue *this_val, int argc, JSValu
 #endif
 }
 
+JSValue js_litex_get_identifier(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv)
+{
+    (void)this_val; (void)argc; (void)argv;
+#if defined(CONFIG_IDENTIFIER)
+    return JS_NewString(ctx, config_identifier_read());
+#else
+    return JS_NewString(ctx, "LiteX SoC");
+#endif
+}
+
+JSValue js_litex_get_scratch(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv)
+{
+    (void)this_val; (void)argc; (void)argv;
+#if defined(CSR_CTRL_SCRATCH_ADDR)
+    return JS_NewUint32(ctx, ctrl_scratch_read());
+#else
+    return JS_NewUint32(ctx, 0);
+#endif
+}
+
+JSValue js_litex_set_scratch(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv)
+{
+    (void)this_val;
+    if (argc < 1)
+        return JS_ThrowTypeError(ctx, "setScratch(value)");
+    uint32_t value;
+    if (JS_ToUint32(ctx, &value, argv[0]))
+        return JS_EXCEPTION;
+#if defined(CSR_CTRL_SCRATCH_ADDR)
+    ctrl_scratch_write(value);
+#else
+    (void)value;
+#endif
+    return JS_UNDEFINED;
+}
+
 JSValue js_litex_millis(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv)
 {
     (void)this_val; (void)argc; (void)argv;

@@ -10,6 +10,7 @@ ARTY_SERIAL ?= /dev/ttyUSB2
 ARTY_CABLE ?= digilent
 ARTY_TARGET ?= ./targets/arty_mquickjs.py
 ARTY_EXTRA ?=
+ARTY_SDCARD ?= /media/$(USER)/LITEX
 HEAP_SIZE ?=
 TIMEOUT ?= 120
 
@@ -21,7 +22,7 @@ ifneq ($(HEAP_SIZE),)
 FIRMWARE_ARGS += HEAP_SIZE=$(HEAP_SIZE)
 endif
 
-.PHONY: help check-env sim-soc sim sim-repl firmware arty-gateware arty-load arty-run arty-demo arty-sdcard-demo clean
+.PHONY: help check-env sim-soc sim sim-repl firmware arty-gateware arty-load arty-run arty-demo arty-sdcard-demo arty-sdcard-prepare clean
 
 help:
 	@echo "litex_mquickjs demo targets"
@@ -38,6 +39,7 @@ help:
 	@echo "  make arty-run ARTY_SERIAL=/dev/ttyUSB2"
 	@echo "  make arty-demo"
 	@echo "  make arty-sdcard-demo"
+	@echo "  make arty-sdcard-prepare ARTY_SDCARD=/media/$(USER)/LITEX"
 	@echo ""
 	@echo "Useful variables:"
 	@echo "  SCRIPT=$(SCRIPT)"
@@ -47,6 +49,7 @@ help:
 	@echo "  ARTY_SERIAL=$(ARTY_SERIAL)"
 	@echo "  ARTY_EXTRA=$(ARTY_EXTRA)"
 	@echo "  ARTY_TARGET=$(ARTY_TARGET)"
+	@echo "  ARTY_SDCARD=$(ARTY_SDCARD)"
 
 check-env:
 	@python3 tools/check_env.py
@@ -84,6 +87,14 @@ arty-demo: firmware arty-load arty-run
 arty-sdcard-demo: SCRIPT=examples/sdcard_button_loader.js
 arty-sdcard-demo: ARTY_EXTRA=--with-sdcard --with-ethernet
 arty-sdcard-demo: arty-gateware firmware arty-load arty-run
+
+arty-sdcard-prepare: SCRIPT=examples/sdcard_button_loader.js
+arty-sdcard-prepare: firmware
+	@mkdir -p $(ARTY_SDCARD)
+	@cp firmware/firmware.bin $(ARTY_SDCARD)/boot.bin
+	@cp examples/sdcard/main.js $(ARTY_SDCARD)/main.js
+	@sync $(ARTY_SDCARD)/boot.bin $(ARTY_SDCARD)/main.js
+	@echo "Prepared $(ARTY_SDCARD) with boot.bin and main.js"
 
 clean:
 	@$(MAKE) -C firmware clean
