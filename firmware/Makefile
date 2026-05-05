@@ -104,6 +104,7 @@ MQJS_EXTRA_CFLAGS := -Wno-unused-parameter -Wno-sign-compare \
 HOST_CC     ?= gcc
 HOST_CFLAGS ?= -Wall -O2 -g -D_GNU_SOURCE
 STDLIB_GEN  := $(GEN_DIR)/mqjs_stdlib_litex
+STDLIB_BUILD_C := $(GEN_DIR)/mquickjs_build_litex.c
 STDLIB_H    := $(GEN_DIR)/mqjs_stdlib.h
 ATOM_H      := $(GEN_DIR)/mquickjs_atom.h
 
@@ -168,10 +169,13 @@ endif
 $(GEN_DIR):
 	mkdir -p $@
 
-$(STDLIB_GEN): $(FW_DIR)/mqjs_stdlib_litex.c $(MQJS_DIR)/mquickjs_build.c | $(GEN_DIR)
+$(STDLIB_BUILD_C): $(MQJS_DIR)/mquickjs_build.c | $(GEN_DIR)
+	@sed 's/#define ATOM_ALIGN 64/#define ATOM_ALIGN 128/' $< > $@
+
+$(STDLIB_GEN): $(FW_DIR)/mqjs_stdlib_litex.c $(STDLIB_BUILD_C) | $(GEN_DIR)
 	$(HOST_CC) $(HOST_CFLAGS) -I$(MQJS_DIR) -o $@ \
 	    $(FW_DIR)/mqjs_stdlib_litex.c \
-	    $(MQJS_DIR)/mquickjs_build.c
+	    $(STDLIB_BUILD_C)
 
 $(STDLIB_H): $(STDLIB_GEN)
 	$< $(STDLIB_GEN_FLAGS) > $@
