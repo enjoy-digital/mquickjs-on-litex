@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Prepare a FAT SDCard for the Arty mquickjs on LiteX demo.
 
-Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
-SPDX-License-Identifier: BSD-2-Clause
-"""
+#
+# This file is part of mquickjs on LiteX.
+#
+# Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
+# SPDX-License-Identifier: BSD-2-Clause
 
-import argparse
 import os
-import shutil
 import sys
+import shutil
+import argparse
 from pathlib import Path
 
 
@@ -28,6 +29,8 @@ STALE_ROOT_FILES = [
 ]
 
 
+# Helpers ------------------------------------------------------------------------------------------
+
 def fail(message):
     print(f"error: {message}", file=sys.stderr)
     return 1
@@ -40,7 +43,7 @@ def check_mount(path):
         return fail(f"{path} is not a directory")
     probe = path / ".mquickjs_write_test"
     try:
-        probe.write_text("ok\n")
+        probe.write_text("ok\n", encoding="utf-8")
         probe.unlink()
     except OSError as e:
         return fail(f"{path} is not writable ({e})")
@@ -56,15 +59,15 @@ def copy_file(src, dst):
     return 0
 
 
+# Main ---------------------------------------------------------------------------------------------
+
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mount", type=Path, help="mounted SDCard root")
-    parser.add_argument("--boot", type=Path, help="firmware.bin to copy as boot.bin")
-    parser.add_argument("--main", type=Path, help="main.js to copy to the card root")
-    parser.add_argument("--clean", action="store_true",
-                        help="remove known stale Linux-on-LiteX boot files")
-    parser.add_argument("--check-only", action="store_true",
-                        help="only validate the existing card contents")
+    parser = argparse.ArgumentParser(description="Prepare a FAT SDCard for the Arty mquickjs on LiteX demo.")
+    parser.add_argument("mount",       type=Path,           help="Mounted SDCard root.")
+    parser.add_argument("--boot",      type=Path,           help="Firmware to copy as boot.bin.")
+    parser.add_argument("--main",      type=Path,           help="main.js to copy to the card root.")
+    parser.add_argument("--clean",     action="store_true", help="Remove known stale Linux-on-LiteX boot files.")
+    parser.add_argument("--check-only", action="store_true", help="Only validate the existing card contents.")
     args = parser.parse_args()
 
     mount = args.mount

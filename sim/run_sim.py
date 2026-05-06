@@ -1,49 +1,26 @@
 #!/usr/bin/env python3
-"""
-Build firmware and run it inside litex_sim (VexRiscv, Verilator).
 
-Usage:
-    sim/run_sim.py [--script PATH] [--timeout SEC] [--output-dir PATH]
-                   [--expect STRING] [--keep-running]
+#
+# This file is part of mquickjs on LiteX.
+#
+# Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
+# SPDX-License-Identifier: BSD-2-Clause
 
-Design note — fast iteration:
-
-    LiteX's default flow regenerates and rebuilds the Verilator simulator
-    on every run (build_sim.sh starts with `rm -rf obj_dir/`). For a CI
-    test harness that re-runs dozens of times that's prohibitive.
-
-    This script therefore takes a two-phase approach:
-      1. On first use, run `sim/gen_soc.py` plus one full `litex_sim`
-         invocation to produce `obj_dir/Vsim` (several minutes).
-      2. On subsequent runs, just convert the new firmware.bin into the
-         `sim_main_ram.init` memory-image file that Vsim reads at reset
-         and re-launch the existing Vsim binary directly (seconds).
-
-By default the script waits until either:
-    * the literal marker `[mqjs] done`  is seen on UART (exit 0)
-    * the literal marker `[mqjs] fail`  is seen on UART (exit 1)
-    * --timeout seconds elapse                          (exit 2)
-
-Use --expect to add an extra pattern that must also appear for success.
---keep-running leaves the simulator attached to stdin/stdout for manual
-interactive use (REPL mode).
-
-Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
-SPDX-License-Identifier: BSD-2-Clause
-"""
-import argparse
 import os
-import shutil
-import signal
-import subprocess
 import sys
 import time
+import shutil
+import signal
+import argparse
+import subprocess
 from pathlib import Path
 
 
 DONE_MARKER = "[mqjs] done"
 FAIL_MARKER = "[mqjs] fail"
 
+
+# Helpers ------------------------------------------------------------------------------------------
 
 def run(cmd, cwd=None, env=None, check=True):
     print(f"[run_sim] $ {' '.join(str(c) for c in cmd)}")
@@ -68,6 +45,8 @@ def build_firmware(repo_root: Path, build_dir: Path, script: Path | None,
     return fw_bin
 
 
+# Memory Init --------------------------------------------------------------------------------------
+
 def write_mem_init(fw_bin: Path, init_file: Path):
     """Convert firmware.bin to the text format Vsim expects: one 32-bit
     little-endian word per line, as 8 hex chars."""
@@ -81,6 +60,8 @@ def write_mem_init(fw_bin: Path, init_file: Path):
             w = int.from_bytes(data[i:i+4], "little")
             f.write(f"{w:08x}\n")
 
+
+# Simulator Build ----------------------------------------------------------------------------------
 
 def first_time_sim_build(repo_root: Path, build_dir: Path, fw_bin: Path,
                          ram_size: str) -> Path:
@@ -96,10 +77,10 @@ def first_time_sim_build(repo_root: Path, build_dir: Path, fw_bin: Path,
         f"--ram-init={fw_bin}",
         "--non-interactive",
     ]
-    print("[run_sim] first-time simulator build — this takes a couple of minutes…")
+    print("[run_sim] first-time simulator build - this takes a couple of minutes...")
     # Run via subprocess with Popen so we can stream output; litex_sim
     # will exit on its own once the BIOS hits the end or the firmware
-    # halts (we don't wait for that — we only care that obj_dir/Vsim
+    # halts (we don't wait for that: we only care that obj_dir/Vsim
     # was produced).
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             text=True, bufsize=1)
@@ -114,7 +95,7 @@ def first_time_sim_build(repo_root: Path, build_dir: Path, fw_bin: Path,
                 sys.stdout.flush()
             if simulator_ready(build_dir) and time.time() - start > 5:
                 # Give litex_sim a beat to finish writing the init files,
-                # then tear it down — we drive Vsim ourselves from here.
+                # then tear it down: we drive Vsim ourselves from here.
                 time.sleep(1.0)
                 break
             if proc.poll() is not None:
@@ -140,6 +121,8 @@ def simulator_ready(build_dir: Path) -> bool:
     modules_dir = gateware_dir / "modules"
     return vsim.exists() and modules_dir.is_dir() and any(modules_dir.glob("*.so"))
 
+
+# Run / Watch --------------------------------------------------------------------------------------
 
 def watch(proc, timeout: float, expect: str | None, keep_running: bool) -> int:
     start = time.time()
@@ -193,24 +176,19 @@ def watch(proc, timeout: float, expect: str | None, keep_running: bool) -> int:
     return 1
 
 
+# Main ---------------------------------------------------------------------------------------------
+
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--script", type=Path, default=None,
-                    help="JavaScript source (or mquickjs .bin bytecode) to embed. "
-                         "Omit for REPL mode (use with --keep-running).")
-    ap.add_argument("--output-dir", type=Path, default=None)
-    ap.add_argument("--ram-size", default="0x01000000")
-    ap.add_argument("--timeout", type=float, default=120.0,
-                    help="Wall-clock seconds to wait for the DONE marker.")
-    ap.add_argument("--expect", default=None,
-                    help="Additional string that must appear for success.")
-    ap.add_argument("--keep-running", action="store_true",
-                    help="Don't stop the simulator on the DONE marker.")
-    ap.add_argument("--heap-size", type=int, default=None,
-                    help="Override LITEX_MQJS_HEAP_SIZE in bytes. Handy for "
-                         "showing mquickjs in tight-memory mode "
-                         "(try 65536 for hello, 262144 for mandelbrot).")
-    args = ap.parse_args()
+    parser = argparse.ArgumentParser(
+        description="Build firmware and run it inside litex_sim.")
+    parser.add_argument("--script",       type=Path, default=None,         help="JavaScript or bytecode to embed.")
+    parser.add_argument("--output-dir",   type=Path, default=None,         help="LiteX simulator output directory.")
+    parser.add_argument("--ram-size",     default="0x01000000",            help="Integrated main-RAM size.")
+    parser.add_argument("--timeout",      type=float, default=120.0,       help="Seconds to wait for DONE marker.")
+    parser.add_argument("--expect",       default=None,                    help="Additional required output string.")
+    parser.add_argument("--keep-running", action="store_true",            help="Do not stop on DONE marker.")
+    parser.add_argument("--heap-size",    type=int, default=None,          help="Override LITEX_MQJS_HEAP_SIZE.")
+    args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parent.parent
     build_dir = (args.output_dir or (repo_root / "build" / "sim")).resolve()
@@ -236,7 +214,7 @@ def main():
     init_file = build_dir / "gateware" / "sim_main_ram.init"
     write_mem_init(fw_bin, init_file)
 
-    # 5. Run Vsim directly. cwd matters — it reads *.init from cwd.
+    # 5. Run Vsim directly. cwd matters: it reads *.init from cwd.
     print(f"[run_sim] $ {vsim}")
     proc = subprocess.Popen(
         [str(vsim)],

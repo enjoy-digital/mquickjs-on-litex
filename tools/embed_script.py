@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
-"""
-Turn a JavaScript source file (or pre-compiled mquickjs bytecode .bin)
-into a C header exposing `user_script[]` and `user_script_len`.
 
-Usage:
-    embed_script.py <input>.{js,bin} <output>.h
+#
+# This file is part of mquickjs on LiteX.
+#
+# Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
+# SPDX-License-Identifier: BSD-2-Clause
 
-Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
-SPDX-License-Identifier: BSD-2-Clause
-"""
 import sys
 from pathlib import Path
 
 
+# Main ---------------------------------------------------------------------------------------------
+
 def main():
     if len(sys.argv) != 3:
-        sys.stderr.write(__doc__)
+        print("usage: embed_script.py <input>.{js,bin} <output>.h", file=sys.stderr)
         sys.exit(2)
 
     src  = Path(sys.argv[1])
@@ -27,7 +26,7 @@ def main():
     # mquickjs's parser does one-byte lookahead past `src_len`, so we
     # terminate the blob with a trailing 0x00 that the parser will see
     # as end-of-input rather than reading a random .rodata byte. The
-    # reported `user_script_len` stays at the original file length —
+    # reported `user_script_len` stays at the original file length;
     # the terminator is extra.
     payload = data + b"\x00"
 
@@ -49,7 +48,7 @@ def main():
         "#endif",
         "",
     ]
-    dst.write_text("\n".join(lines))
+    dst.write_text("\n".join(lines), encoding="utf-8")
 
 
 if __name__ == "__main__":

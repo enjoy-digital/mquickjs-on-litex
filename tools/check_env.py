@@ -1,15 +1,22 @@
 #!/usr/bin/env python3
-"""Check the host tools commonly needed by mquickjs on LiteX demos."""
 
-import importlib.util
+#
+# This file is part of mquickjs on LiteX.
+#
+# Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
+# SPDX-License-Identifier: BSD-2-Clause
+
+import sys
 import shutil
 import subprocess
-import sys
+import importlib.util
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
+
+# Helpers ------------------------------------------------------------------------------------------
 
 def have_module(name: str) -> bool:
     return importlib.util.find_spec(name) is not None
@@ -30,6 +37,8 @@ def have_rv32_multilib() -> bool:
         return False
     return "rv32im" in result.stdout and "ilp32" in result.stdout
 
+
+# Main ---------------------------------------------------------------------------------------------
 
 def main() -> int:
     checks = [
