@@ -18,134 +18,65 @@ SPDX-License-Identifier: BSD-2-Clause
 
 ## [> Intro
 
-mquickjs on LiteX puts Fabrice Bellard's
-[mquickjs](https://github.com/bellard/mquickjs) JavaScript engine in a
+mquickjs on LiteX runs Fabrice Bellard's
+[mquickjs](https://github.com/bellard/mquickjs) JavaScript engine on a
 bare-metal [LiteX](https://github.com/enjoy-digital/litex) SoC.
 
 <p align="center">
   <img src="docs/mquickjs-on-litex-intro.png" alt="mquickjs on LiteX intro" width="620">
 </p>
 
-This project is an experiment to run a compact JavaScript engine on a
-small RISC-V CPU inside an FPGA. LiteX creates the SoC around the
-VexRiscv CPU and provides the usual infrastructure and peripherals:
-UART, timer, CSR bus, LEDs, SDCard, Ethernet, and external memory when
-the board has it.
+The JavaScript is not translated to C and is not running on the host.
+LiteX boots a VexRiscv firmware, creates a mquickjs heap, parses the
+script, runs the VM, and exposes LiteX peripherals through a small
+`litex` object.
 
-The nice part is that the JavaScript is not converted to C and it is
-not a host-side trick. The CPU boots a firmware, creates a JavaScript
-heap, parses the script, runs the VM, and talks to LiteX
-peripherals through a small `litex` object.
-
-It runs in `litex_sim`, should be usable on LiteX boards with enough
-`main_ram`, and has been validated on a real Digilent Arty A7 with
-SDCard boot.
-
-```
---========= mquickjs on LiteX =========--
-mquickjs heap:   1048576 bytes
-CPU:             VexRiscv @ 100000000 Hz
-[sd] auto-loading main.js from SDCard
-[main.js] hello from SDCard
-[main.js] identifier = LiteX SoC on Arty A7 2026-05-05 15:06:23
-[main.js] scratch test = 0x51c0ffee OK
-[main.js] LED scanner
-[sd] done
+```text
+JavaScript file -> firmware.bin -> VexRiscv -> mquickjs -> LiteX CSRs
 ```
 
-Why mquickjs? It is a small JavaScript engine, roughly 100 kB, with its
-own tracing-compacting GC, no `malloc`, and no libc dependency. That is
-a good match for a softcore SoC: small enough to be believable, complete
-enough to run ES5, JSON, typed arrays, regex, `Math`, and little demos
-that blink LEDs.
+It runs in `litex_sim`, is meant to be portable to LiteX boards with
+enough `main_ram`, and has been validated on a Digilent Arty A7.
 
-This demo repository was put in place with guided AI agents, with the
-hardware flow validated on a real Digilent Arty A7.
-
-## [> What runs where?
-
-```
-  Host PC / SDCard                         FPGA / LiteX SoC
-  ----------------                         ----------------
-
-  Simple flow:
-
-      examples/hello.js
-             |
-             | embedded in firmware.bin
-             v
-      firmware.bin  ---------------------> main_ram
-
-  SDCard boot flow:
-
-      boot.bin       ---------------------> LiteX BIOS loads firmware
-      main.js        -- read at runtime --> litex.load("main.js")
-                                                   |
-                                                   v
-                                      +---------------------------+
-                                      | VexRiscv bare-metal app   |
-                                      |---------------------------|
-                                      | mquickjs heap             |
-                                      | parser / VM               |
-                                      | GC + small stdlib         |
-                                      | litex.* hardware object   |
-                                      +---------------------------+
-                                           |             |
-                                           v             v
-                                      LiteX UART     LiteX CSRs
-                                      console.log    LEDs,
-                                                     scratch, SDCard
-```
-
-In the simple flow, the `.js` source is embedded in the firmware image
-and parsed after boot. In the SDCard flow, LiteX BIOS boots `boot.bin`,
-then the firmware reads and evaluates `main.js` from FAT. Edit
-`main.js` on the card and reset the board to run the new version.
-REPL mode is also available when no script is embedded, so you can type
-JavaScript over the UART.
-
-## [> Try it in simulation
-
-Requirements are the usual LiteX simulation tools:
-`riscv64-unknown-elf-gcc`, `verilator`, `meson`, `ninja`, Python, and
-LiteX on `PYTHONPATH`. Exact package names are in
-[docs/building.md](docs/building.md).
+## [> Simulation
 
 ```sh
 git clone --recursive https://github.com/enjoy-digital/mquickjs-on-litex
 cd mquickjs-on-litex
 
-make check-env
-make sim SCRIPT=examples/hello.js
+make sim
+make sim SCRIPT=examples/demo.js
 ```
 
-The first run takes a couple of minutes while Verilator compiles the
-simulator. After that, scripts relaunch in seconds.
+The first run builds the LiteX simulator. Later runs reuse it and only
+rebuild the firmware/script.
 
-For the demo in simulation:
+Expected short output:
 
-```sh
-./sim/run_sim.py --script examples/demo.js
+```text
+--========= mquickjs on LiteX =========--
+running embedded script...
+hello from mquickjs on LiteX!
+[mqjs] done
 ```
 
-## [> Try it on hardware
+## [> Hardware
 
-Hardware is intentionally explicit: pick an upstream LiteX-Boards
-target, tell the Makefile where the bitstream and serial port are, and
-build the same firmware against that SoC.
+Use any upstream LiteX-Boards target that provides enough `main_ram`.
+The Arty A7 commands below are just an example:
 
 ```sh
 make board-gateware \
     BOARD_TARGET=litex_boards.targets.digilent_arty \
     BOARD_BUILD_DIR=build/arty
 
-make firmware SCRIPT=examples/demo.js
+make firmware BOARD_BUILD_DIR=build/arty SCRIPT=examples/demo.js
 make board-load BOARD_CABLE=digilent BOARD_BITSTREAM=build/arty/gateware/digilent_arty.bit
 make board-run BOARD_SERIAL=/dev/ttyUSB2
 ```
 
-For the more playful demo, boot from SDCard and keep the JavaScript file
-editable:
+For the SDCard flow, LiteX BIOS loads `boot.bin`, then mquickjs loads
+`main.js` from the card:
 
 ```sh
 make board-gateware \
@@ -158,73 +89,27 @@ make board-sdcard-prepare BOARD_BUILD_DIR=build/arty-sd BOARD_SDCARD=/media/$USE
 make board-load BOARD_CABLE=digilent BOARD_BITSTREAM=build/arty-sd/gateware/digilent_arty.bit
 ```
 
-At reset, LiteX BIOS loads `boot.bin` from the SDCard, then the
-firmware auto-runs `main.js`. Edit `main.js` on the card and reset the
-board to run the new script. No rebuild, no firmware upload, just a
-tiny JavaScript engine bossing around LiteX CSRs.
+Edit `main.js` on the SDCard, reset the board, and the FPGA runs the
+new JavaScript.
 
-See [docs/hardware.md](docs/hardware.md) for manual `litex_term`
-loading, SDCard preparation checks, and using other LiteX-Boards
-targets.
-
-## [> Talk to the board
-
-JavaScript gets a small `litex` object:
-
-```js
-console.log(litex.getIdentifier());
-
-var old = litex.getScratch();
-litex.setScratch(0x51c0ffee);
-console.log(litex.getScratch().toString(16));
-litex.setScratch(old);
-
-for (var i = 0; i < 16; i++) {
-    litex.setLeds(i);
-    litex.delay(100);
-}
-```
-
-Useful bindings include LEDs, switches, buttons, the LiteX identifier,
-the scratch register, uptime/delay helpers, raw CSR access, reboot, and
-SDCard `readFile()` / `load()` when the SoC has SDCard support.
-
-## [> Examples
-
-| Script | What it shows |
-|--------|---------------|
-| `examples/hello.js` | smallest end-to-end sanity check |
-| `examples/demo.js` | visible board LED demo |
-| `examples/sdcard_loader.js` | SDCard `boot.bin` loader |
-| `examples/sdcard/main.js` | SDCard-edited script: identifier, scratch, LEDs |
-
-## [> Details when you want them
-
-- [docs/building.md](docs/building.md): host dependencies and build flow.
-- [docs/simulation.md](docs/simulation.md): how the simulator harness works.
-- [docs/hardware.md](docs/hardware.md): board bring-up, SDCard boot, other LiteX targets.
-- [docs/porting.md](docs/porting.md): mquickjs/LiteX integration notes.
-
-For CI/local regression:
-
-```sh
-pip install pytest
-pytest -v test/
-```
-
-The repository is intentionally small:
+## [> Files
 
 ```
-firmware/     mquickjs port, LiteX bindings, linker script
-examples/     JavaScript demos
-sim/          LiteX simulation helper
-tools/        embedding and SDCard helpers
-docs/         deeper explanations
-test/         end-to-end simulation tests
+firmware/     mquickjs port and LiteX bindings
+examples/     hello, demo, SDCard loader
+sim/          litex_sim runner
+tools/        script embedding and SDCard preparation
+docs/         simulation, hardware and porting notes
+test/         end-to-end simulation smoke tests
 ```
+
+Useful docs:
+
+- [docs/simulation.md](docs/simulation.md): dependencies and sim flow.
+- [docs/hardware.md](docs/hardware.md): board and SDCard flow.
+- [docs/porting.md](docs/porting.md): firmware integration notes.
 
 ## [> License
 
-BSD-2-Clause for everything in this repository. The vendored mquickjs
-sources retain their upstream MIT license, see
-`firmware/third_party/mquickjs/LICENSE`.
+BSD-2-Clause for this repository. The mquickjs submodule keeps its
+upstream MIT license.

@@ -5,7 +5,7 @@ SPDX-License-Identifier: BSD-2-Clause
 
 # How mquickjs is wired into LiteX
 
-This is the tour of the port. Read `docs/building.md` for the
+This is the tour of the port. Read `docs/simulation.md` for the
 mechanical steps; this page focuses on *why* the code looks the way it
 does.
 
