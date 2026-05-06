@@ -13,24 +13,23 @@
 
 ## [> Intro
 
-Run Fabrice Bellard's [mquickjs](https://github.com/bellard/mquickjs)
-JavaScript engine as a bare-metal firmware on a [LiteX](https://github.com/enjoy-digital/litex)
-SoC, fully parsed and executed on the CPU — validated both in
-`litex_sim` and on a Digilent Arty A7 with SDCard boot/live reload.
+mquickjs on LiteX puts Fabrice Bellard's
+[mquickjs](https://github.com/bellard/mquickjs) JavaScript engine in a
+bare-metal [LiteX](https://github.com/enjoy-digital/litex) SoC.
+
+The fun part: the JavaScript is not converted to C and it is not a
+host-side trick. A VexRiscv CPU in the FPGA boots a firmware, creates a
+JavaScript heap, parses the script, runs the bytecode VM, and talks to
+LiteX peripherals through a small `litex` object.
+
+It runs in `litex_sim`, and it has been validated on a real Digilent
+Arty A7 with SDCard boot and live script reload.
 
 ```
-Booting from SDCard in SD-Mode...
-Booting from boot.bin...
-Executing booted program at 0x40000000
-
---============= Liftoff! ===============--
-
 --========= mquickjs on LiteX =========--
 mquickjs heap:   1048576 bytes
 CPU:             VexRiscv @ 100000000 Hz
-running embedded script...
 [sd] auto-loading main.js from SDCard
-[sd] loading main.js run 1 (boot)
 [main.js] hello from SDCard
 [main.js] identifier = LiteX SoC on Arty A7 2026-05-05 15:06:23
 [main.js] scratch test = 0x51c0ffee OK
@@ -38,91 +37,75 @@ running embedded script...
 [sd] done
 ```
 
-Why mquickjs? It's a ~100 kB JavaScript engine with its own
-tracing-compacting GC, no `malloc`, and no libc dependency. On a LiteX
-SoC that's a pleasant fit: a 1 MiB heap handles the full ES5 standard
-library, JSON, typed arrays, regex, `Math`, mandelbrot, and the
-micro-benchmarks shipped upstream.
-
-## What actually runs on the SoC
-
-```
-          build host                         LiteX SoC / VexRiscv
-          ----------                         --------------------
-
- examples/hello.js  or  hello.bin
-          |
-          |  tools/embed_script.py
-          v
- firmware/build/user_script.h
-          |
-          |  riscv64-unknown-elf-gcc
-          v
- firmware/firmware.bin  --loaded to main_ram-->  _start()
-                                                   |
-                                                   v
-                                           JS_NewContext(heap)
-                                                   |
-                                                   v
-                                      JS_Eval(raw JS source)
-                                      or JS_LoadBytecode(blob)
-                                                   |
-                                                   v
-                                      mquickjs parser / compiler
-                                      bytecode VM / GC / stdlib
-                                                   |
-                                                   v
-                                    console.log -> LiteX UART
-                                    litex.*     -> LiteX CSRs
-```
-
-The default build embeds the **raw `.js` bytes** and parses them on the
-SoC. The host doesn't preprocess the source — parsing, bytecode
-generation, GC, VM execution all happen on VexRiscv.
+Why mquickjs? It is a small JavaScript engine, roughly 100 kB, with its
+own tracing-compacting GC, no `malloc`, and no libc dependency. That is
+a good match for a softcore SoC: small enough to be believable, complete
+enough to run ES5, JSON, typed arrays, regex, `Math`, and little demos
+that blink LEDs.
 
 This demo repository was put in place with guided AI agents, with the
 hardware flow validated on a real Digilent Arty A7.
 
-Two alternate modes exist:
+## [> What runs where?
 
-- **Bytecode**: host-side `tools/js2bin.sh hello.js` compiles to a
-  relocatable bytecode blob, the firmware detects it via
-  `JS_IsBytecode()` at runtime and skips parsing. Useful when
-  boot-time parse cost matters or you want to ship something less
-  readable. Then: `./sim/run_sim.py --script examples/hello.bin`.
-- **REPL**: build the firmware without `SCRIPT=`, and source arrives
-  live over the UART one line at a time.
+```
+  Host PC                                           FPGA / LiteX SoC
+  -------                                           ---------------
 
-## Quick start (simulation)
+  examples/hello.js
+       |
+       | embedded as bytes
+       v
+  firmware.bin  ------------------------------->  main_ram
+                                                      |
+                                                      v
+                                             +------------------+
+                                             | VexRiscv firmware|
+                                             |------------------|
+                                             | mquickjs heap    |
+                                             | parser/compiler  |
+                                             | bytecode VM      |
+                                             | GC + stdlib      |
+                                             +------------------+
+                                                |            |
+                                                v            v
+                                           LiteX UART    LiteX CSRs
+                                           console.log   LEDs, buttons,
+                                                         scratch, SDCard
+```
 
-Requirements: `riscv64-unknown-elf-gcc` with `rv32im/ilp32` multilib,
-`verilator`, `meson`/`ninja` (for picolibc), Python 3.10+, and
-[LiteX](https://github.com/enjoy-digital/litex/wiki/Installation) on
-`PYTHONPATH`. See [docs/building.md](docs/building.md) for exact
-package names on Ubuntu.
+Default mode embeds raw `.js` source and parses it on the SoC. Bytecode
+mode is also supported when you want to precompile on the host. REPL
+mode lets you type JavaScript over the UART and poke the board live.
+
+## [> Try it in simulation
+
+Requirements are the usual LiteX simulation tools:
+`riscv64-unknown-elf-gcc`, `verilator`, `meson`, `ninja`, Python, and
+LiteX on `PYTHONPATH`. Exact package names are in
+[docs/building.md](docs/building.md).
 
 ```sh
 git clone --recursive https://github.com/enjoy-digital/mquickjs-on-litex
 cd mquickjs-on-litex
 
-# Check the host tools and submodule.
 make check-env
-
-# Build & run the hello example end-to-end.
 make sim SCRIPT=examples/hello.js
 ```
 
 The first run takes a couple of minutes while Verilator compiles the
-`Vsim` binary. After that `run_sim.py` just swaps `sim_main_ram.init`
-and re-launches the cached simulator — seconds per run.
+simulator. After that, scripts relaunch in seconds.
 
-## Quick start (Digilent Arty A7)
+```sh
+./sim/run_sim.py --script examples/json.js
+./sim/run_sim.py --script examples/leds.js
+./sim/run_sim.py --script examples/mandelbrot.js --timeout 600
+```
 
-The same firmware has been tested on a Digilent Arty A7-35T using the
-board DDR as LiteX `main_ram` and the on-board FT2232 for JTAG/UART.
-Build the board SoC without integrated main RAM, build one of the
-examples against that SoC, load the bitstream, then upload
-`firmware.bin` with `litex_term`.
+## [> Try it on an Arty A7
+
+The hardware demo uses the board DDR as LiteX `main_ram` and the
+on-board FT2232 for JTAG/UART.
 
 ```sh
 make arty-gateware
@@ -131,8 +114,8 @@ make arty-load
 make arty-run ARTY_SERIAL=/dev/ttyUSB2
 ```
 
-For the SDCard auto-boot/live-reload demo, put `boot.bin` and
-`main.js` on a FAT-formatted SDCard, then:
+For the more playful demo, boot from SDCard and keep the JavaScript file
+editable:
 
 ```sh
 make arty-gateware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd ARTY_EXTRA="--with-sdcard --with-ethernet"
@@ -141,202 +124,80 @@ make arty-sdcard-prepare ARTY_BUILD_DIR=/tmp/arty_mqjs_sd ARTY_SDCARD=/media/$US
 make arty-load ARTY_BUILD_DIR=/tmp/arty_mqjs_sd
 ```
 
-Use `make arty-sdcard-clean-prepare ...` instead of
-`arty-sdcard-prepare` to remove known stale Linux-on-LiteX boot files
-from the card before copying the demo files. Use
-`make arty-sdcard-check ...` to verify the card is writable and has
-`boot.bin`/`main.js`.
-
 At reset, LiteX BIOS loads `boot.bin` from the SDCard, then the
-firmware auto-runs `main.js`. Edit `main.js` on the card and press
-BTN0 to reload it without rebuilding or uploading firmware.
-The reference Arty run prints the FPGA identifier, verifies the LiteX
-scratch register, and drives the LED/switch/button demo from SDCard
-JavaScript.
+firmware auto-runs `main.js`. Edit `main.js`, reinsert the card, press
+BTN0, and the FPGA reloads the script. No rebuild, no firmware upload,
+just a tiny JavaScript engine bossing around LiteX CSRs.
 
-Or run the same firmware manually with `litex_term`:
+See [docs/hardware.md](docs/hardware.md) for manual `litex_term`
+loading, SDCard preparation checks, and the validated hardware log.
 
-```sh
-make arty-gateware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd ARTY_EXTRA="--with-sdcard --with-ethernet"
-make arty-load ARTY_BUILD_DIR=/tmp/arty_mqjs_sd
-make firmware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd SCRIPT=examples/sdcard_button_loader.js
-litex_term /dev/ttyUSB2 --kernel=firmware/firmware.bin
-```
+## [> Talk to the board
 
-The loader auto-runs `main.js` once at boot. Press BTN0 to reload and
-execute it again from the card.
-
-See [docs/hardware.md](docs/hardware.md) for the exact commands and
-the tested hardware demos.
-
-## Live JavaScript REPL
-
-Omit `SCRIPT` and the firmware starts a line-based JavaScript REPL.
-That is the most direct demo on hardware: type JavaScript over UART and
-watch it control board peripherals.
-
-```sh
-make firmware SCRIPT=
-make arty-load
-make arty-run ARTY_SERIAL=/dev/ttyUSB2
-```
-
-Then enter one line at a time:
+JavaScript gets a small `litex` object:
 
 ```js
-litex.setLeds(0xa5)
-for (var i = 0; i < 16; i++) { litex.setLeds(i); litex.delay(100); }
-litex.getSwitches()
+console.log(litex.getIdentifier());
+
+var old = litex.getScratch();
+litex.setScratch(0x51c0ffee);
+console.log(litex.getScratch().toString(16));
+litex.setScratch(old);
+
+for (var i = 0; i < 16; i++) {
+    litex.setLeds(i);
+    litex.delay(100);
+}
 ```
 
-## Examples
+Useful bindings include LEDs, switches, buttons, the LiteX identifier,
+the scratch register, uptime/delay helpers, raw CSR access, reboot, and
+SDCard `readFile()` / `load()` when the SoC has SDCard support.
 
-```sh
-./sim/run_sim.py --script examples/hello.js
-./sim/run_sim.py --script examples/fib.js       --timeout 240
-./sim/run_sim.py --script examples/leds.js      --timeout 120
-./sim/run_sim.py --script examples/mandelbrot.js --timeout 600
-```
+## [> Examples
 
-| Script                   | What it exercises                               |
-|--------------------------|-------------------------------------------------|
-| `examples/hello.js`      | `console.log` — smallest sanity check           |
-| `examples/fib.js`        | recursion + `performance.now()` timing          |
-| `examples/json.js`       | `JSON.parse`/`stringify`, Array methods, Int32Array |
-| `examples/leds.js`       | `litex.setLeds()` / `.getSwitches()` bindings   |
-| `examples/arty_showcase.js` | visible Arty LED patterns + switch sampling  |
+| Script | What it shows |
+|--------|---------------|
+| `examples/hello.js` | smallest end-to-end sanity check |
+| `examples/json.js` | JSON, arrays, typed arrays |
+| `examples/fib.js` | recursion and timing |
+| `examples/leds.js` | LiteX CSR bindings in simulation |
+| `examples/arty_showcase.js` | visible Arty LED/switch demo |
 | `examples/sdcard_button_loader.js` | Arty SDCard `boot.bin` loader + BTN0 live reload |
 | `examples/sdcard/main.js` | SDCard-edited script: identifier, scratch, LEDs, switches/buttons |
-| `examples/mandelbrot.js` | soft-float through `libm`/`dtoa` + nested loops |
-| `examples/unicode.js`    | UTF-8 comments (regression for the NUL-sentinel fix) |
+| `examples/mandelbrot.js` | soft-float, `Math`, nested loops |
+| `examples/unicode.js` | UTF-8 source handling |
 
-Sample output from `fib.js`:
+## [> Details when you want them
 
-```
-fib(20) = 6765
-elapsed_ms = 28105
-mqjs memory:         TAG    COUNT AVG_SIZE     SIZE    RATIO
-                  object       60       14      828      45%
-                 float64        1       12       12       1%
-             value_array        2      328      656      36%
-                  varref       42        8      336      18%
-heap size=1832/1048204 stack_size=0
-[mqjs] done
-```
+- [docs/building.md](docs/building.md): host dependencies and build flow.
+- [docs/simulation.md](docs/simulation.md): how the simulator harness works.
+- [docs/hardware.md](docs/hardware.md): Digilent Arty A7 commands and logs.
+- [docs/porting.md](docs/porting.md): mquickjs/LiteX integration notes.
+- [examples/README.md](examples/README.md): what each script is for.
+- [test/README.md](test/README.md): pytest simulation coverage.
 
-The `mqjs memory:` block is `JS_DumpMemory()` called after a final GC
-pass, so the numbers reflect live state rather than the peak
-watermark. `heap size=X/Y` means X bytes used of Y bytes arena.
-
-## Tests
+For CI/local regression:
 
 ```sh
 pip install pytest
 pytest -v test/
 ```
 
-Each test builds a firmware with one example embedded, runs it under
-`litex_sim`, and asserts on the captured UART output via the
-`[mqjs] done` / `[mqjs] fail` sentinel markers. See
-[test/README.md](test/README.md).
-
-## Repository layout
+The repository is intentionally small:
 
 ```
-firmware/
-    main.c                  boot + REPL / script runner
-    mqjs_port.c             js_print, litex.* bindings, time, CSR
-    mqjs_stdlib_litex.c     host-compiled stdlib generator
-                            (trimmed mqjs_stdlib.c — no event loop,
-                             adds a small `litex` hardware object)
-    linker.ld               everything lands in main_ram
-    Makefile                requires BUILD_DIRECTORY=<sim output>
-    third_party/mquickjs    git submodule, pinned commit
-examples/                   .js scripts ready to run
-    README.md               example guide
-sim/
-    gen_soc.py              one-time SoC generation (VexRiscv)
-    run_sim.py              build + fast re-run harness
-test/                       pytest integration tests (drive the sim)
-tools/embed_script.py       .js / .bin -> C byte-array header
-tools/check_env.py          host tool sanity check
-docs/                       longer-form documentation
-    README.md               documentation map
-    building.md             dependencies and build flow
-    simulation.md           how the sim harness works
-    hardware.md             running on a real board (Arty A7 reference)
-    porting.md              internals: how mquickjs is wired to LiteX
-.github/workflows/ci.yml    Ubuntu CI runs the full sim test matrix
+firmware/     mquickjs port, LiteX bindings, linker script
+examples/     JavaScript demos
+sim/          LiteX simulation helper
+targets/      Arty A7 hardware target
+tools/        embedding, bytecode, SDCard helpers
+docs/         deeper explanations
+test/         end-to-end simulation tests
 ```
 
-## Hardware bindings
-
-Scripts can poke the SoC through a small `litex` global object:
-
-```js
-litex.setLeds(0xa5);                   // write CSR_LEDS
-var s = litex.getSwitches();           // read CSR_SWITCHES
-var b = litex.getButtons();            // read CSR_BUTTONS
-var id = litex.getIdentifier();        // LiteX build identifier
-var old = litex.getScratch();          // CSR_CTRL scratch register
-litex.setScratch(0x51c0ffee);          // write CSR_CTRL scratch
-var t = litex.millis();                // uptime in ms
-litex.delay(10);                       // busy-wait
-var src = litex.readFile("main.js");   // FAT/SDCard file read
-litex.load("main.js");                 // read + JS_Eval from SDCard
-var x = litex.csrRead32(0xf0001000);   // raw CSR poke
-litex.csrWrite32(0xf0001000, 0x42);
-litex.reboot();                        // CSR_CTRL reset
-```
-
-Bindings that target a CSR not present in the SoC degrade gracefully —
-`setLeds` is a no-op if `CSR_LEDS_BASE` is undefined, for example. So
-the same firmware binary builds and runs both against the minimal
-`litex_sim` and against a fully-instanced board build.
-
-Adding your own bindings is a two-file change in `firmware/mqjs_port.c`
-and `firmware/mqjs_stdlib_litex.c` — see
-[docs/porting.md](docs/porting.md).
-
-## Tunables
-
-The JS heap is sized at compile time, but the Makefile lets you
-override it without editing the header:
-
-```sh
-# Showcase mquickjs's low-memory claim: hello fits in 32 KiB.
-./sim/run_sim.py --script examples/hello.js --heap-size 32768
-
-# Default value (fine for everything including mandelbrot).
-./sim/run_sim.py --script examples/mandelbrot.js  # 1 MiB heap
-```
-
-| Variable (in `firmware/mqjs_config.h`) | Default | Override with                 |
-|----------------------------------------|---------|-------------------------------|
-| `LITEX_MQJS_HEAP_SIZE`                 | 1 MiB   | `make HEAP_SIZE=<bytes>` / `run_sim.py --heap-size <bytes>` |
-| `LITEX_MQJS_LINE_MAX`                  | 1024    | edit the header (REPL only)   |
-
-SoC knobs are exposed by `sim/gen_soc.py`: `--ram-size`,
-`--output-dir`, `--force`.
-
-## Caveats
-
-- The simulated VexRiscv runs at **1 MHz**. Scripts that are trivially
-  fast on a real 100 MHz board take seconds here — mandelbrot is a
-  couple of minutes of wall time.
-- First `litex_sim` invocation builds the Verilator simulator
-  (`obj_dir/Vsim`), which takes a couple of minutes. `run_sim.py`
-  caches it and reuses it across subsequent runs.
-- mquickjs is not standard ES. See the upstream
-  [stricter-mode notes](https://github.com/bellard/mquickjs#stricter-mode):
-  no array holes, only global `eval`, no value boxing, ASCII-only
-  case-folding.
-- No event loop — no `setTimeout`/`clearTimeout`. Adding one is a
-  matter of hooking a cooperative scheduler on the LiteX timer IRQ; see
-  [docs/porting.md](docs/porting.md#things-intentionally-not-ported).
-
-## License
+## [> License
 
 BSD-2-Clause for everything in this repository. The vendored mquickjs
-sources retain their upstream MIT license (see
-`firmware/third_party/mquickjs/LICENSE`).
+sources retain their upstream MIT license, see
+`firmware/third_party/mquickjs/LICENSE`.
