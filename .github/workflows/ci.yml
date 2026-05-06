@@ -50,8 +50,10 @@ jobs:
       - name: Cache litex_sim verilator build
         uses: actions/cache@v4
         with:
-          path: build/sim/gateware/obj_dir
-          key: vsim-${{ runner.os }}-${{ hashFiles('firmware/linker.ld', 'sim/gen_soc.py') }}
+          path: |
+            build/sim/gateware/obj_dir
+            build/sim/gateware/modules
+          key: vsim-v2-${{ runner.os }}-${{ hashFiles('firmware/linker.ld', 'sim/gen_soc.py') }}
 
       - name: Generate SoC (one-time, ~minutes)
         run: ./sim/gen_soc.py
