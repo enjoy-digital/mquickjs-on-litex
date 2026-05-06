@@ -1,5 +1,5 @@
-// Digilent Arty A7 showcase: JavaScript visibly drives board LEDs
-// and reports timings over the LiteX UART.
+// Board showcase: JavaScript visibly drives LiteX LEDs and reports
+// timings over the LiteX UART.
 
 var LEDS = 4;
 var MASK = (1 << LEDS) - 1;

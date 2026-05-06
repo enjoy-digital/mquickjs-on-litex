@@ -1,4 +1,4 @@
-// SDCard auto-run demo for Digilent Arty.
+// SDCard auto-run demo for LiteX boards.
 //
 // Build this script into the firmware, put a FAT-formatted SDCard in
 // the board with /main.js on it, and the board will load it at boot.

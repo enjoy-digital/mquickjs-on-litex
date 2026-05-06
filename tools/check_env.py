@@ -64,9 +64,9 @@ def main() -> int:
         ("litex_term", shutil.which("litex_term") is not None,
          "needed for hardware serial boot"),
         ("openFPGALoader", shutil.which("openFPGALoader") is not None,
-         "recommended for Arty FT2232 bitstream loading"),
+         "recommended for bitstream loading"),
         ("vivado", shutil.which("vivado") is not None,
-         "needed to build Arty gateware with the default toolchain"),
+         "needed to build Xilinx 7-Series gateware with the default toolchain"),
         ("pytest", have_module("pytest"),
          "needed to run the regression tests"),
     ]

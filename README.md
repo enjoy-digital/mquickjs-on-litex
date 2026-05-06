@@ -32,8 +32,9 @@ not a host-side trick. The CPU boots a firmware, creates a JavaScript
 heap, parses the script, runs the bytecode VM, and talks to LiteX
 peripherals through a small `litex` object.
 
-It runs in `litex_sim`, and it has been validated on a real Digilent
-Arty A7 with SDCard boot.
+It runs in `litex_sim`, should be usable on LiteX boards with enough
+`main_ram`, and has been validated on a real Digilent Arty A7 with
+SDCard boot.
 
 ```
 --========= mquickjs on LiteX =========--
@@ -122,26 +123,28 @@ simulator. After that, scripts relaunch in seconds.
 ./sim/run_sim.py --script examples/mandelbrot.js --timeout 600
 ```
 
-## [> Try it on an Arty A7
+## [> Try it on hardware
 
-The hardware demo uses the board DDR as LiteX `main_ram` and the
-on-board FT2232 for JTAG/UART.
+The default hardware helper uses the upstream LiteX-Boards Digilent
+Arty target, but the same flow can point at another LiteX-Boards target
+with `BOARD_TARGET`. On Arty, it uses board DDR as LiteX `main_ram` and
+the on-board FT2232 for JTAG/UART.
 
 ```sh
-make arty-gateware
-make firmware SCRIPT=examples/arty_showcase.js
-make arty-load
-make arty-run ARTY_SERIAL=/dev/ttyUSB2
+make board-gateware
+make firmware SCRIPT=examples/board_showcase.js
+make board-load
+make board-run BOARD_SERIAL=/dev/ttyUSB2
 ```
 
 For the more playful demo, boot from SDCard and keep the JavaScript file
 editable:
 
 ```sh
-make arty-gateware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd ARTY_EXTRA="--with-sdcard --with-ethernet"
-make firmware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd SCRIPT=examples/sdcard_loader.js
-make arty-sdcard-prepare ARTY_BUILD_DIR=/tmp/arty_mqjs_sd ARTY_SDCARD=/media/$USER/LITEX
-make arty-load ARTY_BUILD_DIR=/tmp/arty_mqjs_sd
+make board-gateware BOARD_BUILD_DIR=/tmp/mqjs_sd BOARD_EXTRA="--with-sdcard --with-ethernet"
+make firmware BOARD_BUILD_DIR=/tmp/mqjs_sd SCRIPT=examples/sdcard_loader.js
+make board-sdcard-prepare BOARD_BUILD_DIR=/tmp/mqjs_sd BOARD_SDCARD=/media/$USER/LITEX
+make board-load BOARD_BUILD_DIR=/tmp/mqjs_sd
 ```
 
 At reset, LiteX BIOS loads `boot.bin` from the SDCard, then the
@@ -150,7 +153,8 @@ board to run the new script. No rebuild, no firmware upload, just a
 tiny JavaScript engine bossing around LiteX CSRs.
 
 See [docs/hardware.md](docs/hardware.md) for manual `litex_term`
-loading, SDCard preparation checks, and the validated hardware log.
+loading, SDCard preparation checks, and using other LiteX-Boards
+targets.
 
 ## [> Talk to the board
 
@@ -182,8 +186,8 @@ SDCard `readFile()` / `load()` when the SoC has SDCard support.
 | `examples/json.js` | JSON, arrays, typed arrays |
 | `examples/fib.js` | recursion and timing |
 | `examples/leds.js` | LiteX CSR bindings in simulation |
-| `examples/arty_showcase.js` | visible Arty LED demo |
-| `examples/sdcard_loader.js` | Arty SDCard `boot.bin` loader |
+| `examples/board_showcase.js` | visible board LED demo |
+| `examples/sdcard_loader.js` | SDCard `boot.bin` loader |
 | `examples/sdcard/main.js` | SDCard-edited script: identifier, scratch, LEDs |
 | `examples/mandelbrot.js` | soft-float, `Math`, nested loops |
 
@@ -191,7 +195,7 @@ SDCard `readFile()` / `load()` when the SoC has SDCard support.
 
 - [docs/building.md](docs/building.md): host dependencies and build flow.
 - [docs/simulation.md](docs/simulation.md): how the simulator harness works.
-- [docs/hardware.md](docs/hardware.md): Digilent Arty A7 commands and logs.
+- [docs/hardware.md](docs/hardware.md): board bring-up, SDCard boot, other LiteX targets.
 - [docs/porting.md](docs/porting.md): mquickjs/LiteX integration notes.
 - [examples/README.md](examples/README.md): what each script is for.
 - [test/README.md](test/README.md): pytest simulation coverage.

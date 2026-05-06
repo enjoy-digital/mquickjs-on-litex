@@ -62,7 +62,7 @@ def copy_file(src, dst):
 # Main ---------------------------------------------------------------------------------------------
 
 def main():
-    parser = argparse.ArgumentParser(description="Prepare a FAT SDCard for the Arty mquickjs on LiteX demo.")
+    parser = argparse.ArgumentParser(description="Prepare a FAT SDCard for the mquickjs on LiteX demo.")
     parser.add_argument("mount",       type=Path,           help="Mounted SDCard root.")
     parser.add_argument("--boot",      type=Path,           help="Firmware to copy as boot.bin.")
     parser.add_argument("--main",      type=Path,           help="main.js to copy to the card root.")
