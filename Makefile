@@ -16,6 +16,7 @@ BOARD_CABLE ?=
 BOARD_EXTRA ?=
 BOARD_SDCARD ?=
 HEAP_SIZE ?=
+MEMORY_DUMP ?=
 TIMEOUT ?= 120
 
 FIRMWARE_ARGS = BUILD_DIRECTORY=$(abspath $(BOARD_BUILD_DIR))
@@ -24,6 +25,9 @@ FIRMWARE_ARGS += SCRIPT=$(abspath $(SCRIPT))
 endif
 ifneq ($(HEAP_SIZE),)
 FIRMWARE_ARGS += HEAP_SIZE=$(HEAP_SIZE)
+endif
+ifneq ($(MEMORY_DUMP),)
+FIRMWARE_ARGS += MEMORY_DUMP=$(MEMORY_DUMP)
 endif
 
 .PHONY: help check-env sim sim-repl firmware board-gateware board-load board-run board-sdcard-prepare board-sdcard-clean-prepare board-sdcard-check clean
@@ -50,6 +54,7 @@ help:
 	@echo "Useful variables:"
 	@echo "  SCRIPT=$(SCRIPT)"
 	@echo "  HEAP_SIZE=$(HEAP_SIZE)"
+	@echo "  MEMORY_DUMP=$(MEMORY_DUMP)"
 	@echo "  SIM_BUILD_DIR=$(SIM_BUILD_DIR)"
 	@echo "  BOARD_TARGET=$(BOARD_TARGET)"
 	@echo "  BOARD_BUILD_DIR=$(BOARD_BUILD_DIR)"
@@ -62,7 +67,7 @@ check-env:
 	@python3 tools/check_env.py
 
 sim:
-	@./sim/run_sim.py --output-dir $(SIM_BUILD_DIR) --script $(SCRIPT) --timeout $(TIMEOUT) $(if $(HEAP_SIZE),--heap-size $(HEAP_SIZE),)
+	@./sim/run_sim.py --output-dir $(SIM_BUILD_DIR) --script $(SCRIPT) --timeout $(TIMEOUT) $(if $(HEAP_SIZE),--heap-size $(HEAP_SIZE),) $(if $(MEMORY_DUMP),--memory-dump,)
 
 sim-repl:
 	@./sim/run_sim.py --output-dir $(SIM_BUILD_DIR) --keep-running

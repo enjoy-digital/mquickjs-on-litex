@@ -54,6 +54,9 @@ endif
 ifneq ($(HEAP_SIZE),)
 EMBED_CFLAGS += -DLITEX_MQJS_HEAP_SIZE=$(HEAP_SIZE)
 endif
+ifeq ($(MEMORY_DUMP),1)
+EMBED_CFLAGS += -DLITEX_MQJS_DUMP_MEMORY=1
+endif
 
 # --- Sources ------------------------------------------------------------
 
@@ -128,6 +131,7 @@ help:
 	@echo ""
 	@echo "Variables:"
 	@echo "  SCRIPT   path to .js source to embed (default: REPL)"
+	@echo "  MEMORY_DUMP=1 print mquickjs heap statistics at exit"
 	@echo "  V=1      verbose compile lines"
 
 firmware.elf: $(OBJECTS) linker.ld

@@ -148,11 +148,13 @@ int main(void)
     puts("running embedded script...");
     int rc = run_source(ctx, (const char *)user_script, user_script_len,
                         "user_script.js", JS_EVAL_REPL);
+#if LITEX_MQJS_DUMP_MEMORY
     /* Run GC before dumping so the numbers reflect live state rather
      * than the watermark at program exit. */
     JS_GC(ctx);
     fputs("mqjs memory: ", stdout);
     JS_DumpMemory(ctx, 0);
+#endif
     puts(rc == 0 ? LITEX_MQJS_DONE_MARKER : LITEX_MQJS_FAIL_MARKER);
 #else
     repl(ctx);

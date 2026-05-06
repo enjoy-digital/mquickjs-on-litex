@@ -31,13 +31,15 @@ def run(cmd, cwd=None, env=None, check=True):
 
 
 def build_firmware(repo_root: Path, build_dir: Path, script: Path | None,
-                   heap_size: int | None = None) -> Path:
+                   heap_size: int | None = None, memory_dump: bool = False) -> Path:
     fw_dir = repo_root / "firmware"
     cmd = ["make", "-C", str(fw_dir), f"BUILD_DIRECTORY={build_dir}", "-j"]
     if script is not None:
         cmd.append(f"SCRIPT={script.resolve()}")
     if heap_size is not None:
         cmd.append(f"HEAP_SIZE={heap_size}")
+    if memory_dump:
+        cmd.append("MEMORY_DUMP=1")
     run(cmd)
     fw_bin = fw_dir / "firmware.bin"
     if not fw_bin.exists():
@@ -219,6 +221,7 @@ def main():
     parser.add_argument("--expect",       default=None,                    help="Additional required output string.")
     parser.add_argument("--keep-running", action="store_true",            help="Do not stop on DONE marker.")
     parser.add_argument("--heap-size",    type=int, default=None,          help="Override LITEX_MQJS_HEAP_SIZE.")
+    parser.add_argument("--memory-dump",  action="store_true",            help="Print mquickjs heap statistics at exit.")
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parent.parent
@@ -231,7 +234,7 @@ def main():
     soc_regenerated = ensure_sim_soc(build_dir, args.ram_size)
 
     # 2. Build firmware.
-    fw_bin = build_firmware(repo_root, build_dir, args.script, args.heap_size)
+    fw_bin = build_firmware(repo_root, build_dir, args.script, args.heap_size, args.memory_dump)
 
     # 3. Ensure Vsim exists. First time is slow; subsequent runs skip it.
     vsim = build_dir / "gateware" / "obj_dir" / "Vsim"

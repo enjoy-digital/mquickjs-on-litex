@@ -24,6 +24,12 @@
 #define LITEX_MQJS_LINE_MAX 1024
 #endif
 
+/* Keep the default demo log short. Define this to 1 when debugging
+ * allocator/GC behaviour. */
+#ifndef LITEX_MQJS_DUMP_MEMORY
+#define LITEX_MQJS_DUMP_MEMORY 0
+#endif
+
 /* Marker printed when the embedded script has finished executing.
  * The test harness scrapes UART output for this string. */
 #define LITEX_MQJS_DONE_MARKER "[mqjs] done"
