@@ -8,13 +8,13 @@
 
 SCRIPT ?= examples/hello.js
 SIM_BUILD_DIR ?= build/sim
-BOARD_TARGET ?= litex_boards.targets.digilent_arty
-BOARD_BUILD_DIR ?= /tmp/mquickjs_on_litex
-BOARD_BITSTREAM ?= $(BOARD_BUILD_DIR)/gateware/digilent_arty.bit
-BOARD_SERIAL ?= /dev/ttyUSB2
-BOARD_CABLE ?= digilent
+BOARD_TARGET ?=
+BOARD_BUILD_DIR ?= build/board
+BOARD_BITSTREAM ?=
+BOARD_SERIAL ?=
+BOARD_CABLE ?=
 BOARD_EXTRA ?=
-BOARD_SDCARD ?= /media/$(USER)/LITEX
+BOARD_SDCARD ?=
 HEAP_SIZE ?=
 TIMEOUT ?= 120
 
@@ -26,7 +26,11 @@ ifneq ($(HEAP_SIZE),)
 FIRMWARE_ARGS += HEAP_SIZE=$(HEAP_SIZE)
 endif
 
-.PHONY: help check-env sim-soc sim sim-repl firmware board-gateware board-load board-run board-demo board-sdcard-demo board-sdcard-prepare board-sdcard-clean-prepare board-sdcard-check clean
+.PHONY: help check-env sim-soc sim sim-repl firmware board-gateware board-load board-run board-sdcard-prepare board-sdcard-clean-prepare board-sdcard-check clean
+
+define require_var
+	@test -n "$($(1))" || (echo "Missing $(1). Pass $(1)=..."; exit 1)
+endef
 
 help:
 	@echo "mquickjs on LiteX demo targets"
@@ -37,15 +41,11 @@ help:
 	@echo "  make sim-repl"
 	@echo ""
 	@echo "Hardware:"
-	@echo "  make board-gateware"
+	@echo "  make board-gateware BOARD_TARGET=litex_boards.targets.<board>"
 	@echo "  make firmware SCRIPT=examples/board_showcase.js"
-	@echo "  make board-load"
-	@echo "  make board-run BOARD_SERIAL=/dev/ttyUSB2"
-	@echo "  make board-demo"
-	@echo "  make board-sdcard-demo"
-	@echo "  make board-sdcard-prepare BOARD_SDCARD=/media/$(USER)/LITEX"
-	@echo "  make board-sdcard-clean-prepare BOARD_SDCARD=/media/$(USER)/LITEX"
-	@echo "  make board-sdcard-check BOARD_SDCARD=/media/$(USER)/LITEX"
+	@echo "  make board-load BOARD_CABLE=<cable> BOARD_BITSTREAM=<bitstream>"
+	@echo "  make board-run BOARD_SERIAL=/dev/ttyUSBn"
+	@echo "  make board-sdcard-prepare BOARD_SDCARD=<mounted-fat-root>"
 	@echo ""
 	@echo "Useful variables:"
 	@echo "  SCRIPT=$(SCRIPT)"
@@ -74,6 +74,7 @@ firmware:
 	@$(MAKE) -C firmware $(FIRMWARE_ARGS)
 
 board-gateware:
+	$(call require_var,BOARD_TARGET)
 	@python3 -m $(BOARD_TARGET) \
 		--build \
 		--cpu-type=vexriscv \
@@ -83,27 +84,26 @@ board-gateware:
 		--output-dir=$(BOARD_BUILD_DIR)
 
 board-load:
+	$(call require_var,BOARD_CABLE)
+	$(call require_var,BOARD_BITSTREAM)
 	@openFPGALoader -c $(BOARD_CABLE) $(BOARD_BITSTREAM)
 
 board-run:
+	$(call require_var,BOARD_SERIAL)
 	@litex_term $(BOARD_SERIAL) --kernel=firmware/firmware.bin
-
-board-demo: SCRIPT=examples/board_showcase.js
-board-demo: firmware board-load board-run
-
-board-sdcard-demo: SCRIPT=examples/sdcard_loader.js
-board-sdcard-demo: BOARD_EXTRA=--with-sdcard --with-ethernet
-board-sdcard-demo: board-gateware firmware board-load board-run
 
 board-sdcard-prepare: SCRIPT=examples/sdcard_loader.js
 board-sdcard-prepare: firmware
+	$(call require_var,BOARD_SDCARD)
 	@tools/prepare_sdcard.py $(BOARD_SDCARD) --boot firmware/firmware.bin --main examples/sdcard/main.js
 
 board-sdcard-clean-prepare: SCRIPT=examples/sdcard_loader.js
 board-sdcard-clean-prepare: firmware
+	$(call require_var,BOARD_SDCARD)
 	@tools/prepare_sdcard.py $(BOARD_SDCARD) --clean --boot firmware/firmware.bin --main examples/sdcard/main.js
 
 board-sdcard-check:
+	$(call require_var,BOARD_SDCARD)
 	@tools/prepare_sdcard.py $(BOARD_SDCARD) --check-only
 
 clean:

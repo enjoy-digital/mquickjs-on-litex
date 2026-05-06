@@ -130,15 +130,17 @@ For the board-oriented demo in simulation:
 
 ## [> Try it on hardware
 
-The default hardware helper uses the upstream LiteX-Boards Digilent
-Arty target, but the same flow can point at another LiteX-Boards target
-with `BOARD_TARGET`. On Arty, it uses board DDR as LiteX `main_ram` and
-the on-board FT2232 for JTAG/UART.
+Hardware is intentionally explicit: pick an upstream LiteX-Boards
+target, tell the Makefile where the bitstream and serial port are, and
+build the same firmware against that SoC.
 
 ```sh
-make board-gateware
+make board-gateware \
+    BOARD_TARGET=litex_boards.targets.digilent_arty \
+    BOARD_BUILD_DIR=build/arty
+
 make firmware SCRIPT=examples/board_showcase.js
-make board-load
+make board-load BOARD_CABLE=digilent BOARD_BITSTREAM=build/arty/gateware/digilent_arty.bit
 make board-run BOARD_SERIAL=/dev/ttyUSB2
 ```
 
@@ -146,10 +148,14 @@ For the more playful demo, boot from SDCard and keep the JavaScript file
 editable:
 
 ```sh
-make board-gateware BOARD_BUILD_DIR=/tmp/mqjs_sd BOARD_EXTRA="--with-sdcard --with-ethernet"
-make firmware BOARD_BUILD_DIR=/tmp/mqjs_sd SCRIPT=examples/sdcard_loader.js
-make board-sdcard-prepare BOARD_BUILD_DIR=/tmp/mqjs_sd BOARD_SDCARD=/media/$USER/LITEX
-make board-load BOARD_BUILD_DIR=/tmp/mqjs_sd
+make board-gateware \
+    BOARD_TARGET=litex_boards.targets.digilent_arty \
+    BOARD_BUILD_DIR=build/arty-sd \
+    BOARD_EXTRA="--with-sdcard --with-ethernet"
+
+make firmware BOARD_BUILD_DIR=build/arty-sd SCRIPT=examples/sdcard_loader.js
+make board-sdcard-prepare BOARD_BUILD_DIR=build/arty-sd BOARD_SDCARD=/media/$USER/LITEX
+make board-load BOARD_CABLE=digilent BOARD_BITSTREAM=build/arty-sd/gateware/digilent_arty.bit
 ```
 
 At reset, LiteX BIOS loads `boot.bin` from the SDCard, then the
@@ -198,8 +204,6 @@ SDCard `readFile()` / `load()` when the SoC has SDCard support.
 - [docs/simulation.md](docs/simulation.md): how the simulator harness works.
 - [docs/hardware.md](docs/hardware.md): board bring-up, SDCard boot, other LiteX targets.
 - [docs/porting.md](docs/porting.md): mquickjs/LiteX integration notes.
-- [examples/README.md](examples/README.md): what each script is for.
-- [test/README.md](test/README.md): pytest simulation coverage.
 
 For CI/local regression:
 

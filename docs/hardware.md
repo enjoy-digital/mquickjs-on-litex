@@ -13,32 +13,29 @@ Arty A7 as the validated reference board.
 The tested setup is a Digilent Arty A7-35T with the on-board FT2232
 JTAG/UART interface.
 
-## Board variables
+## Board Variables
 
-The top-level Makefile defaults to the Arty A7 target but can point at
-another LiteX-Boards target:
+The top-level Makefile does not assume a board. Pass the LiteX-Boards
+target and the host connection details explicitly:
 
 ```sh
 make board-gateware \
     BOARD_TARGET=litex_boards.targets.digilent_arty \
-    BOARD_BUILD_DIR=/tmp/mqjs_board \
+    BOARD_BUILD_DIR=build/arty \
     BOARD_EXTRA="--with-sdcard --with-ethernet"
 ```
 
 Useful variables:
 
-| Variable | Default | Meaning |
-|----------|---------|---------|
-| `BOARD_TARGET` | `litex_boards.targets.digilent_arty` | Python module for the LiteX-Boards target |
-| `BOARD_BUILD_DIR` | `/tmp/mquickjs_on_litex` | LiteX build output directory |
-| `BOARD_BITSTREAM` | `$(BOARD_BUILD_DIR)/gateware/digilent_arty.bit` | Bitstream loaded by `make board-load` |
-| `BOARD_SERIAL` | `/dev/ttyUSB2` | Serial port used by `litex_term` |
-| `BOARD_CABLE` | `digilent` | `openFPGALoader -c` cable name |
-| `BOARD_EXTRA` | empty | Extra target arguments |
-| `BOARD_SDCARD` | `/media/$USER/LITEX` | Mounted FAT SDCard root |
-
-For a non-Arty board, set at least `BOARD_TARGET`,
-`BOARD_BITSTREAM`, `BOARD_SERIAL`, and usually `BOARD_EXTRA`.
+| Variable | Meaning |
+|----------|---------|
+| `BOARD_TARGET` | Python module for the LiteX-Boards target |
+| `BOARD_BUILD_DIR` | LiteX build output directory |
+| `BOARD_BITSTREAM` | Bitstream loaded by `make board-load` |
+| `BOARD_SERIAL` | Serial port used by `litex_term` |
+| `BOARD_CABLE` | `openFPGALoader -c` cable name |
+| `BOARD_EXTRA` | Extra target arguments |
+| `BOARD_SDCARD` | Mounted FAT SDCard root |
 
 ## Build the LiteX SoC
 
@@ -51,7 +48,7 @@ python3 -m $BOARD_TARGET \
     --libc-mode=full \
     --timer-uptime \
     $BOARD_EXTRA \
-    --output-dir=/tmp/mqjs_board
+    --output-dir=build/arty
 ```
 
 The board needs enough `main_ram` for the firmware, stack and JavaScript
@@ -61,7 +58,9 @@ the board DDR as LiteX `main_ram`.
 The top-level Makefile wraps this:
 
 ```sh
-make board-gateware
+make board-gateware \
+    BOARD_TARGET=litex_boards.targets.digilent_arty \
+    BOARD_BUILD_DIR=build/arty
 ```
 
 ## Build and run firmware
@@ -69,13 +68,13 @@ make board-gateware
 Point the firmware build at the LiteX output directory:
 
 ```sh
-make firmware BOARD_BUILD_DIR=/tmp/mqjs_board SCRIPT=examples/board_showcase.js
+make firmware BOARD_BUILD_DIR=build/arty SCRIPT=examples/board_showcase.js
 ```
 
 Load the bitstream:
 
 ```sh
-make board-load BOARD_BUILD_DIR=/tmp/mqjs_board
+make board-load BOARD_CABLE=digilent BOARD_BITSTREAM=build/arty/gateware/digilent_arty.bit
 ```
 
 Then upload the firmware over the LiteX serial bootloader. On the Arty
@@ -121,10 +120,14 @@ This is the most convenient standalone demo:
 The Makefile can do the build/copy steps:
 
 ```sh
-make board-gateware BOARD_BUILD_DIR=/tmp/mqjs_sd BOARD_EXTRA="--with-sdcard --with-ethernet"
-make firmware BOARD_BUILD_DIR=/tmp/mqjs_sd SCRIPT=examples/sdcard_loader.js
-make board-sdcard-prepare BOARD_BUILD_DIR=/tmp/mqjs_sd BOARD_SDCARD=/media/$USER/LITEX
-make board-load BOARD_BUILD_DIR=/tmp/mqjs_sd
+make board-gateware \
+    BOARD_TARGET=litex_boards.targets.digilent_arty \
+    BOARD_BUILD_DIR=build/arty-sd \
+    BOARD_EXTRA="--with-sdcard --with-ethernet"
+
+make firmware BOARD_BUILD_DIR=build/arty-sd SCRIPT=examples/sdcard_loader.js
+make board-sdcard-prepare BOARD_BUILD_DIR=build/arty-sd BOARD_SDCARD=/media/$USER/LITEX
+make board-load BOARD_CABLE=digilent BOARD_BITSTREAM=build/arty-sd/gateware/digilent_arty.bit
 ```
 
 If the card was previously used for Linux-on-LiteX or another demo, use
@@ -133,7 +136,7 @@ the clean prepare target. It removes known stale root files such as
 copying the two mquickjs demo files:
 
 ```sh
-make board-sdcard-clean-prepare BOARD_BUILD_DIR=/tmp/mqjs_sd BOARD_SDCARD=/media/$USER/LITEX
+make board-sdcard-clean-prepare BOARD_BUILD_DIR=build/arty-sd BOARD_SDCARD=/media/$USER/LITEX
 ```
 
 To inspect an already prepared card:
@@ -173,12 +176,11 @@ options, then build firmware against that output directory. For example:
 ```sh
 make board-gateware \
     BOARD_TARGET=litex_boards.targets.<target_module> \
-    BOARD_BUILD_DIR=/tmp/mqjs_other \
-    BOARD_BITSTREAM=/tmp/mqjs_other/gateware/<bitstream>.bit \
+    BOARD_BUILD_DIR=build/other \
     BOARD_EXTRA="<target-specific options>"
 
-make firmware BOARD_BUILD_DIR=/tmp/mqjs_other SCRIPT=examples/hello.js
-make board-load BOARD_BUILD_DIR=/tmp/mqjs_other BOARD_BITSTREAM=/tmp/mqjs_other/gateware/<bitstream>.bit
+make firmware BOARD_BUILD_DIR=build/other SCRIPT=examples/hello.js
+make board-load BOARD_CABLE=<cable> BOARD_BITSTREAM=build/other/gateware/<bitstream>.bit
 make board-run BOARD_SERIAL=/dev/ttyUSBn
 ```
 
