@@ -56,10 +56,7 @@ jobs:
           path: |
             build/sim/gateware/obj_dir
             build/sim/gateware/modules
-          key: vsim-v2-${{ runner.os }}-${{ hashFiles('firmware/linker.ld', 'sim/gen_soc.py') }}
-
-      - name: Generate SoC (one-time, ~minutes)
-        run: ./sim/gen_soc.py
+          key: vsim-v3-${{ runner.os }}-${{ hashFiles('firmware/linker.ld', 'sim/run_sim.py') }}
 
       - name: Run demo tests
         run: python3 -m pytest -v -s test/

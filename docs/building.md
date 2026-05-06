@@ -51,21 +51,18 @@ make sim SCRIPT=examples/hello.js
 
 The first run bootstraps everything:
 
-1. `sim/gen_soc.py` calls `python -m litex.tools.litex_sim` with
-   `--no-compile-gateware` — this generates the SoC Verilog, the
-   `variables.mak`, the linker region script, and builds the LiteX
-   software stack (`libc`, `libbase`, `libcompiler_rt`, BIOS). Takes a
-   minute or so.
-2. `sim/run_sim.py` first invokes `make -C firmware` with the
-   requested script embedded, then calls `litex_sim` once more — on
-   that pass LiteX compiles the Verilator simulator. After that,
-   `obj_dir/Vsim` is cached and re-used.
+1. `sim/run_sim.py` calls `python -m litex.tools.litex_sim` with
+   `--no-compile-gateware`. This generates the SoC files,
+   `variables.mak`, the linker region script, and the LiteX software
+   stack needed to compile firmware.
+2. It invokes `make -C firmware` with the requested script embedded.
+3. It calls `litex_sim` once more to build the Verilator simulator.
+   After that, `obj_dir/Vsim` is cached and reused.
 
 The `make sim` target is only a convenience wrapper. The equivalent
 manual commands are:
 
 ```sh
-./sim/gen_soc.py
 ./sim/run_sim.py --script examples/hello.js
 ```
 
@@ -79,8 +76,9 @@ make -C firmware \
      SCRIPT=$(pwd)/examples/hello.js
 ```
 
-`BUILD_DIRECTORY` must point to a directory populated by `gen_soc.py`
-(the Makefile reads `software/include/generated/variables.mak` from it).
+`BUILD_DIRECTORY` must point to a LiteX build directory containing
+`software/include/generated/variables.mak`. `./sim/run_sim.py` creates
+this automatically for simulation.
 
 `SCRIPT` points at the `.js` source to embed in the firmware.
 

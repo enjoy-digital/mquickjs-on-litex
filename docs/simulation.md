@@ -37,18 +37,15 @@ make sim SCRIPT=examples/board_showcase.js
 make sim-repl
 ```
 
-## Custom SoC options
+## Custom SoC Options
 
-`sim/gen_soc.py` accepts:
+`sim/run_sim.py` accepts:
 
 - `--ram-size HEX` — size of `integrated_main_ram` (default `0x01000000` = 16 MiB)
 - `--output-dir PATH` — where to drop the generated SoC (default `build/sim`)
-- `--force` — regenerate even if the directory looks valid
 
 If you need to change the CPU variant, peripherals, or other LiteX
-knobs, edit `gen_soc.py` (or wrap it) — it just shells out to
-`python -m litex.tools.litex_sim`. All of that tool's flags are
-available.
+knobs, edit the `litex_sim` command in `sim/run_sim.py`.
 
 ## The `sim_main_ram.init` format
 

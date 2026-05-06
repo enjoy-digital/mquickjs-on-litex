@@ -19,8 +19,8 @@ NO_BUILDDIR_TARGETS := clean help
 ifeq ($(filter $(NO_BUILDDIR_TARGETS),$(MAKECMDGOALS)),)
 ifeq ($(BUILD_DIRECTORY),)
 $(error BUILD_DIRECTORY is not set. Point it at a litex_sim output directory \
-(e.g. make BUILD_DIRECTORY=/path/to/sim-build). Run sim/gen_soc.py to \
-create one.)
+(e.g. make BUILD_DIRECTORY=/path/to/sim-build). ./sim/run_sim.py creates \
+one automatically for simulation.)
 endif
 
 BUILD_DIR := $(abspath $(BUILD_DIRECTORY))

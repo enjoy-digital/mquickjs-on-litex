@@ -99,7 +99,7 @@ in a linker script is easy to write and can take a while to find.
 |----------------------------|------------|------------------------------------------------|
 | `LITEX_MQJS_HEAP_SIZE`     | 1 MiB      | Comfortable for the demos + REPL parser        |
 | `integrated-main-ram-size` | 16 MiB     | Comfortable for firmware + heap + stack        |
-| UART baudrate              | 115200     | Default for LiteX; change in gen_soc.py if needed |
+| UART baudrate              | 115200     | Default for LiteX                                |
 
 On a real board with external DRAM, bumping `LITEX_MQJS_HEAP_SIZE` to
 8 or 16 MiB lets you run the upstream micro-benchmarks (`tests/microbench.js`).

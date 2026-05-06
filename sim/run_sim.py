@@ -63,6 +63,25 @@ def write_mem_init(fw_bin: Path, init_file: Path):
 
 # Simulator Build ----------------------------------------------------------------------------------
 
+def ensure_sim_soc(build_dir: Path, ram_size: str):
+    marker = build_dir / "software" / "include" / "generated" / "variables.mak"
+    if marker.exists():
+        return
+
+    build_dir.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        sys.executable, "-m", "litex.tools.litex_sim",
+        "--cpu-type=vexriscv",
+        f"--integrated-main-ram-size={ram_size}",
+        "--libc-mode=full",
+        "--timer-uptime",
+        f"--output-dir={build_dir}",
+        "--no-compile-gateware",
+        "--non-interactive",
+    ]
+    run(cmd)
+
+
 def first_time_sim_build(repo_root: Path, build_dir: Path, fw_bin: Path,
                          ram_size: str) -> Path:
     """Run litex_sim the 'normal' way once to produce obj_dir/Vsim.
@@ -181,7 +200,7 @@ def watch(proc, timeout: float, expect: str | None, keep_running: bool) -> int:
 def main():
     parser = argparse.ArgumentParser(
         description="Build firmware and run it inside litex_sim.")
-    parser.add_argument("--script",       type=Path, default=None,         help="JavaScript or bytecode to embed.")
+    parser.add_argument("--script",       type=Path, default=None,         help="JavaScript source to embed.")
     parser.add_argument("--output-dir",   type=Path, default=None,         help="LiteX simulator output directory.")
     parser.add_argument("--ram-size",     default="0x01000000",            help="Integrated main-RAM size.")
     parser.add_argument("--timeout",      type=float, default=120.0,       help="Seconds to wait for DONE marker.")
@@ -197,10 +216,7 @@ def main():
         sys.exit("[run_sim] verilator not found on PATH")
 
     # 1. Ensure SoC files (libc, libbase, headers) exist.
-    marker = build_dir / "software" / "include" / "generated" / "variables.mak"
-    if not marker.exists():
-        run([sys.executable, str(repo_root / "sim" / "gen_soc.py"),
-             f"--output-dir={build_dir}", f"--ram-size={args.ram_size}"])
+    ensure_sim_soc(build_dir, args.ram_size)
 
     # 2. Build firmware.
     fw_bin = build_firmware(repo_root, build_dir, args.script, args.heap_size)

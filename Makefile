@@ -1,7 +1,7 @@
 # Convenience entry points for mquickjs on LiteX.
 #
-# The real build logic lives in sim/run_sim.py, sim/gen_soc.py and
-# firmware/Makefile. These targets keep the common demo flows short.
+# The real build logic lives in sim/run_sim.py and firmware/Makefile.
+# These targets keep the common demo flows short.
 #
 # Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
 # SPDX-License-Identifier: BSD-2-Clause
@@ -26,7 +26,7 @@ ifneq ($(HEAP_SIZE),)
 FIRMWARE_ARGS += HEAP_SIZE=$(HEAP_SIZE)
 endif
 
-.PHONY: help check-env sim-soc sim sim-repl firmware board-gateware board-load board-run board-sdcard-prepare board-sdcard-clean-prepare board-sdcard-check clean
+.PHONY: help check-env sim sim-repl firmware board-gateware board-load board-run board-sdcard-prepare board-sdcard-clean-prepare board-sdcard-check clean
 
 define require_var
 	@test -n "$($(1))" || (echo "Missing $(1). Pass $(1)=..."; exit 1)
@@ -60,9 +60,6 @@ help:
 
 check-env:
 	@python3 tools/check_env.py
-
-sim-soc:
-	@./sim/gen_soc.py --output-dir $(SIM_BUILD_DIR)
 
 sim:
 	@./sim/run_sim.py --output-dir $(SIM_BUILD_DIR) --script $(SCRIPT) --timeout $(TIMEOUT) $(if $(HEAP_SIZE),--heap-size $(HEAP_SIZE),)
