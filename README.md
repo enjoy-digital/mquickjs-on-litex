@@ -7,20 +7,26 @@
                                  Powered by LiteX
 ```
 
-<p align="center">
-  <img src="docs/mquickjs-on-litex-intro.png" alt="mquickjs on LiteX intro" width="620">
-</p>
-
 ## [> Intro
 
 mquickjs on LiteX puts Fabrice Bellard's
 [mquickjs](https://github.com/bellard/mquickjs) JavaScript engine in a
 bare-metal [LiteX](https://github.com/enjoy-digital/litex) SoC.
 
-The fun part: the JavaScript is not converted to C and it is not a
-host-side trick. A VexRiscv CPU in the FPGA boots a firmware, creates a
-JavaScript heap, parses the script, runs the bytecode VM, and talks to
-LiteX peripherals through a small `litex` object.
+<p align="center">
+  <img src="docs/mquickjs-on-litex-intro.png" alt="mquickjs on LiteX intro" width="620">
+</p>
+
+This project is an experiment to run a compact JavaScript engine on a
+small RISC-V CPU inside an FPGA. LiteX creates the SoC around the
+VexRiscv CPU and provides the usual infrastructure and peripherals:
+UART, timer, CSR bus, LEDs, buttons, SDCard, Ethernet, and external
+memory when the board has it.
+
+The nice part is that the JavaScript is not converted to C and it is
+not a host-side trick. The CPU boots a firmware, creates a JavaScript
+heap, parses the script, runs the bytecode VM, and talks to LiteX
+peripherals through a small `litex` object.
 
 It runs in `litex_sim`, and it has been validated on a real Digilent
 Arty A7 with SDCard boot and live script reload.
