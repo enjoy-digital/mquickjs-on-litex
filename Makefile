@@ -30,7 +30,7 @@ ifneq ($(MEMORY_DUMP),)
 FIRMWARE_ARGS += MEMORY_DUMP=$(MEMORY_DUMP)
 endif
 
-.PHONY: help check-env sim sim-repl firmware board-gateware board-load board-run board-sdcard-prepare board-sdcard-clean-prepare board-sdcard-check clean
+.PHONY: help sim sim-repl firmware board-gateware board-load board-run board-sdcard-prepare board-sdcard-clean-prepare board-sdcard-check clean
 
 define require_var
 	@test -n "$($(1))" || (echo "Missing $(1). Pass $(1)=..."; exit 1)
@@ -40,7 +40,6 @@ help:
 	@echo "mquickjs on LiteX demo targets"
 	@echo ""
 	@echo "Simulation:"
-	@echo "  make check-env"
 	@echo "  make sim SCRIPT=examples/hello.js"
 	@echo "  make sim-repl"
 	@echo ""
@@ -62,9 +61,6 @@ help:
 	@echo "  BOARD_SERIAL=$(BOARD_SERIAL)"
 	@echo "  BOARD_EXTRA=$(BOARD_EXTRA)"
 	@echo "  BOARD_SDCARD=$(BOARD_SDCARD)"
-
-check-env:
-	@python3 tools/check_env.py
 
 sim:
 	@./sim/run_sim.py --output-dir $(SIM_BUILD_DIR) --script $(SCRIPT) --timeout $(TIMEOUT) $(if $(HEAP_SIZE),--heap-size $(HEAP_SIZE),) $(if $(MEMORY_DUMP),--memory-dump,)
