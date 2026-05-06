@@ -10,9 +10,7 @@ SCRIPT ?= examples/hello.js
 SIM_BUILD_DIR ?= build/sim
 BOARD_TARGET ?=
 BOARD_BUILD_DIR ?= build/board
-BOARD_BITSTREAM ?=
 BOARD_SERIAL ?=
-BOARD_CABLE ?=
 BOARD_EXTRA ?=
 BOARD_SDCARD ?=
 HEAP_SIZE ?=
@@ -46,7 +44,7 @@ help:
 	@echo "Hardware:"
 	@echo "  make board-gateware BOARD_TARGET=litex_boards.targets.<board>"
 	@echo "  make firmware SCRIPT=examples/demo.js"
-	@echo "  make board-load BOARD_CABLE=<cable> BOARD_BITSTREAM=<bitstream>"
+	@echo "  make board-load BOARD_TARGET=litex_boards.targets.<board>"
 	@echo "  make board-run BOARD_SERIAL=/dev/ttyUSBn"
 	@echo "  make board-sdcard-prepare BOARD_SDCARD=<mounted-fat-root>"
 	@echo ""
@@ -57,7 +55,6 @@ help:
 	@echo "  SIM_BUILD_DIR=$(SIM_BUILD_DIR)"
 	@echo "  BOARD_TARGET=$(BOARD_TARGET)"
 	@echo "  BOARD_BUILD_DIR=$(BOARD_BUILD_DIR)"
-	@echo "  BOARD_BITSTREAM=$(BOARD_BITSTREAM)"
 	@echo "  BOARD_SERIAL=$(BOARD_SERIAL)"
 	@echo "  BOARD_EXTRA=$(BOARD_EXTRA)"
 	@echo "  BOARD_SDCARD=$(BOARD_SDCARD)"
@@ -82,9 +79,11 @@ board-gateware:
 		--output-dir=$(BOARD_BUILD_DIR)
 
 board-load:
-	$(call require_var,BOARD_CABLE)
-	$(call require_var,BOARD_BITSTREAM)
-	@openFPGALoader -c $(BOARD_CABLE) $(BOARD_BITSTREAM)
+	$(call require_var,BOARD_TARGET)
+	@python3 -m $(BOARD_TARGET) \
+		--load \
+		--output-dir=$(BOARD_BUILD_DIR) \
+		$(BOARD_EXTRA)
 
 board-run:
 	$(call require_var,BOARD_SERIAL)

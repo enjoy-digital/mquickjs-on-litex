@@ -22,7 +22,7 @@ target and the host connection details explicitly:
 make board-gateware \
     BOARD_TARGET=litex_boards.targets.digilent_arty \
     BOARD_BUILD_DIR=build/arty \
-    BOARD_EXTRA="--with-sdcard --with-ethernet"
+    BOARD_EXTRA="--with-sdcard"
 ```
 
 Useful variables:
@@ -31,9 +31,7 @@ Useful variables:
 |----------|---------|
 | `BOARD_TARGET` | Python module for the LiteX-Boards target |
 | `BOARD_BUILD_DIR` | LiteX build output directory |
-| `BOARD_BITSTREAM` | Bitstream loaded by `make board-load` |
 | `BOARD_SERIAL` | Serial port used by `litex_term` |
-| `BOARD_CABLE` | `openFPGALoader -c` cable name |
 | `BOARD_EXTRA` | Extra target arguments |
 | `BOARD_SDCARD` | Mounted FAT SDCard root |
 
@@ -71,10 +69,10 @@ Point the firmware build at the LiteX output directory:
 make firmware BOARD_BUILD_DIR=build/arty SCRIPT=examples/demo.js
 ```
 
-Load the bitstream:
+Load the bitstream with the target loader:
 
 ```sh
-make board-load BOARD_CABLE=digilent BOARD_BITSTREAM=build/arty/gateware/digilent_arty.bit
+make board-load BOARD_TARGET=litex_boards.targets.digilent_arty BOARD_BUILD_DIR=build/arty
 ```
 
 Then upload the firmware over the LiteX serial bootloader. On the Arty
@@ -123,11 +121,11 @@ The Makefile can do the build/copy steps:
 make board-gateware \
     BOARD_TARGET=litex_boards.targets.digilent_arty \
     BOARD_BUILD_DIR=build/arty-sd \
-    BOARD_EXTRA="--with-sdcard --with-ethernet"
+    BOARD_EXTRA="--with-sdcard"
 
 make firmware BOARD_BUILD_DIR=build/arty-sd SCRIPT=examples/sdcard_loader.js
 make board-sdcard-prepare BOARD_BUILD_DIR=build/arty-sd BOARD_SDCARD=/media/$USER/LITEX
-make board-load BOARD_CABLE=digilent BOARD_BITSTREAM=build/arty-sd/gateware/digilent_arty.bit
+make board-load BOARD_TARGET=litex_boards.targets.digilent_arty BOARD_BUILD_DIR=build/arty-sd
 ```
 
 If the card was previously used for Linux-on-LiteX or another demo, use
@@ -180,7 +178,7 @@ make board-gateware \
     BOARD_EXTRA="<target-specific options>"
 
 make firmware BOARD_BUILD_DIR=build/other SCRIPT=examples/hello.js
-make board-load BOARD_CABLE=<cable> BOARD_BITSTREAM=build/other/gateware/<bitstream>.bit
+make board-load BOARD_TARGET=litex_boards.targets.<target_module> BOARD_BUILD_DIR=build/other
 make board-run BOARD_SERIAL=/dev/ttyUSBn
 ```
 

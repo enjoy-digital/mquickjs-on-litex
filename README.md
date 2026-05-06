@@ -71,7 +71,7 @@ make board-gateware \
     BOARD_BUILD_DIR=build/arty
 
 make firmware BOARD_BUILD_DIR=build/arty SCRIPT=examples/demo.js
-make board-load BOARD_CABLE=digilent BOARD_BITSTREAM=build/arty/gateware/digilent_arty.bit
+make board-load BOARD_TARGET=litex_boards.targets.digilent_arty BOARD_BUILD_DIR=build/arty
 make board-run BOARD_SERIAL=/dev/ttyUSB2
 ```
 
@@ -82,11 +82,11 @@ For the SDCard flow, LiteX BIOS loads `boot.bin`, then mquickjs loads
 make board-gateware \
     BOARD_TARGET=litex_boards.targets.digilent_arty \
     BOARD_BUILD_DIR=build/arty-sd \
-    BOARD_EXTRA="--with-sdcard --with-ethernet"
+    BOARD_EXTRA="--with-sdcard"
 
 make firmware BOARD_BUILD_DIR=build/arty-sd SCRIPT=examples/sdcard_loader.js
 make board-sdcard-prepare BOARD_BUILD_DIR=build/arty-sd BOARD_SDCARD=/media/$USER/LITEX
-make board-load BOARD_CABLE=digilent BOARD_BITSTREAM=build/arty-sd/gateware/digilent_arty.bit
+make board-load BOARD_TARGET=litex_boards.targets.digilent_arty BOARD_BUILD_DIR=build/arty-sd
 ```
 
 Edit `main.js` on the SDCard, reset the board, and the FPGA runs the
