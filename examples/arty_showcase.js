@@ -1,5 +1,5 @@
-// Digilent Arty A7 showcase: JavaScript visibly drives board LEDs,
-// samples switches, and reports timings over the LiteX UART.
+// Digilent Arty A7 showcase: JavaScript visibly drives board LEDs
+// and reports timings over the LiteX UART.
 
 var LEDS = 4;
 var MASK = (1 << LEDS) - 1;
@@ -40,13 +40,6 @@ show("knight rider", function () {
     }
 });
 
-show("switch mirror", function () {
-    for (var i = 0; i < 60; i++) {
-        leds(litex.getSwitches());
-        pause(50);
-    }
-});
-
 show("heartbeat", function () {
     for (var i = 0; i < 6; i++) {
         leds(MASK);
@@ -57,4 +50,4 @@ show("heartbeat", function () {
 });
 
 leds(0);
-console.log("[demo] final switches =", litex.getSwitches());
+console.log("[demo] done");

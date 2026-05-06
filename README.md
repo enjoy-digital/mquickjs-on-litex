@@ -24,8 +24,8 @@ bare-metal [LiteX](https://github.com/enjoy-digital/litex) SoC.
 This project is an experiment to run a compact JavaScript engine on a
 small RISC-V CPU inside an FPGA. LiteX creates the SoC around the
 VexRiscv CPU and provides the usual infrastructure and peripherals:
-UART, timer, CSR bus, LEDs, buttons, SDCard, Ethernet, and external
-memory when the board has it.
+UART, timer, CSR bus, LEDs, SDCard, Ethernet, and external memory when
+the board has it.
 
 The nice part is that the JavaScript is not converted to C and it is
 not a host-side trick. The CPU boots a firmware, creates a JavaScript
@@ -33,7 +33,7 @@ heap, parses the script, runs the bytecode VM, and talks to LiteX
 peripherals through a small `litex` object.
 
 It runs in `litex_sim`, and it has been validated on a real Digilent
-Arty A7 with SDCard boot and live script reload.
+Arty A7 with SDCard boot.
 
 ```
 --========= mquickjs on LiteX =========--
@@ -43,7 +43,7 @@ CPU:             VexRiscv @ 100000000 Hz
 [main.js] hello from SDCard
 [main.js] identifier = LiteX SoC on Arty A7 2026-05-05 15:06:23
 [main.js] scratch test = 0x51c0ffee OK
-[main.js] LED scanner, then live switch/button mirror
+[main.js] LED scanner
 [sd] done
 ```
 
@@ -70,7 +70,7 @@ hardware flow validated on a real Digilent Arty A7.
              v
       firmware.bin  ---------------------> main_ram
 
-  SDCard live-reload flow:
+  SDCard boot flow:
 
       boot.bin       ---------------------> LiteX BIOS loads firmware
       main.js        -- read at runtime --> litex.load("main.js")
@@ -87,16 +87,16 @@ hardware flow validated on a real Digilent Arty A7.
                                            |             |
                                            v             v
                                       LiteX UART     LiteX CSRs
-                                      console.log    LEDs, buttons,
+                                      console.log    LEDs,
                                                      scratch, SDCard
 ```
 
 In the simple flow, the `.js` source is embedded in the firmware image
 and parsed after boot. In the SDCard flow, LiteX BIOS boots `boot.bin`,
-then the firmware reads and evaluates `main.js` from FAT; pressing BTN0
-loads it again. Bytecode mode is also supported when you want to
-precompile on the host, and REPL mode lets you type JavaScript over the
-UART.
+then the firmware reads and evaluates `main.js` from FAT. Edit
+`main.js` on the card and reset the board to run the new version.
+Bytecode mode is also supported when you want to precompile on the host,
+and REPL mode lets you type JavaScript over the UART.
 
 ## [> Try it in simulation
 
@@ -139,15 +139,15 @@ editable:
 
 ```sh
 make arty-gateware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd ARTY_EXTRA="--with-sdcard --with-ethernet"
-make firmware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd SCRIPT=examples/sdcard_button_loader.js
+make firmware ARTY_BUILD_DIR=/tmp/arty_mqjs_sd SCRIPT=examples/sdcard_loader.js
 make arty-sdcard-prepare ARTY_BUILD_DIR=/tmp/arty_mqjs_sd ARTY_SDCARD=/media/$USER/LITEX
 make arty-load ARTY_BUILD_DIR=/tmp/arty_mqjs_sd
 ```
 
 At reset, LiteX BIOS loads `boot.bin` from the SDCard, then the
-firmware auto-runs `main.js`. Edit `main.js`, reinsert the card, press
-BTN0, and the FPGA reloads the script. No rebuild, no firmware upload,
-just a tiny JavaScript engine bossing around LiteX CSRs.
+firmware auto-runs `main.js`. Edit `main.js` on the card and reset the
+board to run the new script. No rebuild, no firmware upload, just a
+tiny JavaScript engine bossing around LiteX CSRs.
 
 See [docs/hardware.md](docs/hardware.md) for manual `litex_term`
 loading, SDCard preparation checks, and the validated hardware log.
@@ -182,9 +182,9 @@ SDCard `readFile()` / `load()` when the SoC has SDCard support.
 | `examples/json.js` | JSON, arrays, typed arrays |
 | `examples/fib.js` | recursion and timing |
 | `examples/leds.js` | LiteX CSR bindings in simulation |
-| `examples/arty_showcase.js` | visible Arty LED/switch demo |
-| `examples/sdcard_button_loader.js` | Arty SDCard `boot.bin` loader + BTN0 live reload |
-| `examples/sdcard/main.js` | SDCard-edited script: identifier, scratch, LEDs, switches/buttons |
+| `examples/arty_showcase.js` | visible Arty LED demo |
+| `examples/sdcard_loader.js` | Arty SDCard `boot.bin` loader |
+| `examples/sdcard/main.js` | SDCard-edited script: identifier, scratch, LEDs |
 | `examples/mandelbrot.js` | soft-float, `Math`, nested loops |
 
 ## [> Details when you want them
@@ -209,7 +209,6 @@ The repository is intentionally small:
 firmware/     mquickjs port, LiteX bindings, linker script
 examples/     JavaScript demos
 sim/          LiteX simulation helper
-targets/      Arty A7 hardware target
 tools/        embedding, bytecode, SDCard helpers
 docs/         deeper explanations
 test/         end-to-end simulation tests

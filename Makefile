@@ -8,7 +8,6 @@ SIM_BUILD_DIR ?= build/sim
 ARTY_BUILD_DIR ?= /tmp/arty_mqjs
 ARTY_SERIAL ?= /dev/ttyUSB2
 ARTY_CABLE ?= digilent
-ARTY_TARGET ?= ./targets/arty_mquickjs.py
 ARTY_EXTRA ?=
 ARTY_SDCARD ?= /media/$(USER)/LITEX
 HEAP_SIZE ?=
@@ -50,7 +49,6 @@ help:
 	@echo "  ARTY_BUILD_DIR=$(ARTY_BUILD_DIR)"
 	@echo "  ARTY_SERIAL=$(ARTY_SERIAL)"
 	@echo "  ARTY_EXTRA=$(ARTY_EXTRA)"
-	@echo "  ARTY_TARGET=$(ARTY_TARGET)"
 	@echo "  ARTY_SDCARD=$(ARTY_SDCARD)"
 
 check-env:
@@ -69,7 +67,7 @@ firmware:
 	@$(MAKE) -C firmware $(FIRMWARE_ARGS)
 
 arty-gateware:
-	@$(ARTY_TARGET) \
+	@python3 -m litex_boards.targets.digilent_arty \
 		--build \
 		--cpu-type=vexriscv \
 		--libc-mode=full \
@@ -86,15 +84,15 @@ arty-run:
 arty-demo: SCRIPT=examples/arty_showcase.js
 arty-demo: firmware arty-load arty-run
 
-arty-sdcard-demo: SCRIPT=examples/sdcard_button_loader.js
+arty-sdcard-demo: SCRIPT=examples/sdcard_loader.js
 arty-sdcard-demo: ARTY_EXTRA=--with-sdcard --with-ethernet
 arty-sdcard-demo: arty-gateware firmware arty-load arty-run
 
-arty-sdcard-prepare: SCRIPT=examples/sdcard_button_loader.js
+arty-sdcard-prepare: SCRIPT=examples/sdcard_loader.js
 arty-sdcard-prepare: firmware
 	@tools/prepare_sdcard.py $(ARTY_SDCARD) --boot firmware/firmware.bin --main examples/sdcard/main.js
 
-arty-sdcard-clean-prepare: SCRIPT=examples/sdcard_button_loader.js
+arty-sdcard-clean-prepare: SCRIPT=examples/sdcard_loader.js
 arty-sdcard-clean-prepare: firmware
 	@tools/prepare_sdcard.py $(ARTY_SDCARD) --clean --boot firmware/firmware.bin --main examples/sdcard/main.js
 

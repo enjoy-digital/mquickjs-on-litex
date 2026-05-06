@@ -10,7 +10,7 @@ from conftest import REPO_ROOT
 def test_sdcard_loader_parses_and_reaches_filesystem_binding():
     cmd = [
         str(REPO_ROOT / "sim" / "run_sim.py"),
-        "--script", str(REPO_ROOT / "examples" / "sdcard_button_loader.js"),
+        "--script", str(REPO_ROOT / "examples" / "sdcard_loader.js"),
         "--timeout", "10",
     ]
     try:
@@ -23,7 +23,7 @@ def test_sdcard_loader_parses_and_reaches_filesystem_binding():
         out = stdout + stderr
 
     assert "[sd] auto-loading main.js from SDCard" in out, out
-    assert "[sd] loading main.js run 1 (boot)" in out, out
+    assert "[sd] loading main.js" in out, out
     assert "SDCard support is not present in this SoC" in out, out
     assert "[mtag]" not in out, out
     assert "unexpected character in expression" not in out, out
