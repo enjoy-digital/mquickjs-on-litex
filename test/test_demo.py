@@ -11,8 +11,8 @@ def test_hello():
     assert "[mqjs] done" in out
 
 
-def test_board_showcase():
-    rc, out = run_script(REPO_ROOT / "examples" / "board_showcase.js", timeout=360)
+def test_demo():
+    rc, out = run_script(REPO_ROOT / "examples" / "demo.js", timeout=360)
     assert rc == 0, f"sim failed (rc={rc}):\n{out}"
     assert "[demo] binary counter" in out
     assert "[demo] done" in out

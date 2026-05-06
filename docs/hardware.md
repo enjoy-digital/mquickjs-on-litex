@@ -68,7 +68,7 @@ make board-gateware \
 Point the firmware build at the LiteX output directory:
 
 ```sh
-make firmware BOARD_BUILD_DIR=build/arty SCRIPT=examples/board_showcase.js
+make firmware BOARD_BUILD_DIR=build/arty SCRIPT=examples/demo.js
 ```
 
 Load the bitstream:
@@ -184,7 +184,7 @@ make board-load BOARD_CABLE=<cable> BOARD_BITSTREAM=build/other/gateware/<bitstr
 make board-run BOARD_SERIAL=/dev/ttyUSBn
 ```
 
-Start with `examples/hello.js`. Then try `examples/board_showcase.js`
+Start with `examples/hello.js`. Then try `examples/demo.js`
 if the SoC exposes LED CSRs. The JavaScript bindings degrade gracefully:
 LED writes become no-ops if no LED CSR exists, and switch/button reads
 return zero if those CSRs are absent.

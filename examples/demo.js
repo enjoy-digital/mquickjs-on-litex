@@ -1,8 +1,8 @@
 // Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
 // SPDX-License-Identifier: BSD-2-Clause
 //
-// Board showcase: JavaScript visibly drives LiteX LEDs and reports
-// timings over the LiteX UART.
+// Demo: JavaScript visibly drives LiteX LEDs and reports timings over
+// the LiteX UART.
 
 var LEDS = 4;
 var MASK = (1 << LEDS) - 1;

@@ -122,10 +122,10 @@ make sim SCRIPT=examples/hello.js
 The first run takes a couple of minutes while Verilator compiles the
 simulator. After that, scripts relaunch in seconds.
 
-For the board-oriented demo in simulation:
+For the demo in simulation:
 
 ```sh
-./sim/run_sim.py --script examples/board_showcase.js
+./sim/run_sim.py --script examples/demo.js
 ```
 
 ## [> Try it on hardware
@@ -139,7 +139,7 @@ make board-gateware \
     BOARD_TARGET=litex_boards.targets.digilent_arty \
     BOARD_BUILD_DIR=build/arty
 
-make firmware SCRIPT=examples/board_showcase.js
+make firmware SCRIPT=examples/demo.js
 make board-load BOARD_CABLE=digilent BOARD_BITSTREAM=build/arty/gateware/digilent_arty.bit
 make board-run BOARD_SERIAL=/dev/ttyUSB2
 ```
@@ -194,7 +194,7 @@ SDCard `readFile()` / `load()` when the SoC has SDCard support.
 | Script | What it shows |
 |--------|---------------|
 | `examples/hello.js` | smallest end-to-end sanity check |
-| `examples/board_showcase.js` | visible board LED demo |
+| `examples/demo.js` | visible board LED demo |
 | `examples/sdcard_loader.js` | SDCard `boot.bin` loader |
 | `examples/sdcard/main.js` | SDCard-edited script: identifier, scratch, LEDs |
 

@@ -33,7 +33,7 @@ The top-level Makefile wraps the common cases:
 
 ```sh
 make sim SCRIPT=examples/hello.js
-make sim SCRIPT=examples/board_showcase.js
+make sim SCRIPT=examples/demo.js
 make sim-repl
 ```
 

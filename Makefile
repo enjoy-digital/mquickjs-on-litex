@@ -46,7 +46,7 @@ help:
 	@echo ""
 	@echo "Hardware:"
 	@echo "  make board-gateware BOARD_TARGET=litex_boards.targets.<board>"
-	@echo "  make firmware SCRIPT=examples/board_showcase.js"
+	@echo "  make firmware SCRIPT=examples/demo.js"
 	@echo "  make board-load BOARD_CABLE=<cable> BOARD_BITSTREAM=<bitstream>"
 	@echo "  make board-run BOARD_SERIAL=/dev/ttyUSBn"
 	@echo "  make board-sdcard-prepare BOARD_SDCARD=<mounted-fat-root>"
