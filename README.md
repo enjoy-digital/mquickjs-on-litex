@@ -1,13 +1,17 @@
-# mquickjs on LiteX
-
 ```
    __  _______       _     __      ______              __   _ __      _  __
   /  |/  / __ \__ __(_)___/ /____ / / __/ ___  ___    / /  (_) /____ | |/_/
  / /|_/ / /_/ / // / / __/  '_/ // /\ \  / _ \/ _ \  / /__/ / __/ -_)>  <
 /_/  /_/\___\_\_,_/_/\__/_/\_\\___/___/  \___/_//_/ /____/_/\__/\__/_/|_|
-
-Copyright (c) 2026 EnjoyDigital
+                         Copyright (c) 2026, EnjoyDigital
+                                 Powered by LiteX
 ```
+
+<p align="center">
+  <img src="docs/mquickjs-on-litex-intro.png" alt="mquickjs on LiteX intro" width="620">
+</p>
+
+## [> Intro
 
 Run Fabrice Bellard's [mquickjs](https://github.com/bellard/mquickjs)
 JavaScript engine as a bare-metal firmware on a [LiteX](https://github.com/enjoy-digital/litex)
