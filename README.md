@@ -7,6 +7,10 @@
                                               Powered by LiteX
 ```
 
+[![](https://github.com/enjoy-digital/litex_mquickjs/workflows/sim/badge.svg)](https://github.com/enjoy-digital/litex_mquickjs/actions)
+![License](https://img.shields.io/badge/License-BSD%202--Clause-orange.svg)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/enjoy-digital/litex_mquickjs)
+
 ## [> Intro
 
 mquickjs on LiteX puts Fabrice Bellard's
