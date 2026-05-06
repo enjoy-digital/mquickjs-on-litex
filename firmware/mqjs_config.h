@@ -6,15 +6,14 @@
 
 /* Size of the mquickjs memory arena (JS heap). The JS engine allocates
  * everything inside this buffer via its own allocator — the C library
- * malloc() is not used. Sized for comfortable runs of mandelbrot.js,
- * the REPL parser, and a few kilobytes of user script. Fits easily
+ * malloc() is not used. Sized for comfortable runs of the demos, the
+ * REPL parser, and a few kilobytes of user script. Fits easily
  * inside litex_sim's default 16 MiB main_ram.
  *
  * Override at build time with `make HEAP_SIZE=<bytes>` — the firmware
  * Makefile forwards that as `-DLITEX_MQJS_HEAP_SIZE=<bytes>`, which
  * wins over the default below thanks to the #ifndef guard. Useful for
- * showing how tight the engine can run (32 KiB is enough for hello,
- * 128 KiB gets you fib and typed arrays, 256 KiB handles mandelbrot). */
+ * showing how tight the engine can run. */
 #ifndef LITEX_MQJS_HEAP_SIZE
 #define LITEX_MQJS_HEAP_SIZE (1u << 20)   /* 1 MiB */
 #endif

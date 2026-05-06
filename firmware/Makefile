@@ -37,8 +37,8 @@ GEN_DIR  := $(abspath build)
 
 # --- User script --------------------------------------------------------
 
-# SCRIPT may point to a .js source *or* a pre-compiled .bin bytecode blob.
-# When unset, the firmware is built in interactive REPL mode.
+# SCRIPT points to a JavaScript source file to embed. When unset, the
+# firmware is built in interactive REPL mode.
 SCRIPT ?=
 
 ifeq ($(SCRIPT),)
@@ -122,11 +122,10 @@ help:
 	@echo "Usage:"
 	@echo "  make BUILD_DIRECTORY=<litex_sim output dir>               # REPL firmware"
 	@echo "  make BUILD_DIRECTORY=<...> SCRIPT=../examples/hello.js    # embed script"
-	@echo "  make BUILD_DIRECTORY=<...> SCRIPT=hello.bin               # embed bytecode"
 	@echo "  make clean                                                # no BUILD_DIRECTORY needed"
 	@echo ""
 	@echo "Variables:"
-	@echo "  SCRIPT   path to .js source or .bin bytecode to embed (default: REPL)"
+	@echo "  SCRIPT   path to .js source to embed (default: REPL)"
 	@echo "  V=1      verbose compile lines"
 
 firmware.elf: $(OBJECTS) linker.ld

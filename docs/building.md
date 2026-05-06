@@ -82,8 +82,7 @@ make -C firmware \
 `BUILD_DIRECTORY` must point to a directory populated by `gen_soc.py`
 (the Makefile reads `software/include/generated/variables.mak` from it).
 
-`SCRIPT` can point at a `.js` source or at an already-compiled `.bin`
-bytecode blob; the firmware detects which it is at runtime.
+`SCRIPT` points at the `.js` source to embed in the firmware.
 
 Outputs: `firmware/firmware.elf`, `firmware/firmware.bin` (raw image
 loaded by the simulator or by `litex_term --kernel=…` on real

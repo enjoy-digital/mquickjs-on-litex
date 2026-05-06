@@ -9,12 +9,12 @@
 SCRIPT ?= examples/hello.js
 SIM_BUILD_DIR ?= build/sim
 BOARD_TARGET ?= litex_boards.targets.digilent_arty
-BOARD_BUILD_DIR ?= $(if $(ARTY_BUILD_DIR),$(ARTY_BUILD_DIR),/tmp/mquickjs_on_litex)
+BOARD_BUILD_DIR ?= /tmp/mquickjs_on_litex
 BOARD_BITSTREAM ?= $(BOARD_BUILD_DIR)/gateware/digilent_arty.bit
-BOARD_SERIAL ?= $(if $(ARTY_SERIAL),$(ARTY_SERIAL),/dev/ttyUSB2)
-BOARD_CABLE ?= $(if $(ARTY_CABLE),$(ARTY_CABLE),digilent)
-BOARD_EXTRA ?= $(ARTY_EXTRA)
-BOARD_SDCARD ?= $(if $(ARTY_SDCARD),$(ARTY_SDCARD),/media/$(USER)/LITEX)
+BOARD_SERIAL ?= /dev/ttyUSB2
+BOARD_CABLE ?= digilent
+BOARD_EXTRA ?=
+BOARD_SDCARD ?= /media/$(USER)/LITEX
 HEAP_SIZE ?=
 TIMEOUT ?= 120
 
@@ -26,7 +26,7 @@ ifneq ($(HEAP_SIZE),)
 FIRMWARE_ARGS += HEAP_SIZE=$(HEAP_SIZE)
 endif
 
-.PHONY: help check-env sim-soc sim sim-repl firmware board-gateware board-load board-run board-demo board-sdcard-demo board-sdcard-prepare board-sdcard-clean-prepare board-sdcard-check arty-gateware arty-load arty-run arty-demo arty-sdcard-demo arty-sdcard-prepare arty-sdcard-clean-prepare arty-sdcard-check clean
+.PHONY: help check-env sim-soc sim sim-repl firmware board-gateware board-load board-run board-demo board-sdcard-demo board-sdcard-prepare board-sdcard-clean-prepare board-sdcard-check clean
 
 help:
 	@echo "mquickjs on LiteX demo targets"
@@ -105,15 +105,6 @@ board-sdcard-clean-prepare: firmware
 
 board-sdcard-check:
 	@tools/prepare_sdcard.py $(BOARD_SDCARD) --check-only
-
-arty-gateware: board-gateware
-arty-load: board-load
-arty-run: board-run
-arty-demo: board-demo
-arty-sdcard-demo: board-sdcard-demo
-arty-sdcard-prepare: board-sdcard-prepare
-arty-sdcard-clean-prepare: board-sdcard-clean-prepare
-arty-sdcard-check: board-sdcard-check
 
 clean:
 	@$(MAKE) -C firmware clean

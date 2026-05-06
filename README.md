@@ -34,7 +34,7 @@ the board has it.
 
 The nice part is that the JavaScript is not converted to C and it is
 not a host-side trick. The CPU boots a firmware, creates a JavaScript
-heap, parses the script, runs the bytecode VM, and talks to LiteX
+heap, parses the script, runs the VM, and talks to LiteX
 peripherals through a small `litex` object.
 
 It runs in `litex_sim`, should be usable on LiteX boards with enough
@@ -86,7 +86,7 @@ hardware flow validated on a real Digilent Arty A7.
                                       | VexRiscv bare-metal app   |
                                       |---------------------------|
                                       | mquickjs heap             |
-                                      | parser / bytecode VM      |
+                                      | parser / VM               |
                                       | GC + small stdlib         |
                                       | litex.* hardware object   |
                                       +---------------------------+
@@ -101,8 +101,8 @@ In the simple flow, the `.js` source is embedded in the firmware image
 and parsed after boot. In the SDCard flow, LiteX BIOS boots `boot.bin`,
 then the firmware reads and evaluates `main.js` from FAT. Edit
 `main.js` on the card and reset the board to run the new version.
-Bytecode mode is also supported when you want to precompile on the host,
-and REPL mode lets you type JavaScript over the UART.
+REPL mode is also available when no script is embedded, so you can type
+JavaScript over the UART.
 
 ## [> Try it in simulation
 
@@ -122,10 +122,10 @@ make sim SCRIPT=examples/hello.js
 The first run takes a couple of minutes while Verilator compiles the
 simulator. After that, scripts relaunch in seconds.
 
+For the board-oriented demo in simulation:
+
 ```sh
-./sim/run_sim.py --script examples/json.js
-./sim/run_sim.py --script examples/leds.js
-./sim/run_sim.py --script examples/mandelbrot.js --timeout 600
+./sim/run_sim.py --script examples/board_showcase.js
 ```
 
 ## [> Try it on hardware
@@ -188,13 +188,9 @@ SDCard `readFile()` / `load()` when the SoC has SDCard support.
 | Script | What it shows |
 |--------|---------------|
 | `examples/hello.js` | smallest end-to-end sanity check |
-| `examples/json.js` | JSON, arrays, typed arrays |
-| `examples/fib.js` | recursion and timing |
-| `examples/leds.js` | LiteX CSR bindings in simulation |
 | `examples/board_showcase.js` | visible board LED demo |
 | `examples/sdcard_loader.js` | SDCard `boot.bin` loader |
 | `examples/sdcard/main.js` | SDCard-edited script: identifier, scratch, LEDs |
-| `examples/mandelbrot.js` | soft-float, `Math`, nested loops |
 
 ## [> Details when you want them
 
@@ -218,7 +214,7 @@ The repository is intentionally small:
 firmware/     mquickjs port, LiteX bindings, linker script
 examples/     JavaScript demos
 sim/          LiteX simulation helper
-tools/        embedding, bytecode, SDCard helpers
+tools/        embedding and SDCard helpers
 docs/         deeper explanations
 test/         end-to-end simulation tests
 ```

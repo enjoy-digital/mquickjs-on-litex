@@ -14,7 +14,7 @@ from pathlib import Path
 
 def main():
     if len(sys.argv) != 3:
-        print("usage: embed_script.py <input>.{js,bin} <output>.h", file=sys.stderr)
+        print("usage: embed_script.py <input>.js <output>.h", file=sys.stderr)
         sys.exit(2)
 
     src  = Path(sys.argv[1])

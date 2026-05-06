@@ -72,8 +72,7 @@ Two build details are important when extending the stdlib:
 2. Print a banner (via `printf`, routed through picolibc →
    `litex_putc` → UART ringbuffer + ISR).
 3. Create a `JSContext` over `mqjs_heap`.
-4. Detect whether `user_script[]` is source or bytecode and dispatch
-   to either `JS_Eval` or `JS_LoadBytecode`.
+4. Evaluate the embedded JavaScript source with `JS_Eval`.
 5. Emit `[mqjs] done` or `[mqjs] fail` and halt.
 
 The log sink installed via `JS_SetLogFunc` routes mquickjs'
@@ -98,7 +97,7 @@ in a linker script is easy to write and can take a while to find.
 
 | Setting                    | Default    | Notes                                          |
 |----------------------------|------------|------------------------------------------------|
-| `LITEX_MQJS_HEAP_SIZE`     | 1 MiB      | Enough for mandelbrot + REPL parser + scripts  |
+| `LITEX_MQJS_HEAP_SIZE`     | 1 MiB      | Comfortable for the demos + REPL parser        |
 | `integrated-main-ram-size` | 16 MiB     | Comfortable for firmware + heap + stack        |
 | UART baudrate              | 115200     | Default for LiteX; change in gen_soc.py if needed |
 

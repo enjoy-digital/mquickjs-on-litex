@@ -39,8 +39,6 @@ Useful variables:
 
 For a non-Arty board, set at least `BOARD_TARGET`,
 `BOARD_BITSTREAM`, `BOARD_SERIAL`, and usually `BOARD_EXTRA`.
-The legacy `arty-*` Makefile targets remain as aliases for the default
-Arty setup, but new docs use the board-generic names.
 
 ## Build the LiteX SoC
 

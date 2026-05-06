@@ -15,11 +15,11 @@ pytest -v test/
 ```
 
 The first test run is slow because `litex_sim` has to compile its
-Verilator simulator (~2 min). Subsequent runs reuse the cached
-`obj_dir/Vsim` and complete in seconds each.
+Verilator simulator (~2 min). Subsequent tests reuse the cached
+`obj_dir/Vsim`.
 
 Set `LITEX_SIM_BUILD_DIR` to share a single simulator build directory
 between invocations (defaults to `<repo>/build/sim`).
 
-Small scripts that exist only to guard regressions live in
-`test/scripts/`; user-facing demos stay in `examples/`.
+The tests intentionally follow the public examples so CI remains close
+to what users run manually.
