@@ -66,7 +66,7 @@ Use any upstream LiteX-Boards target that provides enough `main_ram`.
 The Arty A7 commands below are just an example:
 
 ```sh
-make board-gateware \
+make board-build \
     BOARD_TARGET=litex_boards.targets.digilent_arty \
     BOARD_BUILD_DIR=build/arty
 
@@ -79,7 +79,7 @@ For the SDCard flow, LiteX BIOS loads `boot.bin`, then mquickjs loads
 `main.js` from the card:
 
 ```sh
-make board-gateware \
+make board-build \
     BOARD_TARGET=litex_boards.targets.digilent_arty \
     BOARD_BUILD_DIR=build/arty-sd \
     BOARD_EXTRA="--with-sdcard"

@@ -28,7 +28,7 @@ ifneq ($(MEMORY_DUMP),)
 FIRMWARE_ARGS += MEMORY_DUMP=$(MEMORY_DUMP)
 endif
 
-.PHONY: help sim sim-repl firmware board-gateware board-load board-run board-sdcard-prepare board-sdcard-clean-prepare board-sdcard-check clean
+.PHONY: help sim sim-repl firmware board-build board-load board-run board-sdcard-prepare clean
 
 define require_var
 	@test -n "$($(1))" || (echo "Missing $(1). Pass $(1)=..."; exit 1)
@@ -42,7 +42,7 @@ help:
 	@echo "  make sim-repl"
 	@echo ""
 	@echo "Hardware:"
-	@echo "  make board-gateware BOARD_TARGET=litex_boards.targets.<board>"
+	@echo "  make board-build BOARD_TARGET=litex_boards.targets.<board>"
 	@echo "  make firmware SCRIPT=examples/demo.js"
 	@echo "  make board-load BOARD_TARGET=litex_boards.targets.<board>"
 	@echo "  make board-run BOARD_SERIAL=/dev/ttyUSBn"
@@ -68,7 +68,7 @@ sim-repl:
 firmware:
 	@$(MAKE) -C firmware $(FIRMWARE_ARGS)
 
-board-gateware:
+board-build:
 	$(call require_var,BOARD_TARGET)
 	@python3 -m $(BOARD_TARGET) \
 		--build \
@@ -92,16 +92,7 @@ board-run:
 board-sdcard-prepare: SCRIPT=examples/sdcard_loader.js
 board-sdcard-prepare: firmware
 	$(call require_var,BOARD_SDCARD)
-	@tools/prepare_sdcard.py $(BOARD_SDCARD) --boot firmware/firmware.bin --main examples/sdcard/main.js
-
-board-sdcard-clean-prepare: SCRIPT=examples/sdcard_loader.js
-board-sdcard-clean-prepare: firmware
-	$(call require_var,BOARD_SDCARD)
 	@tools/prepare_sdcard.py $(BOARD_SDCARD) --clean --boot firmware/firmware.bin --main examples/sdcard/main.js
-
-board-sdcard-check:
-	$(call require_var,BOARD_SDCARD)
-	@tools/prepare_sdcard.py $(BOARD_SDCARD) --check-only
 
 clean:
 	@$(MAKE) -C firmware clean
