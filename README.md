@@ -55,34 +55,44 @@ hardware flow validated on a real Digilent Arty A7.
 ## [> What runs where?
 
 ```
-  Host PC                                           FPGA / LiteX SoC
-  -------                                           ---------------
+  Host PC / SDCard                         FPGA / LiteX SoC
+  ----------------                         ----------------
 
-  examples/hello.js
-       |
-       | embedded as bytes
-       v
-  firmware.bin  ------------------------------->  main_ram
-                                                      |
-                                                      v
-                                             +------------------+
-                                             | VexRiscv firmware|
-                                             |------------------|
-                                             | mquickjs heap    |
-                                             | parser/compiler  |
-                                             | bytecode VM      |
-                                             | GC + stdlib      |
-                                             +------------------+
-                                                |            |
-                                                v            v
-                                           LiteX UART    LiteX CSRs
-                                           console.log   LEDs, buttons,
-                                                         scratch, SDCard
+  Simple flow:
+
+      examples/hello.js
+             |
+             | embedded in firmware.bin
+             v
+      firmware.bin  ---------------------> main_ram
+
+  SDCard live-reload flow:
+
+      boot.bin       ---------------------> LiteX BIOS loads firmware
+      main.js        -- read at runtime --> litex.load("main.js")
+                                                   |
+                                                   v
+                                      +---------------------------+
+                                      | VexRiscv bare-metal app   |
+                                      |---------------------------|
+                                      | mquickjs heap             |
+                                      | parser / bytecode VM      |
+                                      | GC + small stdlib         |
+                                      | litex.* hardware object   |
+                                      +---------------------------+
+                                           |             |
+                                           v             v
+                                      LiteX UART     LiteX CSRs
+                                      console.log    LEDs, buttons,
+                                                     scratch, SDCard
 ```
 
-Default mode embeds raw `.js` source and parses it on the SoC. Bytecode
-mode is also supported when you want to precompile on the host. REPL
-mode lets you type JavaScript over the UART and poke the board live.
+In the simple flow, the `.js` source is embedded in the firmware image
+and parsed after boot. In the SDCard flow, LiteX BIOS boots `boot.bin`,
+then the firmware reads and evaluates `main.js` from FAT; pressing BTN0
+loads it again. Bytecode mode is also supported when you want to
+precompile on the host, and REPL mode lets you type JavaScript over the
+UART.
 
 ## [> Try it in simulation
 
