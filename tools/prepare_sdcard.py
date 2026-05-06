@@ -67,7 +67,6 @@ def main():
     parser.add_argument("--boot",      type=Path,           help="Firmware to copy as boot.bin.")
     parser.add_argument("--main",      type=Path,           help="main.js to copy to the card root.")
     parser.add_argument("--clean",     action="store_true", help="Remove known stale Linux-on-LiteX boot files.")
-    parser.add_argument("--check-only", action="store_true", help="Only validate the existing card contents.")
     args = parser.parse_args()
 
     mount = args.mount
@@ -75,7 +74,7 @@ def main():
     if rc:
         return rc
 
-    if args.clean and not args.check_only:
+    if args.clean:
         for name in STALE_ROOT_FILES:
             path = mount / name
             if path.exists():
@@ -84,16 +83,15 @@ def main():
                 path.unlink()
                 print(f"removed {path}")
 
-    if not args.check_only:
-        if args.boot:
-            rc = copy_file(args.boot, mount / "boot.bin")
-            if rc:
-                return rc
-        if args.main:
-            rc = copy_file(args.main, mount / "main.js")
-            if rc:
-                return rc
-        os.sync()
+    if args.boot:
+        rc = copy_file(args.boot, mount / "boot.bin")
+        if rc:
+            return rc
+    if args.main:
+        rc = copy_file(args.main, mount / "main.js")
+        if rc:
+            return rc
+    os.sync()
 
     boot = mount / "boot.bin"
     main_js = mount / "main.js"
