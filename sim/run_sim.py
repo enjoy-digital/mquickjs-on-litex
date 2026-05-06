@@ -65,8 +65,14 @@ def write_mem_init(fw_bin: Path, init_file: Path):
 
 def ensure_sim_soc(build_dir: Path, ram_size: str):
     marker = build_dir / "software" / "include" / "generated" / "variables.mak"
-    if marker.exists():
-        return
+    required = [
+        marker,
+        build_dir / "software" / "libc" / "libc.a",
+        build_dir / "software" / "libcompiler_rt" / "libcompiler_rt.a",
+        build_dir / "software" / "libbase" / "libbase.a",
+    ]
+    if all(path.exists() for path in required):
+        return False
 
     build_dir.mkdir(parents=True, exist_ok=True)
     cmd = [
@@ -80,6 +86,7 @@ def ensure_sim_soc(build_dir: Path, ram_size: str):
         "--non-interactive",
     ]
     run(cmd)
+    return True
 
 
 def first_time_sim_build(repo_root: Path, build_dir: Path, fw_bin: Path,
@@ -137,8 +144,13 @@ def first_time_sim_build(repo_root: Path, build_dir: Path, fw_bin: Path,
 def simulator_ready(build_dir: Path) -> bool:
     gateware_dir = build_dir / "gateware"
     vsim = gateware_dir / "obj_dir" / "Vsim"
+    sim_rom = gateware_dir / "sim_rom.init"
     modules_dir = gateware_dir / "modules"
-    return vsim.exists() and modules_dir.is_dir() and any(modules_dir.glob("*.so"))
+    if not (vsim.exists() and modules_dir.is_dir() and any(modules_dir.glob("*.so"))):
+        return False
+    if sim_rom.exists() and sim_rom.stat().st_mtime > vsim.stat().st_mtime:
+        return False
+    return True
 
 
 # Run / Watch --------------------------------------------------------------------------------------
@@ -216,14 +228,14 @@ def main():
         sys.exit("[run_sim] verilator not found on PATH")
 
     # 1. Ensure SoC files (libc, libbase, headers) exist.
-    ensure_sim_soc(build_dir, args.ram_size)
+    soc_regenerated = ensure_sim_soc(build_dir, args.ram_size)
 
     # 2. Build firmware.
     fw_bin = build_firmware(repo_root, build_dir, args.script, args.heap_size)
 
     # 3. Ensure Vsim exists. First time is slow; subsequent runs skip it.
     vsim = build_dir / "gateware" / "obj_dir" / "Vsim"
-    if not simulator_ready(build_dir):
+    if soc_regenerated or not simulator_ready(build_dir):
         vsim = first_time_sim_build(repo_root, build_dir, fw_bin, args.ram_size)
 
     # 4. Refresh the main_ram memory image with the current firmware.
