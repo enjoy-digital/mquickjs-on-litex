@@ -92,12 +92,14 @@ CFLAGS   += $(MQJS_INC) $(EMBED_CFLAGS)
 TARGET_LIBGCC := $(shell $(TARGET_PREFIX)gcc -march=rv32im -mabi=ilp32 \
                      -print-libgcc-file-name)
 
-# Silence warnings that aren't relevant on an embedded 32-bit target
-# (unused callback parameters, signed/unsigned comparisons inside large
-# static tables, etc.). Keep -Wall elsewhere.
+# Silence warnings that aren't relevant for the vendored mquickjs C
+# files on this rv32 target (format typedef differences, intentionally
+# unprototyped internals, unused debug helpers, large static tables).
+# Keep -Wall elsewhere.
 MQJS_EXTRA_CFLAGS := -Wno-unused-parameter -Wno-sign-compare \
                      -Wno-unused-function -Wno-unused-variable \
-                     -Wno-unused-but-set-variable
+                     -Wno-unused-but-set-variable -Wno-format \
+                     -Wno-missing-prototypes
 
 # --- Host-side stdlib generator (runs on the build machine) ------------
 
