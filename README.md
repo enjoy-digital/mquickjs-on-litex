@@ -166,7 +166,6 @@ SDCard `readFile()` / `load()` when the SoC has SDCard support.
 | `examples/sdcard_button_loader.js` | Arty SDCard `boot.bin` loader + BTN0 live reload |
 | `examples/sdcard/main.js` | SDCard-edited script: identifier, scratch, LEDs, switches/buttons |
 | `examples/mandelbrot.js` | soft-float, `Math`, nested loops |
-| `examples/unicode.js` | UTF-8 source handling |
 
 ## [> Details when you want them
 

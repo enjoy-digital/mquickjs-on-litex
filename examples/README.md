@@ -14,7 +14,9 @@ the LiteX CPU.
 | `fib.js` | CPU timing | Recursive JavaScript plus `performance.now()` |
 | `json.js` | Language/library coverage | JSON, arrays, typed arrays |
 | `mandelbrot.js` | Compute demo | ASCII art from soft-float-heavy JavaScript |
-| `unicode.js` | Regression coverage | UTF-8 source handling |
+
+Regression-only scripts live in `test/scripts/` so this directory stays
+focused on things worth trying manually.
 
 Run in simulation:
 

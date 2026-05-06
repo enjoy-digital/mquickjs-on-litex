@@ -34,7 +34,7 @@ help:
 	@echo ""
 	@echo "Digilent Arty A7:"
 	@echo "  make arty-gateware"
-	@echo "  make firmware SCRIPT=examples/leds.js"
+	@echo "  make firmware SCRIPT=examples/arty_showcase.js"
 	@echo "  make arty-load"
 	@echo "  make arty-run ARTY_SERIAL=/dev/ttyUSB2"
 	@echo "  make arty-demo"
@@ -83,7 +83,7 @@ arty-load:
 arty-run:
 	@litex_term $(ARTY_SERIAL) --kernel=firmware/firmware.bin
 
-arty-demo: SCRIPT=examples/leds.js
+arty-demo: SCRIPT=examples/arty_showcase.js
 arty-demo: firmware arty-load arty-run
 
 arty-sdcard-demo: SCRIPT=examples/sdcard_button_loader.js

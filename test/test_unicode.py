@@ -12,7 +12,7 @@ from conftest import run_script, REPO_ROOT
 
 
 def test_unicode_comments_parse():
-    rc, out = run_script(REPO_ROOT / "examples" / "unicode.js", timeout=180)
+    rc, out = run_script(REPO_ROOT / "test" / "scripts" / "unicode.js", timeout=180)
     assert rc == 0, f"sim failed (rc={rc}):\n{out}"
     assert "unicode ok" in out
     assert "SyntaxError" not in out

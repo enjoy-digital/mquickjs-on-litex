@@ -8,11 +8,18 @@ Ubuntu 22.04 / 24.04:
 sudo apt-get install -y \
     build-essential \
     gcc-riscv64-unknown-elf \
+    libevent-dev \
+    libjson-c-dev \
     picolibc-riscv64-unknown-elf \
     verilator \
     meson ninja-build \
-    python3 python3-pip
+    python3 python3-pip python3-setuptools
 ```
+
+`libevent-dev` and `libjson-c-dev` are needed by LiteX's native
+simulator modules. Without them, recent LiteX trees can fail while
+building the Verilator simulator with missing `event2/listener.h` or
+`json-c/json.h`.
 
 The `gcc-riscv64-unknown-elf` multilib **must** ship the rv32im/ilp32
 variant of `libgcc.a` — that's what links the soft-float conversion
