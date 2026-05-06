@@ -1,3 +1,6 @@
+// Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
+// SPDX-License-Identifier: BSD-2-Clause
+//
 // Copy this file to the root of a FAT-formatted SDCard as main.js.
 // The SDCard loader auto-runs it at boot. Edit this file on the card,
 // then reset the board to run the new version.

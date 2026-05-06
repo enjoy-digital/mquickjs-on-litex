@@ -1,3 +1,8 @@
+<!--
+Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
+SPDX-License-Identifier: BSD-2-Clause
+-->
+
 # Running on hardware
 
 The simulator is the primary development target and the one CI

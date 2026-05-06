@@ -1,3 +1,8 @@
+<!--
+Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
+SPDX-License-Identifier: BSD-2-Clause
+-->
+
 # Documentation
 
 Start with the top-level [README](../README.md) if you want the short

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
+// SPDX-License-Identifier: BSD-2-Clause
+//
 // JSON round-trip + typed arrays. Exercises the stdlib's JSON object,
 // Array prototype methods (map/filter/reduce), and console.log value
 // pretty-printing.

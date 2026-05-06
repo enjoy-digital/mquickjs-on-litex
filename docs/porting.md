@@ -1,3 +1,8 @@
+<!--
+Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
+SPDX-License-Identifier: BSD-2-Clause
+-->
+
 # How mquickjs is wired into LiteX
 
 This is the tour of the port. Read `docs/building.md` for the

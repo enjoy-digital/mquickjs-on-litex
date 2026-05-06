@@ -2,6 +2,9 @@
 #
 # The real build logic lives in sim/run_sim.py, sim/gen_soc.py and
 # firmware/Makefile. These targets keep the common demo flows short.
+#
+# Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
+# SPDX-License-Identifier: BSD-2-Clause
 
 SCRIPT ?= examples/hello.js
 SIM_BUILD_DIR ?= build/sim

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
+// SPDX-License-Identifier: BSD-2-Clause
+//
 // SDCard auto-run demo for LiteX boards.
 //
 // Build this script into the firmware, put a FAT-formatted SDCard in

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
+// SPDX-License-Identifier: BSD-2-Clause
+//
 // Regression test — the NUL sentinel fix in tools/embed_script.py
 // must keep this file parseable despite the UTF-8 bytes in the
 // comment below.

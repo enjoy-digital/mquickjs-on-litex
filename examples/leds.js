@@ -1,3 +1,6 @@
+// Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
+// SPDX-License-Identifier: BSD-2-Clause
+//
 // Toggle the on-board LEDs via the `litex` hardware binding.
 // Runs a handful of patterns, reports timing, then exits.
 //

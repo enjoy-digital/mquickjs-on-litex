@@ -1,3 +1,6 @@
+// Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
+// SPDX-License-Identifier: BSD-2-Clause
+//
 // Lightweight mandelbrot: smaller than the one that ships with
 // mquickjs so it finishes quickly on a 1 MHz simulated VexRiscv.
 // Produces ASCII output; useful as a floating-point smoke test.

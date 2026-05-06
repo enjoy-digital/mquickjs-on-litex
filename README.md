@@ -1,3 +1,8 @@
+<!--
+Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
+SPDX-License-Identifier: BSD-2-Clause
+-->
+
 ```
               __  _______       _     __      ______              __   _ __      _  __
              /  |/  / __ \__ __(_)___/ /____ / / __/ ___  ___    / /  (_) /____ | |/_/

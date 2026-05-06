@@ -1,3 +1,8 @@
+<!--
+Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
+SPDX-License-Identifier: BSD-2-Clause
+-->
+
 # Tests
 
 Pytest-style tests that build the firmware with a known script, run it

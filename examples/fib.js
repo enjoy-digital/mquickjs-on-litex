@@ -1,3 +1,6 @@
+// Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
+// SPDX-License-Identifier: BSD-2-Clause
+//
 // Recursive Fibonacci: a CPU-bound workout that also exercises the GC
 // through the call stack.
 function fib(n) {
