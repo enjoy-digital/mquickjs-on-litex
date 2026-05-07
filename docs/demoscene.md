@@ -118,6 +118,10 @@ Open `http://192.168.1.50/`, choose a preset, edit the JavaScript and
 press `Run`. Scripts are bounded to 16 KiB in the firmware, so keep live
 experiments compact.
 
+For longer editing sessions, use `tools/live_editor.html` from the host.
+It keeps the firmware page small but adds a richer preset list, slot
+save/load controls and shareable URL hashes.
+
 The older UDP host bridge is still present as a fallback:
 
 ```sh

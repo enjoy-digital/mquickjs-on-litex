@@ -329,7 +329,7 @@ struct live_http_conn {
     const char *response;
     size_t response_len;
     size_t response_sent;
-    char response_buf[128];
+    char response_buf[384];
     uint8_t used;
 };
 
@@ -486,6 +486,9 @@ static void live_http_reply_len(struct live_http_conn *conn,
                           "HTTP/1.1 %s\r\n"
                           "Content-Type: %s\r\n"
                           "Content-Length: %u\r\n"
+                          "Access-Control-Allow-Origin: *\r\n"
+                          "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
+                          "Access-Control-Allow-Headers: Content-Type\r\n"
                           "Connection: close\r\n"
                           "\r\n",
                           status, type, (unsigned)body_len);
@@ -497,6 +500,9 @@ static void live_http_reply_len(struct live_http_conn *conn,
                               "HTTP/1.1 500 Internal Server Error\r\n"
                               "Content-Type: text/plain\r\n"
                               "Content-Length: %u\r\n"
+                              "Access-Control-Allow-Origin: *\r\n"
+                              "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
+                              "Access-Control-Allow-Headers: Content-Type\r\n"
                               "Connection: close\r\n"
                               "\r\n",
                               (unsigned)body_len);
@@ -913,6 +919,11 @@ static int live_http_parse(struct live_http_conn *conn)
 
     body      += 4;
     header_len = body - conn->request;
+
+    if (strncmp(conn->request, "OPTIONS ", 8) == 0) {
+        live_http_reply(conn, "200 OK", "text/plain", "OK\n");
+        return 1;
+    }
 
     if (strncmp(conn->request, "GET / ", 6) == 0 ||
         strncmp(conn->request, "GET /HTTP", 9) == 0) {

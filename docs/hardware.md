@@ -118,6 +118,12 @@ identifier, switches/buttons, scratch register, LEDs, frame timing and
 FPS. On SDCard-capable SoCs, `Save main.js` and `Load main.js` let the
 browser turn the current live script into the standalone boot script.
 
+For a richer laptop-side editor, open `tools/live_editor.html` in a
+browser. It talks directly to the board HTTP server, can save/load the
+same SDCard slots and can encode the current script in the URL hash for
+sharing. The board firmware sends permissive CORS headers so this works
+from a local file or a local web server.
+
 The host bridge remains useful while debugging Ethernet:
 
 ```sh
