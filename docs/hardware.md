@@ -10,7 +10,7 @@ against an upstream LiteX-Boards target.
 
 The examples below use a Digilent Arty A7, but the flow is intentionally
 generic: pick a LiteX-Boards target, build it with enough `main_ram`,
-build the firmware against that output directory, then load/run.
+then choose SDCard boot or serial boot.
 
 ## Options
 
@@ -21,21 +21,6 @@ build the firmware against that output directory, then load/run.
 | `--serial` | Serial device used by `litex_term` |
 | `--mount` | Mounted FAT SDCard root |
 | `-- <args>` | Extra arguments passed to the board target |
-
-## Serial Boot
-
-```sh
-./make.py board-build --target litex_boards.targets.digilent_arty --build-dir build/arty
-./make.py firmware examples/demo.js --build-dir build/arty
-./make.py board-load --target litex_boards.targets.digilent_arty --build-dir build/arty
-./make.py board-run --serial /dev/ttyUSB2
-```
-
-`board-load` delegates to the board target `--load` option, so the
-target keeps ownership of the right cable/programmer details.
-
-On the Arty FT2232, interface 1 is normally the UART; on the validated
-setup it appeared as `/dev/ttyUSB2`.
 
 ## SDCard Boot
 
@@ -71,6 +56,24 @@ Expected mquickjs output:
 [main.js] LED scanner
 [sd] done
 ```
+
+## Serial Boot
+
+Serial boot is useful while iterating on a script without touching the
+SDCard:
+
+```sh
+./make.py board-build --target litex_boards.targets.digilent_arty --build-dir build/arty
+./make.py firmware examples/demo.js --build-dir build/arty
+./make.py board-load --target litex_boards.targets.digilent_arty --build-dir build/arty
+./make.py board-run --serial /dev/ttyUSB2
+```
+
+`board-load` delegates to the board target `--load` option, so the
+target keeps ownership of the right cable/programmer details.
+
+On the Arty FT2232, interface 1 is normally the UART; on the validated
+setup it appeared as `/dev/ttyUSB2`.
 
 ## Other Boards
 

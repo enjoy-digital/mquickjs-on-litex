@@ -63,17 +63,8 @@ hello from mquickjs on LiteX!
 ## [> Hardware
 
 Use any upstream LiteX-Boards target that provides enough `main_ram`.
-The Arty A7 commands below are just an example:
-
-```sh
-./make.py board-build --target litex_boards.targets.digilent_arty --build-dir build/arty
-./make.py firmware examples/demo.js --build-dir build/arty
-./make.py board-load --target litex_boards.targets.digilent_arty --build-dir build/arty
-./make.py board-run --serial /dev/ttyUSB2
-```
-
-For the SDCard flow, LiteX BIOS loads `boot.bin`, then mquickjs loads
-`main.js` from the card:
+The SDCard flow is the easiest standalone demo: LiteX BIOS loads
+`boot.bin`, then mquickjs loads `main.js` from the card.
 
 ```sh
 ./make.py board-build --target litex_boards.targets.digilent_arty --build-dir build/arty-sd -- --with-sdcard
