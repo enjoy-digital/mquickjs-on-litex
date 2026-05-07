@@ -1,8 +1,7 @@
-# Firmware build for mquickjs on LiteX.
+# Firmware backend for mquickjs on LiteX.
 #
-# Invocation:
-#   make BUILD_DIRECTORY=<litex_sim output dir>               # REPL mode
-#   make BUILD_DIRECTORY=<...> SCRIPT=../examples/hello.js    # embed script
+# Most users should use ../make.py. This Makefile stays small and
+# focused on compiling the C firmware once a LiteX build directory exists.
 #
 # Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
 # SPDX-License-Identifier: BSD-2-Clause
@@ -18,9 +17,8 @@ NO_BUILDDIR_TARGETS := clean help
 
 ifeq ($(filter $(NO_BUILDDIR_TARGETS),$(MAKECMDGOALS)),)
 ifeq ($(BUILD_DIRECTORY),)
-$(error BUILD_DIRECTORY is not set. Point it at a litex_sim output directory \
-(e.g. make BUILD_DIRECTORY=/path/to/sim-build). ./sim/run_sim.py creates \
-one automatically for simulation.)
+$(error BUILD_DIRECTORY is not set. Use ../make.py sim or pass a LiteX \
+build directory explicitly.)
 endif
 
 BUILD_DIR := $(abspath $(BUILD_DIRECTORY))
@@ -125,14 +123,14 @@ all: firmware.bin
 
 help:
 	@echo "Usage:"
-	@echo "  make BUILD_DIRECTORY=<litex_sim output dir>               # REPL firmware"
-	@echo "  make BUILD_DIRECTORY=<...> SCRIPT=../examples/hello.js    # embed script"
-	@echo "  make clean                                                # no BUILD_DIRECTORY needed"
+	@echo "  make BUILD_DIRECTORY=<litex build dir> [SCRIPT=<file.js>]"
+	@echo "  make clean"
 	@echo ""
 	@echo "Variables:"
-	@echo "  SCRIPT   path to .js source to embed (default: REPL)"
+	@echo "  SCRIPT        JavaScript source to embed (default: REPL)"
+	@echo "  HEAP_SIZE     mquickjs heap size override"
 	@echo "  MEMORY_DUMP=1 print mquickjs heap statistics at exit"
-	@echo "  V=1      verbose compile lines"
+	@echo "  V=1           verbose compile lines"
 
 firmware.elf: $(OBJECTS) linker.ld
 	$(CC) $(LDFLAGS) -T linker.ld -N -o $@ \
@@ -198,7 +196,7 @@ FORCE:
 
 $(USER_SCRIPT_H): $(SCRIPT) FORCE | $(GEN_DIR)
 	@echo " GEN     $@"
-	@$(PYTHON) $(FW_DIR)/../tools/embed_script.py $< $@
+	@$(PYTHON) $(FW_DIR)/embed_script.py $< $@
 endif
 
 # Header dependencies.

@@ -17,6 +17,9 @@ from pathlib import Path
 DEFAULT_SCRIPT  = Path("examples/hello.js")
 SIM_BUILD_DIR   = Path("build/sim")
 BOARD_BUILD_DIR = Path("build/board")
+SIM_RUNNER      = Path("sim/run_sim.py")
+FIRMWARE_DIR    = Path("firmware")
+FIRMWARE_BIN    = FIRMWARE_DIR / "firmware.bin"
 SDCARD_LOADER   = Path("examples/sdcard/loader.js")
 SDCARD_MAIN     = Path("examples/sdcard/main.js")
 
@@ -43,7 +46,7 @@ def firmware_cmd(args, script=None):
     build_dir = args.build_dir.resolve()
     js        = script if script is not None else getattr(args, "script", None)
     cmd       = [
-        "make", "-C", str(root / "firmware"),
+        "make", "-C", str(root / FIRMWARE_DIR),
         f"BUILD_DIRECTORY={build_dir}",
         "-j",
     ]
@@ -128,7 +131,7 @@ def prepare_sdcard(mount, boot, main_js):
 def cmd_sim(args):
     root = repo_root()
     cmd  = [
-        root / "sim" / "run_sim.py",
+        root / SIM_RUNNER,
         "--output-dir", args.output_dir,
         "--script",     args.script,
         "--timeout",    args.timeout,
@@ -143,7 +146,7 @@ def cmd_sim(args):
 def cmd_sim_repl(args):
     root = repo_root()
     cmd  = [
-        root / "sim" / "run_sim.py",
+        root / SIM_RUNNER,
         "--output-dir", args.output_dir,
         "--keep-running",
     ]
@@ -179,7 +182,7 @@ def cmd_board_run(args):
     root = repo_root()
     return run([
         "litex_term", args.serial,
-        f"--kernel={root / 'firmware' / 'firmware.bin'}",
+        f"--kernel={root / FIRMWARE_BIN}",
     ])
 
 
@@ -192,14 +195,14 @@ def cmd_sdcard(args):
 
     return prepare_sdcard(
         mount   = args.mount,
-        boot    = root / "firmware" / "firmware.bin",
+        boot    = root / FIRMWARE_BIN,
         main_js = root / SDCARD_MAIN,
     )
 
 
 def cmd_clean(args):
     root = repo_root()
-    return run(["make", "-C", str(root / "firmware"), "clean"])
+    return run(["make", "-C", str(root / FIRMWARE_DIR), "clean"])
 
 
 # Parser -------------------------------------------------------------------------------------------

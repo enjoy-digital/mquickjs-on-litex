@@ -55,17 +55,6 @@ interactive serial session:
 ./make.py sim-repl
 ```
 
-## Firmware Only
-
-To build the firmware without running simulation, point it at a LiteX
-build directory containing `software/include/generated/variables.mak`:
-
-```sh
-./make.py firmware examples/hello.js --build-dir build/sim
-```
-
-Outputs are `firmware/firmware.elf` and `firmware/firmware.bin`.
-
 ## Tests
 
 ```sh

@@ -87,13 +87,10 @@ new JavaScript.
 ## [> Files
 
 ```
-make.py       friendly build/run entry point
-firmware/     mquickjs port and LiteX bindings
-examples/     hello, demo, SDCard main.js
-sim/          litex_sim runner
-tools/        firmware build helpers
-docs/         simulation, hardware and porting notes
-test/         end-to-end simulation smoke tests
+make.py    build/run demos
+examples/  JavaScript demos
+firmware/  mquickjs LiteX firmware
+docs/      details
 ```
 
 Useful docs:
