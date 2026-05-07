@@ -23,6 +23,7 @@ FIRMWARE_DIR    = Path("firmware")
 FIRMWARE_BIN    = FIRMWARE_DIR / "firmware.bin"
 SDCARD_LOADER   = Path("examples/sdcard/loader.js")
 SDCARD_MAIN     = Path("examples/sdcard/main.js")
+UART_BAUDRATE   = 115200
 
 
 # Helpers ------------------------------------------------------------------------------------------
@@ -202,6 +203,7 @@ def cmd_board_run(args):
     root = repo_root()
     return run([
         "litex_term", args.serial,
+        f"--speed={args.baudrate}",
         f"--kernel={root / FIRMWARE_BIN}",
     ])
 
@@ -297,7 +299,9 @@ def main():
     board_load.set_defaults(func=cmd_board_load)
 
     board_run = subparsers.add_parser("board-run", help="Upload firmware with litex_term.")
-    board_run.add_argument("--serial", required=True, help="Serial port used by litex_term.")
+    board_run.add_argument("--serial",   required=True, help="Serial port used by litex_term.")
+    board_run.add_argument("--baudrate", type=int, default=UART_BAUDRATE,
+                           help="Serial baudrate. Must match the SoC UART baudrate.")
     board_run.set_defaults(func=cmd_board_run)
 
     sdcard = subparsers.add_parser("sdcard", help="Prepare a FAT SDCard for standalone boot.")

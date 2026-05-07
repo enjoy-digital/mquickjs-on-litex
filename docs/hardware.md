@@ -20,6 +20,7 @@ ECPIX-5 hardware.
 | `--target` | LiteX-Boards target module, for example `litex_boards.targets.digilent_arty` |
 | `--build-dir` | Board build directory used by LiteX and the firmware |
 | `--serial` | Serial device used by `litex_term` |
+| `--baudrate` | Serial baudrate used by `board-run` |
 | `--mount` | Mounted FAT SDCard root |
 | `-- <args>` | Extra arguments passed to the board target |
 
@@ -42,16 +43,24 @@ Start with `examples/hello.js`, then try `examples/demo.js`. LED writes
 are no-ops when no LED CSR is present; switch/button reads return zero
 when those CSRs are absent.
 
+For a high-speed UART, build the SoC UART and run `litex_term` at the
+same speed:
+
+```sh
+./make.py board-build --target litex_boards.targets.<target_module> --build-dir build/<board> -- --uart-baudrate=1000000 <target-specific options>
+./make.py board-run --serial /dev/ttyUSBn --baudrate 1000000
+```
+
 ## ECPIX-5
 
 The LambdaConcept ECPIX-5 uses the upstream
 `litex_boards.targets.lambdaconcept_ecpix5` target. A basic LED demo:
 
 ```sh
-./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5
+./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5 -- --uart-baudrate=1000000
 ./make.py firmware examples/demo.js --build-dir build/ecpix5
 ./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5
-./make.py board-run --serial /dev/ttyUSB2
+./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
 ```
 
 The validated setup used the FT2232 UART on `/dev/ttyUSB2`.
@@ -59,10 +68,10 @@ The validated setup used the FT2232 UART on `/dev/ttyUSB2`.
 For HDMI output, enable the target framebuffer and use the plasma demo:
 
 ```sh
-./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video -- --with-video-framebuffer
+./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video -- --with-video-framebuffer --uart-baudrate=1000000
 ./make.py firmware examples/plasma.js --build-dir build/ecpix5-video
 ./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video
-./make.py board-run --serial /dev/ttyUSB2
+./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
 ```
 
 Validated output:

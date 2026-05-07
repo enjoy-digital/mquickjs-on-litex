@@ -81,10 +81,10 @@ For video-capable boards, enable the target framebuffer and run the
 plasma demo:
 
 ```sh
-./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video -- --with-video-framebuffer
+./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video -- --with-video-framebuffer --uart-baudrate=1000000
 ./make.py firmware examples/plasma.js --build-dir build/ecpix5-video
 ./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video
-./make.py board-run --serial /dev/ttyUSB2
+./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
 ```
 
 ## [> Files
