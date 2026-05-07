@@ -36,7 +36,8 @@ JavaScript file -> firmware.bin -> VexRiscv -> mquickjs -> LiteX CSRs
 ```
 
 It runs in `litex_sim`, is meant to be portable to LiteX boards with
-enough `main_ram`, and has been validated on a Digilent Arty A7.
+enough `main_ram`, and has been validated on Digilent Arty A7 and
+LambdaConcept ECPIX-5 hardware.
 
 ## [> Simulation
 
@@ -75,6 +76,16 @@ The SDCard flow is the easiest standalone demo: LiteX BIOS loads
 
 Edit `main.js` on the SDCard, reset the board, and the FPGA runs the
 new JavaScript.
+
+For video-capable boards, enable the target framebuffer and run the
+plasma demo:
+
+```sh
+./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video -- --with-video-framebuffer
+./make.py firmware examples/plasma.js --build-dir build/ecpix5-video
+./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video
+./make.py board-run --serial /dev/ttyUSB2
+```
 
 ## [> Files
 

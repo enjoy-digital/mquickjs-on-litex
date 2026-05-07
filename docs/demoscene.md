@@ -37,13 +37,23 @@ framebuffer.height
 framebuffer.depth
 framebuffer.clear(color)
 framebuffer.blit(buffer, width, height, x, y)
+framebuffer.blitScale(buffer, width, height, x, y, scale)
 ```
 
 `buffer` is normally a `Uint32Array` of RGB pixels. The optional
 `width`, `height`, `x` and `y` arguments let scripts draw a smaller tile
-inside the framebuffer. The default `plasma.js` keeps the tile tiny so
-the 1MHz simulator can finish quickly; hardware demos can scale the same
-API to larger frames.
+inside the framebuffer. `blitScale` expands each source pixel to a
+square block in C, so scripts stay small enough for the 1MHz simulator
+while still producing a visible HDMI image on hardware.
+
+The first hardware validation used ECPIX-5:
+
+```sh
+./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video -- --with-video-framebuffer
+./make.py firmware examples/plasma.js --build-dir build/ecpix5-video
+./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video
+./make.py board-run --serial /dev/ttyUSB2
+```
 
 ## Next Step
 
