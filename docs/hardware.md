@@ -48,8 +48,8 @@ then let mquickjs load `main.js` from the same card:
 ./make.py board-load --target litex_boards.targets.digilent_arty --build-dir build/arty-sd
 ```
 
-`sdcard` builds `examples/sdcard_loader.js`, removes known stale
-LiteX/Linux boot files from the mounted FAT root, then copies:
+`sdcard` builds `examples/sdcard_loader.js`, removes `boot.json` when it
+exists since LiteX BIOS tries it before `boot.bin`, then copies:
 
 | SDCard file | Source |
 |-------------|--------|

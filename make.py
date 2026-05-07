@@ -14,22 +14,6 @@ import subprocess
 from pathlib import Path
 
 
-STALE_ROOT_FILES = [
-    "Image",
-    "boot.json",
-    "boot.vfat",
-    "boot_rocket_rootfs_ram0.json",
-    "boot_rootfs_mmcblk0p2.json",
-    "boot_rootfs_ram0.json",
-    "litex_ci.txt",
-    "opensbi.bin",
-    "rootfs.cpio",
-    "sdcard.img",
-    "soc.dtb",
-    "soc_combined.dtb",
-]
-
-
 # Helpers ------------------------------------------------------------------------------------------
 
 def repo_root() -> Path:
@@ -104,13 +88,12 @@ def prepare_sdcard(mount, boot, main_js):
     if rc:
         return rc
 
-    for name in STALE_ROOT_FILES:
-        path = mount / name
-        if path.exists():
-            if path.is_dir():
-                return fail(f"refusing to remove directory {path}")
-            path.unlink()
-            print(f"removed {path}")
+    boot_json = mount / "boot.json"
+    if boot_json.exists():
+        if boot_json.is_dir():
+            return fail(f"refusing to remove directory {boot_json}")
+        boot_json.unlink()
+        print(f"removed {boot_json}")
 
     for src, dst in [
         (boot,    mount / "boot.bin"),
@@ -129,10 +112,6 @@ def prepare_sdcard(mount, boot, main_js):
         return fail(f"{main_dst} is missing")
     print(f"boot.bin: {boot_dst.stat().st_size} bytes")
     print(f"main.js:  {main_dst.stat().st_size} bytes")
-
-    extras = [name for name in STALE_ROOT_FILES if (mount / name).exists()]
-    if extras:
-        print("warning: stale root files still present: " + ", ".join(extras))
 
     return 0
 
