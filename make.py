@@ -6,16 +6,39 @@
 # Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
 # SPDX-License-Identifier: BSD-2-Clause
 
+import os
 import sys
+import shutil
 import argparse
 import subprocess
 from pathlib import Path
+
+
+STALE_ROOT_FILES = [
+    "Image",
+    "boot.json",
+    "boot.vfat",
+    "boot_rocket_rootfs_ram0.json",
+    "boot_rootfs_mmcblk0p2.json",
+    "boot_rootfs_ram0.json",
+    "litex_ci.txt",
+    "opensbi.bin",
+    "rootfs.cpio",
+    "sdcard.img",
+    "soc.dtb",
+    "soc_combined.dtb",
+]
 
 
 # Helpers ------------------------------------------------------------------------------------------
 
 def repo_root() -> Path:
     return Path(__file__).resolve().parent
+
+
+def fail(message):
+    print(f"error: {message}", file=sys.stderr)
+    return 1
 
 
 def run(cmd, cwd=None):
@@ -49,6 +72,69 @@ def target_args(args):
     if extra and extra[0] == "--":
         extra = extra[1:]
     return extra
+
+
+# SDCard -------------------------------------------------------------------------------------------
+
+def check_sdcard_mount(path):
+    if not path.exists():
+        return fail(f"{path} does not exist")
+    if not path.is_dir():
+        return fail(f"{path} is not a directory")
+    probe = path / ".mquickjs_write_test"
+    try:
+        probe.write_text("ok\n", encoding="utf-8")
+        probe.unlink()
+    except OSError as e:
+        return fail(f"{path} is not writable ({e})")
+    return 0
+
+
+def copy_sdcard_file(src, dst):
+    if not src.exists():
+        return fail(f"{src} does not exist")
+    shutil.copy2(src, dst)
+    with dst.open("rb") as f:
+        os.fsync(f.fileno())
+    return 0
+
+
+def prepare_sdcard(mount, boot, main_js):
+    rc = check_sdcard_mount(mount)
+    if rc:
+        return rc
+
+    for name in STALE_ROOT_FILES:
+        path = mount / name
+        if path.exists():
+            if path.is_dir():
+                return fail(f"refusing to remove directory {path}")
+            path.unlink()
+            print(f"removed {path}")
+
+    for src, dst in [
+        (boot,    mount / "boot.bin"),
+        (main_js, mount / "main.js"),
+    ]:
+        rc = copy_sdcard_file(src, dst)
+        if rc:
+            return rc
+    os.sync()
+
+    boot_dst = mount / "boot.bin"
+    main_dst = mount / "main.js"
+    if not boot_dst.exists():
+        return fail(f"{boot_dst} is missing")
+    if not main_dst.exists():
+        return fail(f"{main_dst} is missing")
+    print(f"boot.bin: {boot_dst.stat().st_size} bytes")
+    print(f"main.js:  {main_dst.stat().st_size} bytes")
+
+    extras = [name for name in STALE_ROOT_FILES if (mount / name).exists()]
+    if extras:
+        print("warning: stale root files still present: " + ", ".join(extras))
+
+    return 0
 
 
 # Commands -----------------------------------------------------------------------------------------
@@ -118,14 +204,11 @@ def cmd_sdcard(args):
     if rc:
         return rc
 
-    cmd = [
-        root / "tools" / "prepare_sdcard.py",
-        args.mount,
-        "--clean",
-        "--boot", root / "firmware" / "firmware.bin",
-        "--main", root / "examples" / "sdcard" / "main.js",
-    ]
-    return run(cmd)
+    return prepare_sdcard(
+        mount   = args.mount,
+        boot    = root / "firmware" / "firmware.bin",
+        main_js = root / "examples" / "sdcard" / "main.js",
+    )
 
 
 def cmd_clean(args):
