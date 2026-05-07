@@ -19,8 +19,8 @@ def test_demo():
     assert "[mqjs] done" in out
 
 
-def test_sdcard_loader_reaches_filesystem_binding():
-    rc, out = run_script(REPO_ROOT / "examples" / "sdcard_loader.js", timeout=240)
+def test_sdcard_loader_reports_missing_filesystem():
+    rc, out = run_script(REPO_ROOT / "examples" / "sdcard" / "loader.js", timeout=240)
     assert rc == 0, f"sim failed (rc={rc}):\n{out}"
     assert "[sd] auto-loading main.js from SDCard" in out
     assert "SDCard support is not present" in out

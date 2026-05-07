@@ -52,7 +52,7 @@ Useful options:
 interactive serial session:
 
 ```sh
-./make.py repl
+./make.py sim-repl
 ```
 
 ## Firmware Only
@@ -73,5 +73,5 @@ pip install pytest
 pytest -v test/
 ```
 
-The tests call `sim/run_sim.py`, so they exercise the same flow as a
-manual simulation run.
+The tests call `./make.py sim`, so they exercise the same flow as a
+manual user run.

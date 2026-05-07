@@ -89,7 +89,7 @@ new JavaScript.
 ```
 make.py       friendly build/run entry point
 firmware/     mquickjs port and LiteX bindings
-examples/     hello, demo, SDCard loader
+examples/     hello, demo, SDCard main.js
 sim/          litex_sim runner
 tools/        firmware build helpers
 docs/         simulation, hardware and porting notes

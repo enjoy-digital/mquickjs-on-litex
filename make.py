@@ -14,6 +14,13 @@ import subprocess
 from pathlib import Path
 
 
+DEFAULT_SCRIPT  = Path("examples/hello.js")
+SIM_BUILD_DIR   = Path("build/sim")
+BOARD_BUILD_DIR = Path("build/board")
+SDCARD_LOADER   = Path("examples/sdcard/loader.js")
+SDCARD_MAIN     = Path("examples/sdcard/main.js")
+
+
 # Helpers ------------------------------------------------------------------------------------------
 
 def repo_root() -> Path:
@@ -133,7 +140,7 @@ def cmd_sim(args):
     return run(cmd)
 
 
-def cmd_repl(args):
+def cmd_sim_repl(args):
     root = repo_root()
     cmd  = [
         root / "sim" / "run_sim.py",
@@ -179,14 +186,14 @@ def cmd_board_run(args):
 def cmd_sdcard(args):
     root = repo_root()
 
-    rc = run(firmware_cmd(args, script=root / "examples" / "sdcard_loader.js"))
+    rc = run(firmware_cmd(args, script=root / SDCARD_LOADER))
     if rc:
         return rc
 
     return prepare_sdcard(
         mount   = args.mount,
         boot    = root / "firmware" / "firmware.bin",
-        main_js = root / "examples" / "sdcard" / "main.js",
+        main_js = root / SDCARD_MAIN,
     )
 
 
@@ -211,9 +218,9 @@ def main():
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     sim = subparsers.add_parser("sim", help="Build and run a JavaScript file in litex_sim.")
-    sim.add_argument("script",        nargs="?",  type=Path,  default=Path("examples/hello.js"),
+    sim.add_argument("script",        nargs="?",  type=Path,  default=DEFAULT_SCRIPT,
                      help="JavaScript source.")
-    sim.add_argument("--output-dir",  type=Path,  default=Path("build/sim"),
+    sim.add_argument("--output-dir",  type=Path,  default=SIM_BUILD_DIR,
                      help="Simulator output directory.")
     sim.add_argument("--timeout",     type=float, default=120.0,
                      help="Seconds to wait for DONE marker.")
@@ -223,27 +230,27 @@ def main():
                      help="Print mquickjs heap stats.")
     sim.set_defaults(func=cmd_sim)
 
-    repl = subparsers.add_parser("repl", help="Run litex_sim and keep it alive for serial interaction.")
-    repl.add_argument("--output-dir", type=Path, default=Path("build/sim"),
-                      help="LiteX simulator output directory.")
-    repl.set_defaults(func=cmd_repl)
+    sim_repl = subparsers.add_parser("sim-repl", help="Run litex_sim and keep it alive for serial interaction.")
+    sim_repl.add_argument("--output-dir", type=Path, default=SIM_BUILD_DIR,
+                          help="LiteX simulator output directory.")
+    sim_repl.set_defaults(func=cmd_sim_repl)
 
     firmware = subparsers.add_parser("firmware", help="Build firmware for an existing LiteX build directory.")
-    firmware.add_argument("script", nargs="?", type=Path, default=Path("examples/hello.js"),
+    firmware.add_argument("script", nargs="?", type=Path, default=DEFAULT_SCRIPT,
                           help="JavaScript source.")
-    add_build_options(firmware, "build/sim")
+    add_build_options(firmware, SIM_BUILD_DIR)
     firmware.set_defaults(func=cmd_firmware)
 
     board_build = subparsers.add_parser("board-build", help="Build a LiteX-Boards target.")
     board_build.add_argument("--target",    required=True,            help="LiteX-Boards target module.")
-    board_build.add_argument("--build-dir", type=Path,                default=Path("build/board"),
+    board_build.add_argument("--build-dir", type=Path,                default=BOARD_BUILD_DIR,
                              help="Board build directory.")
     board_build.add_argument("target_args", nargs=argparse.REMAINDER, help="Extra target arguments after --.")
     board_build.set_defaults(func=cmd_board_build)
 
     board_load = subparsers.add_parser("board-load", help="Load a LiteX-Boards target bitstream.")
     board_load.add_argument("--target",    required=True,            help="LiteX-Boards target module.")
-    board_load.add_argument("--build-dir", type=Path,                default=Path("build/board"),
+    board_load.add_argument("--build-dir", type=Path,                default=BOARD_BUILD_DIR,
                             help="Board build directory.")
     board_load.add_argument("target_args", nargs=argparse.REMAINDER, help="Extra target arguments after --.")
     board_load.set_defaults(func=cmd_board_load)
@@ -254,7 +261,7 @@ def main():
 
     sdcard = subparsers.add_parser("sdcard", help="Prepare a FAT SDCard for standalone boot.")
     sdcard.add_argument("--mount", required=True, type=Path, help="Mounted SDCard root.")
-    add_build_options(sdcard, "build/board")
+    add_build_options(sdcard, BOARD_BUILD_DIR)
     sdcard.set_defaults(func=cmd_sdcard)
 
     clean = subparsers.add_parser("clean", help="Clean firmware build outputs.")
