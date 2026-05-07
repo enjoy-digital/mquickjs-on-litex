@@ -65,11 +65,12 @@ The LambdaConcept ECPIX-5 uses the upstream
 
 The validated setup used the FT2232 UART on `/dev/ttyUSB2`.
 
-For HDMI output, enable the target framebuffer and use the plasma demo:
+For HDMI output, enable the target framebuffer and use the animated
+plasma demo:
 
 ```sh
 ./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video -- --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
-./make.py firmware examples/plasma.js --build-dir build/ecpix5-video
+./make.py firmware examples/plasma_animated.js --build-dir build/ecpix5-video
 ./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video
 ./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
 ```
@@ -78,8 +79,10 @@ Validated output:
 
 ```text
 [plasma] framebuffer = 640 x 480 x 32
-[plasma] rendering 32 x 24 tile x 8
-[plasma] frame checksum = 0x83cb42c0
+[plasma] animated tile = 48 x 36 x 8
+[plasma] frames = 64
+[plasma] final checksum = 0x36513
+[plasma] animation took 24224 ms
 [plasma] done
 [mqjs] done
 ```
@@ -133,7 +136,8 @@ Start with the smallest script:
 Then try `examples/demo.js`. LED writes are no-ops when no LED CSR is
 present; switch/button reads return zero when those CSRs are absent. If
 the target has video, pass its framebuffer option after `--` and run
-`examples/plasma.js`.
+`examples/plasma.js` in simulation or `examples/plasma_animated.js` on
+hardware.
 
 For custom peripherals, add C bindings in `firmware/mqjs_port.c` and
 register the JavaScript entry points in `firmware/mqjs_stdlib_litex.c`.

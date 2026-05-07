@@ -394,6 +394,58 @@ static volatile uint32_t *framebuffer_pixels(void)
 {
     return (volatile uint32_t *)(uintptr_t)VIDEO_FRAMEBUFFER_BASE;
 }
+
+static int framebuffer_get_typed_array(JSContext *ctx, JSValue obj,
+                                       int expected_class_id,
+                                       uint32_t byte_length_min,
+                                       const void **data)
+{
+    uint8_t *buf;
+    uint32_t byte_length;
+    int class_id;
+
+    if (JS_GetClassID(ctx, obj) != expected_class_id)
+        return 0;
+    if (JS_GetTypedArrayBuffer(ctx, &buf, &byte_length, &class_id, obj))
+        return -1;
+    if (class_id != expected_class_id)
+        return 0;
+    if (byte_length < byte_length_min) {
+        JS_ThrowRangeError(ctx, "framebuffer buffer is too small");
+        return -1;
+    }
+
+    *data = buf;
+    return 1;
+}
+
+static int framebuffer_get_uint8_pixels(JSContext *ctx, JSValue obj,
+                                        uint32_t width, uint32_t height,
+                                        const uint8_t **pixels)
+{
+    const void *data;
+    int ret;
+
+    ret = framebuffer_get_typed_array(ctx, obj, JS_CLASS_UINT8_ARRAY,
+        width * height, &data);
+    if (ret > 0)
+        *pixels = (const uint8_t *)data;
+    return ret;
+}
+
+static int framebuffer_get_uint32_pixels(JSContext *ctx, JSValue obj,
+                                         uint32_t width, uint32_t height,
+                                         const uint32_t **pixels)
+{
+    const void *data;
+    int ret;
+
+    ret = framebuffer_get_typed_array(ctx, obj, JS_CLASS_UINT32_ARRAY,
+        width * height * sizeof(uint32_t), &data);
+    if (ret > 0)
+        *pixels = (const uint32_t *)data;
+    return ret;
+}
 #else
 static JSValue framebuffer_unavailable(JSContext *ctx)
 {
@@ -478,6 +530,22 @@ JSValue js_framebuffer_blit(JSContext *ctx, JSValue *this_val, int argc, JSValue
         return JS_ThrowRangeError(ctx, "blit rectangle outside framebuffer");
     }
 
+    framebuffer_start();
+    volatile uint32_t *fb = framebuffer_pixels();
+    const uint32_t *pixels;
+    int fast_path = framebuffer_get_uint32_pixels(ctx, argv[0], width, height, &pixels);
+    if (fast_path < 0)
+        return JS_EXCEPTION;
+    if (fast_path) {
+        for (uint32_t row = 0; row < height; row++) {
+            uint32_t dst = (y + row) * VIDEO_FRAMEBUFFER_HRES + x;
+            uint32_t src = row * width;
+            for (uint32_t col = 0; col < width; col++)
+                fb[dst + col] = pixels[src + col];
+        }
+        return JS_UNDEFINED;
+    }
+
     JSValue length_val = JS_GetPropertyStr(ctx, argv[0], "length");
     if (JS_IsException(length_val))
         return length_val;
@@ -487,8 +555,6 @@ JSValue js_framebuffer_blit(JSContext *ctx, JSValue *this_val, int argc, JSValue
     if (length < width * height)
         return JS_ThrowRangeError(ctx, "blit buffer is too small");
 
-    framebuffer_start();
-    volatile uint32_t *fb = framebuffer_pixels();
     for (uint32_t row = 0; row < height; row++) {
         uint32_t dst = (y + row) * VIDEO_FRAMEBUFFER_HRES + x;
         uint32_t src = row * width;
@@ -536,6 +602,28 @@ JSValue js_framebuffer_blit_scale(JSContext *ctx, JSValue *this_val, int argc, J
         return JS_ThrowRangeError(ctx, "scaled blit rectangle outside framebuffer");
     }
 
+    framebuffer_start();
+    volatile uint32_t *fb = framebuffer_pixels();
+    const uint32_t *pixels;
+    int fast_path = framebuffer_get_uint32_pixels(ctx, argv[0], width, height, &pixels);
+    if (fast_path < 0)
+        return JS_EXCEPTION;
+    if (fast_path) {
+        for (uint32_t row = 0; row < height; row++) {
+            for (uint32_t col = 0; col < width; col++) {
+                uint32_t pixel = pixels[row * width + col];
+                uint32_t dst_x = x + col * scale;
+                uint32_t dst_y = y + row * scale;
+                for (uint32_t sy = 0; sy < scale; sy++) {
+                    uint32_t dst = (dst_y + sy) * VIDEO_FRAMEBUFFER_HRES + dst_x;
+                    for (uint32_t sx = 0; sx < scale; sx++)
+                        fb[dst + sx] = pixel;
+                }
+            }
+        }
+        return JS_UNDEFINED;
+    }
+
     JSValue length_val = JS_GetPropertyStr(ctx, argv[0], "length");
     if (JS_IsException(length_val))
         return length_val;
@@ -545,8 +633,6 @@ JSValue js_framebuffer_blit_scale(JSContext *ctx, JSValue *this_val, int argc, J
     if (length < width * height)
         return JS_ThrowRangeError(ctx, "blitScale buffer is too small");
 
-    framebuffer_start();
-    volatile uint32_t *fb = framebuffer_pixels();
     for (uint32_t row = 0; row < height; row++) {
         for (uint32_t col = 0; col < width; col++) {
             JSValue pixel_val = JS_GetPropertyUint32(ctx, argv[0], row * width + col);
@@ -556,6 +642,72 @@ JSValue js_framebuffer_blit_scale(JSContext *ctx, JSValue *this_val, int argc, J
             if (JS_ToUint32(ctx, &pixel, pixel_val))
                 return JS_EXCEPTION;
 
+            uint32_t dst_x = x + col * scale;
+            uint32_t dst_y = y + row * scale;
+            for (uint32_t sy = 0; sy < scale; sy++) {
+                uint32_t dst = (dst_y + sy) * VIDEO_FRAMEBUFFER_HRES + dst_x;
+                for (uint32_t sx = 0; sx < scale; sx++)
+                    fb[dst + sx] = pixel;
+            }
+        }
+    }
+    return JS_UNDEFINED;
+#else
+    (void)argc; (void)argv;
+    return framebuffer_unavailable(ctx);
+#endif
+}
+
+JSValue js_framebuffer_blit_indexed_scale(JSContext *ctx, JSValue *this_val,
+                                          int argc, JSValue *argv)
+{
+    (void)this_val;
+#if MQJS_HAS_FRAMEBUFFER
+    if (argc < 7) {
+        return JS_ThrowTypeError(ctx,
+            "blitIndexedScale(indexes, palette, width, height, x, y, scale)");
+    }
+
+    uint32_t width, height, x, y, scale;
+    if (JS_ToUint32(ctx, &width, argv[2]))
+        return JS_EXCEPTION;
+    if (JS_ToUint32(ctx, &height, argv[3]))
+        return JS_EXCEPTION;
+    if (JS_ToUint32(ctx, &x, argv[4]))
+        return JS_EXCEPTION;
+    if (JS_ToUint32(ctx, &y, argv[5]))
+        return JS_EXCEPTION;
+    if (JS_ToUint32(ctx, &scale, argv[6]))
+        return JS_EXCEPTION;
+
+    if (width == 0 || height == 0 || scale == 0)
+        return JS_UNDEFINED;
+    if (x >= VIDEO_FRAMEBUFFER_HRES || y >= VIDEO_FRAMEBUFFER_VRES ||
+        width > (VIDEO_FRAMEBUFFER_HRES - x) / scale ||
+        height > (VIDEO_FRAMEBUFFER_VRES - y) / scale) {
+        return JS_ThrowRangeError(ctx, "indexed blit rectangle outside framebuffer");
+    }
+
+    const uint8_t *indexes;
+    int indexes_ok = framebuffer_get_uint8_pixels(ctx, argv[0], width, height, &indexes);
+    if (indexes_ok < 0)
+        return JS_EXCEPTION;
+    if (!indexes_ok)
+        return JS_ThrowTypeError(ctx, "indexes must be a Uint8Array");
+
+    const uint32_t *palette;
+    int palette_ok = framebuffer_get_uint32_pixels(ctx, argv[1], 256, 1, &palette);
+    if (palette_ok < 0)
+        return JS_EXCEPTION;
+    if (!palette_ok)
+        return JS_ThrowTypeError(ctx, "palette must be a Uint32Array");
+
+    framebuffer_start();
+    volatile uint32_t *fb = framebuffer_pixels();
+
+    for (uint32_t row = 0; row < height; row++) {
+        for (uint32_t col = 0; col < width; col++) {
+            uint32_t pixel = palette[indexes[row * width + col]];
             uint32_t dst_x = x + col * scale;
             uint32_t dst_y = y + row * scale;
             for (uint32_t sy = 0; sy < scale; sy++) {

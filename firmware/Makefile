@@ -90,8 +90,10 @@ CFLAGS   += $(MQJS_INC) $(EMBED_CFLAGS)
 # (only the un-versioned `rv32im` maps to a multilib directory). Resolve
 # it manually using an un-versioned flavour so the driver returns the
 # correct rv32im/ilp32 libgcc.a path. */
+ifeq ($(filter $(NO_BUILDDIR_TARGETS),$(MAKECMDGOALS)),)
 TARGET_LIBGCC := $(shell $(TARGET_PREFIX)gcc -march=rv32im -mabi=ilp32 \
                      -print-libgcc-file-name)
+endif
 
 # Silence warnings that aren't relevant for the vendored mquickjs C
 # files on this rv32 target (format typedef differences, intentionally
@@ -110,6 +112,8 @@ STDLIB_GEN  := $(GEN_DIR)/mqjs_stdlib_litex
 STDLIB_BUILD_C := $(GEN_DIR)/mquickjs_build_litex.c
 STDLIB_H    := $(GEN_DIR)/mqjs_stdlib.h
 ATOM_H      := $(GEN_DIR)/mquickjs_atom.h
+MQJS_PATCH  := $(FW_DIR)/patches/mquickjs-typed-array-buffer.patch
+MQJS_PATCHED_STAMP := $(GEN_DIR)/mquickjs-patched.stamp
 
 # Force 32-bit layout so the generated tables match the JSW=4 target
 # (RISC-V rv32). The generator itself is native.
@@ -185,6 +189,14 @@ $(STDLIB_H): $(STDLIB_GEN)
 $(ATOM_H): $(STDLIB_GEN)
 	$< -a $(STDLIB_GEN_FLAGS) > $@
 
+$(MQJS_PATCHED_STAMP): $(MQJS_DIR)/mquickjs.c $(MQJS_DIR)/mquickjs.h $(MQJS_PATCH) | $(GEN_DIR)
+	cp $(MQJS_DIR)/mquickjs.c $(GEN_DIR)/mquickjs.c
+	cp $(MQJS_DIR)/mquickjs.h $(GEN_DIR)/mquickjs.h
+	patch -d $(GEN_DIR) -p0 < $(MQJS_PATCH)
+	touch $@
+
+$(GEN_DIR)/mquickjs.c $(GEN_DIR)/mquickjs.h: $(MQJS_PATCHED_STAMP)
+
 ifneq ($(SCRIPT),)
 # Always rebuild user_script.h when SCRIPT is supplied: the path is a
 # make variable that isn't tracked as a dependency, so regenerating
@@ -202,7 +214,7 @@ endif
 # Header dependencies.
 main.o:      $(STDLIB_H) $(ATOM_H) $(USER_SCRIPT_H)
 mqjs_port.o: $(STDLIB_H) $(ATOM_H)
-mquickjs.o:  $(ATOM_H) clean-mqjs-generated-headers
+mquickjs.o:  $(GEN_DIR)/mquickjs.c $(GEN_DIR)/mquickjs.h $(ATOM_H) clean-mqjs-generated-headers
 
 # --- Compile rules ------------------------------------------------------
 
@@ -216,6 +228,9 @@ libm.o    : CFLAGS += $(MQJS_EXTRA_CFLAGS)
 cutils.o  : CFLAGS += $(MQJS_EXTRA_CFLAGS)
 
 %.o: %.c
+	$(compile)
+
+mquickjs.o:
 	$(compile)
 
 %.o: %.S

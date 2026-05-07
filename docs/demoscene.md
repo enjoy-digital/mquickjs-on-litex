@@ -38,19 +38,26 @@ framebuffer.depth
 framebuffer.clear(color)
 framebuffer.blit(buffer, width, height, x, y)
 framebuffer.blitScale(buffer, width, height, x, y, scale)
+framebuffer.blitIndexedScale(indexes, palette, width, height, x, y, scale)
 ```
 
 `buffer` is normally a `Uint32Array` of RGB pixels. The optional
 `width`, `height`, `x` and `y` arguments let scripts draw a smaller tile
 inside the framebuffer. `blitScale` expands each source pixel to a
-square block in C, so scripts stay small enough for the 1MHz simulator
-while still producing a visible HDMI image on hardware.
+square block in C, so the simulator demo stays fast while still
+producing a visible HDMI image on hardware.
 
-The first hardware validation used ECPIX-5:
+`blitIndexedScale` is the hardware-friendly variant for retro effects:
+JavaScript fills a `Uint8Array` tile and a 256-entry `Uint32Array`
+palette, then C expands the indexed pixels to the framebuffer. The
+effect remains scripted, but the repeated pixel copy is no longer a
+property-by-property JavaScript loop.
+
+For hardware, use the animated version:
 
 ```sh
 ./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video -- --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
-./make.py firmware examples/plasma.js --build-dir build/ecpix5-video
+./make.py firmware examples/plasma_animated.js --build-dir build/ecpix5-video
 ./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video
 ./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
 ```
