@@ -16,6 +16,7 @@ from pathlib import Path
 
 DEFAULT_SCRIPT  = Path("examples/hello.js")
 SIM_BUILD_DIR   = Path("build/sim")
+VIDEO_BUILD_DIR = Path("build/sim-video")
 BOARD_BUILD_DIR = Path("build/board")
 SIM_RUNNER      = Path("sim/run_sim.py")
 FIRMWARE_DIR    = Path("firmware")
@@ -153,6 +154,25 @@ def cmd_sim_repl(args):
     return run(cmd)
 
 
+def cmd_sim_video(args):
+    root = repo_root()
+    cmd  = [
+        root / SIM_RUNNER,
+        "--output-dir", args.output_dir,
+        "--script",     args.script,
+        "--timeout",    args.timeout,
+        "--with-sdram",
+        "--with-video-framebuffer",
+    ]
+    if args.with_ethernet:
+        cmd += ["--with-ethernet"]
+    if args.heap_size is not None:
+        cmd += ["--heap-size", args.heap_size]
+    if args.memory_dump:
+        cmd += ["--memory-dump"]
+    return run(cmd)
+
+
 def cmd_firmware(args):
     return run(firmware_cmd(args))
 
@@ -237,6 +257,24 @@ def main():
     sim_repl.add_argument("--output-dir", type=Path, default=SIM_BUILD_DIR,
                           help="LiteX simulator output directory.")
     sim_repl.set_defaults(func=cmd_sim_repl)
+
+    sim_video = subparsers.add_parser(
+        "sim-video",
+        help="Run a JavaScript framebuffer demo in litex_sim.")
+    sim_video.add_argument("script",        nargs="?",  type=Path,
+                           default=Path("examples/plasma.js"),
+                           help="JavaScript source.")
+    sim_video.add_argument("--output-dir",  type=Path,  default=VIDEO_BUILD_DIR,
+                           help="Simulator output directory.")
+    sim_video.add_argument("--timeout",     type=float, default=240.0,
+                           help="Seconds to wait for DONE marker.")
+    sim_video.add_argument("--heap-size",   type=int,   default=None,
+                           help="Override mquickjs heap size.")
+    sim_video.add_argument("--memory-dump", action="store_true",
+                           help="Print mquickjs heap stats.")
+    sim_video.add_argument("--with-ethernet", action="store_true",
+                           help="Also enable simulated Ethernet.")
+    sim_video.set_defaults(func=cmd_sim_video)
 
     firmware = subparsers.add_parser("firmware", help="Build firmware for an existing LiteX build directory.")
     firmware.add_argument("script", nargs="?", type=Path, default=DEFAULT_SCRIPT,

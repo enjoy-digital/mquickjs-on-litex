@@ -11,8 +11,10 @@ import sys
 import time
 import shutil
 import signal
+import json
 import argparse
 import subprocess
+import selectors
 from pathlib import Path
 
 
@@ -28,6 +30,10 @@ def run(cmd, cwd=None, env=None, check=True):
     if check and r.returncode != 0:
         sys.exit(r.returncode)
     return r.returncode
+
+
+def check_output(cmd):
+    return subprocess.check_output(cmd, text=True).strip()
 
 
 def build_firmware(repo_root: Path, build_dir: Path, script: Path | None,
@@ -65,7 +71,73 @@ def write_mem_init(fw_bin: Path, init_file: Path):
 
 # Simulator Build ----------------------------------------------------------------------------------
 
-def ensure_sim_soc(build_dir: Path, ram_size: str):
+def litex_args(args):
+    cmd = [
+        "--cpu-type=vexriscv",
+        "--libc-mode=full",
+        "--timer-uptime",
+    ]
+    if args.with_sdram:
+        cmd.append("--with-sdram")
+    else:
+        cmd.append(f"--integrated-main-ram-size={args.ram_size}")
+    if args.with_video_framebuffer:
+        cmd.append("--with-video-framebuffer")
+    if args.with_ethernet:
+        cmd.append("--with-ethernet")
+    return cmd
+
+
+def firmware_init_arg(profile, fw_bin: Path) -> str:
+    if "--with-sdram" in profile:
+        return f"--sdram-init={fw_bin}"
+    return f"--ram-init={fw_bin}"
+
+
+def write_profile_marker(build_dir: Path, profile):
+    marker = build_dir / ".mquickjs-sim-profile"
+    marker.write_text("\n".join(profile) + "\n", encoding="utf-8")
+
+
+def profile_matches(build_dir: Path, profile) -> bool:
+    marker = build_dir / ".mquickjs-sim-profile"
+    if not marker.exists():
+        return False
+    return marker.read_text(encoding="utf-8") == "\n".join(profile) + "\n"
+
+
+def clean_stale_profile(build_dir: Path, profile):
+    if profile_matches(build_dir, profile):
+        return
+    gateware_dir = build_dir / "gateware"
+    for path in [gateware_dir / "modules", gateware_dir / "obj_dir"]:
+        if path.exists():
+            print(f"[run_sim] removing stale {path}")
+            shutil.rmtree(path)
+
+
+def sim_env(profile):
+    env = os.environ.copy()
+    if "--with-video-framebuffer" not in profile:
+        return env
+
+    try:
+        sdl_libs = check_output(["pkg-config", "--libs", "sdl2"])
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        try:
+            sdl_libs = check_output(["sdl2-config", "--libs"])
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            sys.exit("[run_sim] SDL2 development files not found")
+
+    env["LDFLAGS"] = (env.get("LDFLAGS", "") + " " + sdl_libs).strip()
+    if "DISPLAY" not in env and "WAYLAND_DISPLAY" not in env:
+        env.setdefault("SDL_VIDEODRIVER", "dummy")
+    return env
+
+
+def ensure_sim_soc(build_dir: Path, profile):
+    clean_stale_profile(build_dir, profile)
+
     marker = build_dir / "software" / "include" / "generated" / "variables.mak"
     required = [
         marker,
@@ -73,36 +145,31 @@ def ensure_sim_soc(build_dir: Path, ram_size: str):
         build_dir / "software" / "libcompiler_rt" / "libcompiler_rt.a",
         build_dir / "software" / "libbase" / "libbase.a",
     ]
-    if all(path.exists() for path in required):
+    if profile_matches(build_dir, profile) and all(path.exists() for path in required):
         return False
 
     build_dir.mkdir(parents=True, exist_ok=True)
     cmd = [
         sys.executable, "-m", "litex.tools.litex_sim",
-        "--cpu-type=vexriscv",
-        f"--integrated-main-ram-size={ram_size}",
-        "--libc-mode=full",
-        "--timer-uptime",
+        *profile,
         f"--output-dir={build_dir}",
         "--no-compile-gateware",
         "--non-interactive",
     ]
-    run(cmd)
+    run(cmd, env=sim_env(profile))
+    write_profile_marker(build_dir, profile)
     return True
 
 
 def first_time_sim_build(repo_root: Path, build_dir: Path, fw_bin: Path,
-                         ram_size: str) -> Path:
+                         profile) -> Path:
     """Run litex_sim the 'normal' way once to produce obj_dir/Vsim.
     This is slow (~2 min on first build). Returns the Vsim path."""
     cmd = [
         sys.executable, "-m", "litex.tools.litex_sim",
-        "--cpu-type=vexriscv",
-        f"--integrated-main-ram-size={ram_size}",
-        "--libc-mode=full",
-        "--timer-uptime",
+        *profile,
         f"--output-dir={build_dir}",
-        f"--ram-init={fw_bin}",
+        firmware_init_arg(profile, fw_bin),
         "--non-interactive",
     ]
     print("[run_sim] first-time simulator build - this takes a couple of minutes...")
@@ -111,7 +178,7 @@ def first_time_sim_build(repo_root: Path, build_dir: Path, fw_bin: Path,
     # halts (we don't wait for that: we only care that obj_dir/Vsim
     # was produced).
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                            text=True, bufsize=1)
+                            text=True, bufsize=1, env=sim_env(profile))
     vsim = build_dir / "gateware" / "obj_dir" / "Vsim"
     start = time.time()
     deadline = start + 1800  # 30 minutes is plenty
@@ -143,16 +210,54 @@ def first_time_sim_build(repo_root: Path, build_dir: Path, fw_bin: Path,
     return vsim
 
 
+def refresh_firmware_init(build_dir: Path, fw_bin: Path, profile):
+    if "--with-sdram" not in profile:
+        init_file = main_ram_init_file(build_dir)
+        write_mem_init(fw_bin, init_file)
+        return
+
+    cmd = [
+        sys.executable, "-m", "litex.tools.litex_sim",
+        *profile,
+        f"--output-dir={build_dir}",
+        firmware_init_arg(profile, fw_bin),
+        "--no-compile-gateware",
+        "--non-interactive",
+    ]
+    run(cmd, env=sim_env(profile))
+
+
 def simulator_ready(build_dir: Path) -> bool:
     gateware_dir = build_dir / "gateware"
     vsim = gateware_dir / "obj_dir" / "Vsim"
-    sim_rom = gateware_dir / "sim_rom.init"
     modules_dir = gateware_dir / "modules"
     if not (vsim.exists() and modules_dir.is_dir() and any(modules_dir.glob("*.so"))):
         return False
-    if sim_rom.exists() and sim_rom.stat().st_mtime > vsim.stat().st_mtime:
-        return False
     return True
+
+
+def main_ram_init_file(build_dir: Path) -> Path:
+    gateware_dir = build_dir / "gateware"
+    for filename in ["sim_main_ram.init", "sim_mem.init"]:
+        path = gateware_dir / filename
+        if path.exists():
+            return path
+    return gateware_dir / "sim_main_ram.init"
+
+
+def cleanup_unused_modules(build_dir: Path):
+    config = build_dir / "gateware" / "sim_config.js"
+    modules_dir = build_dir / "gateware" / "modules"
+    if not config.exists() or not modules_dir.exists():
+        return
+
+    with config.open(encoding="utf-8") as f:
+        data = json.load(f)
+    used = {entry["module"] for entry in data if "module" in entry}
+    for module in modules_dir.glob("*.so"):
+        if module.stem not in used:
+            print(f"[run_sim] ignoring stale module {module.name}")
+            module.unlink()
 
 
 # Run / Watch --------------------------------------------------------------------------------------
@@ -162,18 +267,22 @@ def watch(proc, timeout: float, expect: str | None, keep_running: bool) -> int:
     expect_seen = expect is None
     seen_done = False
     seen_fail = False
+    selector = selectors.DefaultSelector()
+    selector.register(proc.stdout, selectors.EVENT_READ)
     try:
         while True:
             if proc.poll() is not None and proc.stdout.closed:
                 break
+            if time.time() - start > timeout:
+                print(f"\n[run_sim] timeout after {timeout:.1f}s", file=sys.stderr)
+                return 2
+            events = selector.select(timeout=0.1)
+            if not events:
+                continue
             line = proc.stdout.readline()
             if not line:
                 if proc.poll() is not None:
                     break
-                if time.time() - start > timeout:
-                    print(f"\n[run_sim] timeout after {timeout:.1f}s", file=sys.stderr)
-                    return 2
-                time.sleep(0.01)
                 continue
             sys.stdout.write(line)
             sys.stdout.flush()
@@ -222,16 +331,22 @@ def main():
     parser.add_argument("--keep-running", action="store_true",            help="Do not stop on DONE marker.")
     parser.add_argument("--heap-size",    type=int, default=None,          help="Override LITEX_MQJS_HEAP_SIZE.")
     parser.add_argument("--memory-dump",  action="store_true",            help="Print mquickjs heap statistics at exit.")
+    parser.add_argument("--with-sdram",   action="store_true",            help="Use simulated SDRAM as main RAM.")
+    parser.add_argument("--with-video-framebuffer", action="store_true",
+                        help="Enable LiteX video framebuffer.")
+    parser.add_argument("--with-ethernet", action="store_true",
+                        help="Enable simulated Ethernet.")
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parent.parent
     build_dir = (args.output_dir or (repo_root / "build" / "sim")).resolve()
+    profile = litex_args(args)
 
     if not shutil.which("verilator"):
         sys.exit("[run_sim] verilator not found on PATH")
 
     # 1. Ensure SoC files (libc, libbase, headers) exist.
-    soc_regenerated = ensure_sim_soc(build_dir, args.ram_size)
+    soc_regenerated = ensure_sim_soc(build_dir, profile)
 
     # 2. Build firmware.
     fw_bin = build_firmware(repo_root, build_dir, args.script, args.heap_size, args.memory_dump)
@@ -239,17 +354,18 @@ def main():
     # 3. Ensure Vsim exists. First time is slow; subsequent runs skip it.
     vsim = build_dir / "gateware" / "obj_dir" / "Vsim"
     if soc_regenerated or not simulator_ready(build_dir):
-        vsim = first_time_sim_build(repo_root, build_dir, fw_bin, args.ram_size)
+        vsim = first_time_sim_build(repo_root, build_dir, fw_bin, profile)
+    cleanup_unused_modules(build_dir)
 
-    # 4. Refresh the main_ram memory image with the current firmware.
-    init_file = build_dir / "gateware" / "sim_main_ram.init"
-    write_mem_init(fw_bin, init_file)
+    # 4. Refresh the main RAM/SDRAM memory image with the current firmware.
+    refresh_firmware_init(build_dir, fw_bin, profile)
 
     # 5. Run Vsim directly. cwd matters: it reads *.init from cwd.
     print(f"[run_sim] $ {vsim}")
     proc = subprocess.Popen(
         [str(vsim)],
         cwd=str(vsim.parent.parent),   # .../gateware
+        env=sim_env(profile),
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         bufsize=1,

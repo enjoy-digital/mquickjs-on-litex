@@ -15,6 +15,7 @@ sudo apt-get install -y \
     gcc-riscv64-unknown-elf \
     libevent-dev \
     libjson-c-dev \
+    libsdl2-dev \
     picolibc-riscv64-unknown-elf \
     verilator \
     meson ninja-build \
@@ -54,6 +55,16 @@ interactive serial session:
 ```sh
 ./make.py sim-repl
 ```
+
+For framebuffer experiments:
+
+```sh
+./make.py sim-video examples/plasma.js
+```
+
+This uses a separate `build/sim-video` directory and enables simulated
+SDRAM plus the LiteX video framebuffer. See
+[demoscene.md](demoscene.md) for the staged live-graphics plan.
 
 ## Tests
 

@@ -46,6 +46,7 @@ cd mquickjs-on-litex
 
 ./make.py sim
 ./make.py sim examples/demo.js
+./make.py sim-video examples/plasma.js
 ```
 
 The first run builds the LiteX simulator. Later runs reuse it and only
@@ -89,6 +90,7 @@ Useful docs:
 - [docs/simulation.md](docs/simulation.md): dependencies and sim flow.
 - [docs/hardware.md](docs/hardware.md): board and SDCard flow.
 - [docs/porting.md](docs/porting.md): firmware integration notes.
+- [docs/demoscene.md](docs/demoscene.md): framebuffer demo plan.
 
 ## [> License
 
