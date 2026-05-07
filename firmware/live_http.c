@@ -17,6 +17,7 @@
 #include "liteeth_lwip.h"
 #include "live_http.h"
 #include "live_runtime.h"
+#include "mqjs_config.h"
 #include "mqjs_port.h"
 
 #ifndef LITEX_MQJS_LIVE_PORT
@@ -24,9 +25,54 @@
 #endif
 
 #define LIVE_HTTP_MAX_CONNS     2
-#define LIVE_HTTP_REQ_MAX       12288
-#define LIVE_HTTP_SCRIPT_MAX    8192
+#define LIVE_HTTP_REQ_MAX       24576
+#define LIVE_HTTP_SCRIPT_MAX    16384
 #define LIVE_HTTP_LOG_MAX       2048
+
+#if defined(CSR_LEDS_BASE)
+#define LIVE_HTTP_HAS_LEDS 1
+#else
+#define LIVE_HTTP_HAS_LEDS 0
+#endif
+
+#if defined(CSR_SWITCHES_BASE)
+#define LIVE_HTTP_HAS_SWITCHES 1
+#else
+#define LIVE_HTTP_HAS_SWITCHES 0
+#endif
+
+#if defined(CSR_BUTTONS_BASE)
+#define LIVE_HTTP_HAS_BUTTONS 1
+#else
+#define LIVE_HTTP_HAS_BUTTONS 0
+#endif
+
+#if defined(CSR_CTRL_SCRATCH_ADDR)
+#define LIVE_HTTP_HAS_SCRATCH 1
+#else
+#define LIVE_HTTP_HAS_SCRATCH 0
+#endif
+
+#if defined(CSR_SDCARD_BASE) || defined(CSR_SPISDCARD_BASE)
+#define LIVE_HTTP_HAS_SDCARD 1
+#else
+#define LIVE_HTTP_HAS_SDCARD 0
+#endif
+
+#if defined(VIDEO_FRAMEBUFFER_BASE) && defined(VIDEO_FRAMEBUFFER_HRES) && \
+    defined(VIDEO_FRAMEBUFFER_VRES) && defined(VIDEO_FRAMEBUFFER_DEPTH)
+#define LIVE_HTTP_HAS_FRAMEBUFFER 1
+#define LIVE_HTTP_FB_WIDTH  VIDEO_FRAMEBUFFER_HRES
+#define LIVE_HTTP_FB_HEIGHT VIDEO_FRAMEBUFFER_VRES
+#define LIVE_HTTP_FB_DEPTH  VIDEO_FRAMEBUFFER_DEPTH
+#else
+#define LIVE_HTTP_HAS_FRAMEBUFFER 0
+#define LIVE_HTTP_FB_WIDTH  0
+#define LIVE_HTTP_FB_HEIGHT 0
+#define LIVE_HTTP_FB_DEPTH  0
+#endif
+
+#define LIVE_HTTP_JSON_BOOL(v) ((v) ? "true" : "false")
 
 #ifdef MACADDR1
 static const uint8_t live_mac[6] = {MACADDR1, MACADDR2, MACADDR3,
@@ -52,11 +98,12 @@ static const char live_http_index[] =
 "textarea{box-sizing:border-box;width:100%;height:380px;background:#111820;color:#d6deeb;border:1px solid #30363d;border-radius:6px;padding:14px;font:14px monospace;line-height:1.45}"
 ".bar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}"
 "button{background:#238636;color:white;border:0;border-radius:6px;padding:9px 13px;font:13px sans-serif;cursor:pointer}"
-"button.secondary{background:#30363d}button.tool{background:#1f6feb}"
+"button:disabled{opacity:.35;cursor:not-allowed}button.secondary{background:#30363d}button.tool{background:#1f6feb}"
 "pre{white-space:pre-wrap;background:#070b10;border:1px solid #30363d;border-radius:6px;padding:12px;min-height:42px}"
 "</style></head><body><main>"
 "<h1>mquickjs on LiteX</h1>"
 "<p>Edit JavaScript here, press Run, and the board executes it live.</p>"
+"<pre id='info'>detecting board...</pre>"
 "<textarea id='code'>"
 "console.log('[browser] live JavaScript on LiteX');\n"
 "var maxX = framebuffer.width  > 10 ? framebuffer.width  - 10 : 0;\n"
@@ -80,18 +127,19 @@ static const char live_http_index[] =
 "</div>"
 "<div class='bar'>"
 "<button class='tool' onclick='action(\"info\")'>Identify</button>"
-"<button class='tool' onclick='action(\"io\")'>Read I/O</button>"
-"<button class='tool' onclick='action(\"scratch\")'>Scratch</button>"
-"<button class='tool' onclick='action(\"led1\")'>LED 1</button>"
-"<button class='tool' onclick='action(\"led2\")'>LED 2</button>"
-"<button class='tool' onclick='action(\"led4\")'>LED 4</button>"
-"<button class='tool' onclick='action(\"led8\")'>LED 8</button>"
-"<button class='tool' onclick='action(\"chase\")'>Chase</button>"
-"<button class='tool' onclick='action(\"clear\")'>Clear</button>"
+"<button class='tool' data-feature='io' onclick='action(\"io\")'>Read I/O</button>"
+"<button class='tool' data-feature='scratch' onclick='action(\"scratch\")'>Scratch</button>"
+"<button class='tool' data-feature='leds' onclick='action(\"led1\")'>LED 1</button>"
+"<button class='tool' data-feature='leds' onclick='action(\"led2\")'>LED 2</button>"
+"<button class='tool' data-feature='leds' onclick='action(\"led4\")'>LED 4</button>"
+"<button class='tool' data-feature='leds' onclick='action(\"led8\")'>LED 8</button>"
+"<button class='tool' data-feature='leds' onclick='action(\"chase\")'>Chase</button>"
+"<button class='tool' data-feature='framebuffer' onclick='action(\"clear\")'>Clear</button>"
 "</div>"
 "<pre id='log'>ready</pre>"
 "<script>"
-"const code=document.getElementById('code'),log=document.getElementById('log');"
+"const code=document.getElementById('code'),log=document.getElementById('log'),infoEl=document.getElementById('info');"
+"let boardInfo=null;"
 "const presets={"
 "bars:`for (var f=0; f<48; f++) {\\n"
 "  for (var y=0; y<=framebuffer.height-8; y+=8) {\\n"
@@ -139,6 +187,14 @@ static const char live_http_index[] =
 "const r=await fetch('/run',{method:'POST',headers:{'Content-Type':'text/plain'},body:src});"
 "log.textContent=await r.text();}catch(e){log.textContent='ERR '+e;}}"
 "function run(){send(code.value);}"
+"function featureOK(n){if(!boardInfo)return true;if(n==='io')return boardInfo.features.switches||boardInfo.features.buttons;return !!boardInfo.features[n];}"
+"function applyInfo(){"
+"var f=boardInfo.features,fb=boardInfo.framebuffer;"
+"infoEl.textContent=boardInfo.identifier+'\\nCPU '+boardInfo.cpu+' @ '+boardInfo.clock_hz+' Hz, heap '+boardInfo.heap_bytes+' bytes\\nframebuffer '+(fb.present?(fb.width+' x '+fb.height+' x '+fb.depth):'not present')+'\\nfeatures: leds='+f.leds+' switches='+f.switches+' buttons='+f.buttons+' sdcard='+f.sdcard;"
+"document.querySelectorAll('[data-feature]').forEach(function(e){e.disabled=!featureOK(e.dataset.feature);});"
+"}"
+"async function refreshInfo(){try{boardInfo=await (await fetch('/info')).json();applyInfo();}catch(e){infoEl.textContent='board info unavailable: '+e;}}"
+"refreshInfo();"
 "</script></main></body></html>\n";
 
 struct live_http_conn {
@@ -313,6 +369,63 @@ static void live_http_reply(struct live_http_conn *conn,
     live_http_reply_len(conn, status, type, body, strlen(body));
 }
 
+static const char *live_http_identifier(void)
+{
+#if defined(CONFIG_IDENTIFIER)
+    return config_identifier_read();
+#else
+    return "LiteX SoC";
+#endif
+}
+
+static void live_http_info(struct live_http_conn *conn)
+{
+    int response_len;
+
+    response_len = snprintf(conn->response_body, sizeof(conn->response_body),
+        "{"
+        "\"identifier\":\"%s\","
+        "\"cpu\":\"%s\","
+        "\"clock_hz\":%u,"
+        "\"heap_bytes\":%u,"
+        "\"features\":{"
+        "\"leds\":%s,"
+        "\"switches\":%s,"
+        "\"buttons\":%s,"
+        "\"scratch\":%s,"
+        "\"sdcard\":%s,"
+        "\"framebuffer\":%s"
+        "},"
+        "\"framebuffer\":{"
+        "\"present\":%s,"
+        "\"width\":%u,"
+        "\"height\":%u,"
+        "\"depth\":%u"
+        "}"
+        "}\n",
+        live_http_identifier(),
+        CONFIG_CPU_HUMAN_NAME,
+        (unsigned)CONFIG_CLOCK_FREQUENCY,
+        (unsigned)LITEX_MQJS_HEAP_SIZE,
+        LIVE_HTTP_JSON_BOOL(LIVE_HTTP_HAS_LEDS),
+        LIVE_HTTP_JSON_BOOL(LIVE_HTTP_HAS_SWITCHES),
+        LIVE_HTTP_JSON_BOOL(LIVE_HTTP_HAS_BUTTONS),
+        LIVE_HTTP_JSON_BOOL(LIVE_HTTP_HAS_SCRATCH),
+        LIVE_HTTP_JSON_BOOL(LIVE_HTTP_HAS_SDCARD),
+        LIVE_HTTP_JSON_BOOL(LIVE_HTTP_HAS_FRAMEBUFFER),
+        LIVE_HTTP_JSON_BOOL(LIVE_HTTP_HAS_FRAMEBUFFER),
+        (unsigned)LIVE_HTTP_FB_WIDTH,
+        (unsigned)LIVE_HTTP_FB_HEIGHT,
+        (unsigned)LIVE_HTTP_FB_DEPTH);
+    if (response_len < 0)
+        response_len = 0;
+    if (response_len >= (int)sizeof(conn->response_body))
+        response_len = sizeof(conn->response_body) - 1;
+
+    live_http_reply_len(conn, "200 OK", "application/json",
+                        conn->response_body, response_len);
+}
+
 static void live_http_run(struct live_http_conn *conn, const char *body, size_t len)
 {
     int response_len;
@@ -378,6 +491,12 @@ static int live_http_parse(struct live_http_conn *conn)
     if (strncmp(conn->request, "GET / ", 6) == 0 ||
         strncmp(conn->request, "GET /HTTP", 9) == 0) {
         live_http_reply(conn, "200 OK", "text/html", live_http_index);
+        return 1;
+    }
+
+    if (strncmp(conn->request, "GET /info ", 10) == 0 ||
+        strncmp(conn->request, "GET /info?", 10) == 0) {
+        live_http_info(conn);
         return 1;
     }
 
