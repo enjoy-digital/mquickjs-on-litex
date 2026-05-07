@@ -134,6 +134,8 @@ static const char live_http_index[] =
 "<button class='secondary' onclick='control(\"pause\")'>Pause</button>"
 "<button class='secondary' onclick='control(\"resume\")'>Resume</button>"
 "<button class='secondary' onclick='control(\"reset\")'>Reset</button>"
+"<button class='secondary' data-feature='sdcard' onclick='saveMain()'>Save main.js</button>"
+"<button class='secondary' data-feature='sdcard' onclick='loadMain()'>Load main.js</button>"
 "<button class='secondary' onclick='preset(\"bars\")'>Bars</button>"
 "<button class='secondary' onclick='preset(\"plasma\")'>Plasma</button>"
 "<button class='secondary' onclick='preset(\"spark\")'>Spark</button>"
@@ -247,6 +249,12 @@ static const char live_http_index[] =
 "async function evalJS(src){try{"
 "const r=await fetch('/eval',{method:'POST',headers:{'Content-Type':'text/plain'},body:src});"
 "log.textContent=await r.text();await refreshInfo();}catch(e){log.textContent='ERR '+e;}}"
+"async function saveMain(){log.textContent='saving main.js...';try{"
+"const r=await fetch('/save',{method:'POST',headers:{'Content-Type':'text/plain'},body:helper+code.value});"
+"log.textContent=await r.text();await refreshInfo();}catch(e){log.textContent='ERR '+e;}}"
+"async function loadMain(){log.textContent='loading main.js...';try{"
+"const r=await fetch('/load');if(!r.ok)throw await r.text();code.value=await r.text();log.textContent='OK loaded main.js';}"
+"catch(e){log.textContent='ERR '+e;}}"
 "async function control(cmd){log.textContent=cmd+'...';try{"
 "const r=await fetch('/control',{method:'POST',headers:{'Content-Type':'text/plain'},body:cmd});"
 "log.textContent=await r.text();await refreshInfo();}catch(e){log.textContent='ERR '+e;}}"
@@ -256,7 +264,8 @@ static const char live_http_index[] =
 "function applyInfo(){"
 "var f=boardInfo.features,fb=boardInfo.framebuffer;"
 "var live=boardInfo.live;"
-"infoEl.textContent=boardInfo.identifier+'\\nCPU '+boardInfo.cpu+' @ '+boardInfo.clock_hz+' Hz, heap '+boardInfo.heap_bytes+' bytes\\nframebuffer '+(fb.present?(fb.width+' x '+fb.height+' x '+fb.depth):'not present')+'\\nfeatures: leds='+f.leds+' switches='+f.switches+' buttons='+f.buttons+' sdcard='+f.sdcard+'\\nlive: '+(live.active?(live.paused?'paused':'running'):'idle')+', frames='+live.frames+', last='+live.last_frame_ms+' ms';"
+"var fps=(live.fps_x100/100).toFixed(2),avg=(live.avg_frame_ms_x100/100).toFixed(2);"
+"infoEl.textContent=boardInfo.identifier+'\\nCPU '+boardInfo.cpu+' @ '+boardInfo.clock_hz+' Hz, heap '+boardInfo.heap_bytes+' bytes\\nframebuffer '+(fb.present?(fb.width+' x '+fb.height+' x '+fb.depth):'not present')+'\\nfeatures: leds='+f.leds+' switches='+f.switches+' buttons='+f.buttons+' sdcard='+f.sdcard+'\\nlive: '+(live.active?(live.paused?'paused':'running'):'idle')+', frames='+live.frames+', last='+live.last_frame_ms+' ms, avg='+avg+' ms, fps='+fps;"
 "document.querySelectorAll('[data-feature]').forEach(function(e){e.disabled=!featureOK(e.dataset.feature);});"
 "}"
 "async function refreshInfo(){try{boardInfo=await (await fetch('/info')).json();applyInfo();}catch(e){infoEl.textContent='board info unavailable: '+e;}}"
@@ -285,6 +294,11 @@ static uint8_t live_http_paused;
 static uint32_t live_http_frame_count;
 static uint32_t live_http_last_frame_ms;
 static uint32_t live_http_next_frame_ms;
+static uint32_t live_http_fps_x100;
+static uint32_t live_http_avg_frame_ms_x100;
+static uint32_t live_http_stats_start_ms;
+static uint32_t live_http_stats_frames;
+static uint32_t live_http_stats_time_ms;
 static char live_http_state[32] = "idle";
 
 static uint32_t live_http_millis(void)
@@ -551,7 +565,9 @@ static void live_http_info(struct live_http_conn *conn)
         "\"paused\":%s,"
         "\"state\":\"%s\","
         "\"frames\":%u,"
-        "\"last_frame_ms\":%u"
+        "\"last_frame_ms\":%u,"
+        "\"fps_x100\":%u,"
+        "\"avg_frame_ms_x100\":%u"
         "}"
         "}\n",
         live_http_identifier(),
@@ -572,7 +588,9 @@ static void live_http_info(struct live_http_conn *conn)
         LIVE_HTTP_JSON_BOOL(live_http_paused),
         live_http_state,
         (unsigned)live_http_frame_count,
-        (unsigned)live_http_last_frame_ms);
+        (unsigned)live_http_last_frame_ms,
+        (unsigned)live_http_fps_x100,
+        (unsigned)live_http_avg_frame_ms_x100);
     if (response_len < 0)
         response_len = 0;
     if (response_len >= (int)sizeof(conn->response_body))
@@ -626,6 +644,11 @@ static void live_http_run(struct live_http_conn *conn, const char *body, size_t 
             live_http_paused        = 0;
             live_http_frame_count   = 0;
             live_http_last_frame_ms = 0;
+            live_http_fps_x100      = 0;
+            live_http_avg_frame_ms_x100 = 0;
+            live_http_stats_start_ms = live_http_millis();
+            live_http_stats_frames   = 0;
+            live_http_stats_time_ms  = 0;
             live_http_next_frame_ms = live_http_millis();
             live_http_set_state("running");
         }
@@ -744,6 +767,49 @@ static void live_http_control(struct live_http_conn *conn,
     }
 }
 
+static void live_http_load_main(struct live_http_conn *conn)
+{
+    const char *data;
+    size_t len;
+    char err[96];
+
+    if (mqjs_fs_read_file("main.js", &data, &len, err, sizeof(err)) != 0) {
+        snprintf(conn->response_body, sizeof(conn->response_body),
+                 "ERR %s\n", err);
+        live_http_reply(conn, "500 Internal Server Error", "text/plain",
+                        conn->response_body);
+        return;
+    }
+    if (len > LIVE_HTTP_SCRIPT_MAX) {
+        live_http_reply(conn, "413 Payload Too Large", "text/plain",
+                        "ERR main.js too large\n");
+        return;
+    }
+
+    live_http_reply_len(conn, "200 OK", "text/plain", data, len);
+}
+
+static void live_http_save_main(struct live_http_conn *conn,
+                                const char *body, size_t len)
+{
+    char err[96];
+
+    if (len > LIVE_HTTP_SCRIPT_MAX) {
+        live_http_reply(conn, "413 Payload Too Large", "text/plain",
+                        "ERR script too large\n");
+        return;
+    }
+    if (mqjs_fs_write_file("main.js", body, len, err, sizeof(err)) != 0) {
+        snprintf(conn->response_body, sizeof(conn->response_body),
+                 "ERR %s\n", err);
+        live_http_reply(conn, "500 Internal Server Error", "text/plain",
+                        conn->response_body);
+        return;
+    }
+
+    live_http_reply(conn, "200 OK", "text/plain", "OK saved main.js\n");
+}
+
 static int live_http_parse(struct live_http_conn *conn)
 {
     char *body;
@@ -753,6 +819,7 @@ static int live_http_parse(struct live_http_conn *conn)
     int is_control;
     int is_eval;
     int is_run;
+    int is_save;
 
     conn->request[conn->request_len] = 0;
     body = strstr(conn->request, "\r\n\r\n");
@@ -774,13 +841,21 @@ static int live_http_parse(struct live_http_conn *conn)
         return 1;
     }
 
+    if (strncmp(conn->request, "GET /load ", 10) == 0 ||
+        strncmp(conn->request, "GET /load?", 10) == 0) {
+        live_http_load_main(conn);
+        return 1;
+    }
+
     is_run = strncmp(conn->request, "POST /run ", 10) == 0 ||
              strncmp(conn->request, "POST /run? ", 11) == 0;
     is_eval = strncmp(conn->request, "POST /eval ", 11) == 0 ||
               strncmp(conn->request, "POST /eval? ", 12) == 0;
     is_control = strncmp(conn->request, "POST /control ", 14) == 0 ||
                  strncmp(conn->request, "POST /control? ", 15) == 0;
-    if (!is_run && !is_eval && !is_control) {
+    is_save = strncmp(conn->request, "POST /save ", 11) == 0 ||
+              strncmp(conn->request, "POST /save? ", 12) == 0;
+    if (!is_run && !is_eval && !is_control && !is_save) {
         live_http_reply(conn, "404 Not Found", "text/plain", "ERR not found\n");
         return 1;
     }
@@ -794,6 +869,8 @@ static int live_http_parse(struct live_http_conn *conn)
         live_http_run(conn, body, content_len);
     else if (is_eval)
         live_http_eval(conn, body, content_len);
+    else if (is_save)
+        live_http_save_main(conn, body, content_len);
     else
         live_http_control(conn, body, content_len);
 
@@ -823,6 +900,22 @@ static void live_http_service_frame(void)
     elapsed = live_http_millis() - start;
     live_http_frame_count++;
     live_http_last_frame_ms = elapsed;
+    live_http_stats_frames++;
+    live_http_stats_time_ms += elapsed;
+    now = live_http_millis();
+    if ((now - live_http_stats_start_ms) >= 1000) {
+        uint32_t window_ms = now - live_http_stats_start_ms;
+
+        if (window_ms != 0 && live_http_stats_frames != 0) {
+            live_http_fps_x100 = (live_http_stats_frames * 100000) /
+                                 window_ms;
+            live_http_avg_frame_ms_x100 = (live_http_stats_time_ms * 100) /
+                                          live_http_stats_frames;
+        }
+        live_http_stats_start_ms = now;
+        live_http_stats_frames   = 0;
+        live_http_stats_time_ms  = 0;
+    }
     live_http_next_frame_ms = live_http_millis() + 33;
 }
 

@@ -9,6 +9,11 @@
 
 void mqjs_log_func(void *opaque, const void *buf, size_t buf_len);
 void mqjs_set_print_func(JSWriteFunc *write_func);
+int mqjs_fs_available(void);
+int mqjs_fs_read_file(const char *path, const char **data, size_t *len,
+                      char *err, size_t err_size);
+int mqjs_fs_write_file(const char *path, const char *data, size_t len,
+                       char *err, size_t err_size);
 
 JSValue js_print(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 JSValue js_gc   (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
@@ -27,6 +32,7 @@ JSValue js_litex_delay       (JSContext *ctx, JSValue *this_val, int argc, JSVal
 JSValue js_litex_csr_read32  (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 JSValue js_litex_csr_write32 (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 JSValue js_litex_read_file   (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
+JSValue js_litex_write_file  (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 JSValue js_litex_load        (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 JSValue js_litex_reboot      (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 
