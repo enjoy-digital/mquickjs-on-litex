@@ -63,6 +63,18 @@ def firmware_cmd(args, script=None):
     return cmd
 
 
+def firmware_clean_cmd():
+    root = repo_root()
+    return ["make", "-C", str(root / FIRMWARE_DIR), "clean"]
+
+
+def build_firmware(args, script=None):
+    rc = run(firmware_clean_cmd())
+    if rc:
+        return rc
+    return run(firmware_cmd(args, script=script))
+
+
 def target_args(args):
     extra = list(getattr(args, "target_args", []))
     if extra and extra[0] == "--":
@@ -175,7 +187,7 @@ def cmd_sim_video(args):
 
 
 def cmd_firmware(args):
-    return run(firmware_cmd(args))
+    return build_firmware(args)
 
 
 def cmd_board_build(args):
@@ -214,7 +226,7 @@ def cmd_board_run(args):
 def cmd_sdcard(args):
     root = repo_root()
 
-    rc = run(firmware_cmd(args, script=root / SDCARD_LOADER))
+    rc = build_firmware(args, script=root / SDCARD_LOADER)
     if rc:
         return rc
 
@@ -226,8 +238,7 @@ def cmd_sdcard(args):
 
 
 def cmd_clean(args):
-    root = repo_root()
-    return run(["make", "-C", str(root / FIRMWARE_DIR), "clean"])
+    return run(firmware_clean_cmd())
 
 
 # Parser -------------------------------------------------------------------------------------------
