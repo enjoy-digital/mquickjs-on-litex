@@ -38,6 +38,31 @@ void mqjs_log_func(void *opaque, const void *buf, size_t buf_len)
         putchar(p[i]);
 }
 
+static JSWriteFunc *mqjs_print_func;
+
+void mqjs_set_print_func(JSWriteFunc *write_func)
+{
+    mqjs_print_func = write_func;
+}
+
+static void mqjs_print_write(const void *buf, size_t len)
+{
+    const char *p = (const char *)buf;
+
+    if (mqjs_print_func != NULL) {
+        mqjs_print_func(NULL, buf, len);
+        return;
+    }
+
+    for (size_t i = 0; i < len; i++)
+        putchar(p[i]);
+}
+
+static void mqjs_print_char(char c)
+{
+    mqjs_print_write(&c, 1);
+}
+
 /* ------------------------------------------------------------------ */
 /* print / console.log                                                */
 /* ------------------------------------------------------------------ */
@@ -47,19 +72,18 @@ JSValue js_print(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv)
     (void)this_val;
     for (int i = 0; i < argc; i++) {
         if (i != 0)
-            putchar(' ');
+            mqjs_print_char(' ');
         JSValue v = argv[i];
         if (JS_IsString(ctx, v)) {
             JSCStringBuf sb;
             size_t len;
             const char *s = JS_ToCStringLen(ctx, &len, v, &sb);
-            for (size_t j = 0; j < len; j++)
-                putchar(s[j]);
+            mqjs_print_write(s, len);
         } else {
             JS_PrintValueF(ctx, argv[i], JS_DUMP_LONG);
         }
     }
-    putchar('\n');
+    mqjs_print_char('\n');
     return JS_UNDEFINED;
 }
 

@@ -17,6 +17,7 @@
 #include "liteeth_lwip.h"
 #include "live_http.h"
 #include "live_runtime.h"
+#include "mqjs_port.h"
 
 #ifndef LITEX_MQJS_LIVE_PORT
 #define LITEX_MQJS_LIVE_PORT 80
@@ -25,6 +26,7 @@
 #define LIVE_HTTP_MAX_CONNS     2
 #define LIVE_HTTP_REQ_MAX       12288
 #define LIVE_HTTP_SCRIPT_MAX    8192
+#define LIVE_HTTP_LOG_MAX       2048
 
 #ifdef MACADDR1
 static const uint8_t live_mac[6] = {MACADDR1, MACADDR2, MACADDR3,
@@ -50,7 +52,7 @@ static const char live_http_index[] =
 "textarea{box-sizing:border-box;width:100%;height:380px;background:#111820;color:#d6deeb;border:1px solid #30363d;border-radius:6px;padding:14px;font:14px monospace;line-height:1.45}"
 ".bar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}"
 "button{background:#238636;color:white;border:0;border-radius:6px;padding:9px 13px;font:13px sans-serif;cursor:pointer}"
-"button.secondary{background:#30363d}"
+"button.secondary{background:#30363d}button.tool{background:#1f6feb}"
 "pre{white-space:pre-wrap;background:#070b10;border:1px solid #30363d;border-radius:6px;padding:12px;min-height:42px}"
 "</style></head><body><main>"
 "<h1>mquickjs on LiteX</h1>"
@@ -75,6 +77,17 @@ static const char live_http_index[] =
 "<button class='secondary' onclick='preset(\"bars\")'>Bars</button>"
 "<button class='secondary' onclick='preset(\"plasma\")'>Plasma</button>"
 "<button class='secondary' onclick='preset(\"spark\")'>Spark</button>"
+"</div>"
+"<div class='bar'>"
+"<button class='tool' onclick='action(\"info\")'>Identify</button>"
+"<button class='tool' onclick='action(\"io\")'>Read I/O</button>"
+"<button class='tool' onclick='action(\"scratch\")'>Scratch</button>"
+"<button class='tool' onclick='action(\"led1\")'>LED 1</button>"
+"<button class='tool' onclick='action(\"led2\")'>LED 2</button>"
+"<button class='tool' onclick='action(\"led4\")'>LED 4</button>"
+"<button class='tool' onclick='action(\"led8\")'>LED 8</button>"
+"<button class='tool' onclick='action(\"chase\")'>Chase</button>"
+"<button class='tool' onclick='action(\"clear\")'>Clear</button>"
 "</div>"
 "<pre id='log'>ready</pre>"
 "<script>"
@@ -101,15 +114,37 @@ static const char live_http_index[] =
 "    framebuffer.fillRect(x,y,6,6,0x40d9ff);\\n"
 "  }\\n"
 "}\\n`};"
+"const actions={"
+"info:`console.log('[board] identifier =', litex.getIdentifier());\\n"
+"console.log('[board] clock =', litex.clockFrequency(), 'Hz');\\n"
+"console.log('[board] framebuffer =', framebuffer.width, 'x', framebuffer.height, 'x', framebuffer.depth);\\n`,"
+"io:`console.log('[board] switches =', litex.getSwitches());\\n"
+"console.log('[board] buttons =', litex.getButtons());\\n`,"
+"scratch:`var before=litex.getScratch();\\n"
+"litex.setScratch(0x51c0ffee);\\n"
+"var after=litex.getScratch();\\n"
+"litex.setScratch(before);\\n"
+"console.log('[board] scratch before = 0x'+before.toString(16));\\n"
+"console.log('[board] scratch test = 0x'+after.toString(16));\\n`,"
+"led1:`litex.setLeds(1); console.log('[board] LEDs = 0x1');\\n`,"
+"led2:`litex.setLeds(2); console.log('[board] LEDs = 0x2');\\n`,"
+"led4:`litex.setLeds(4); console.log('[board] LEDs = 0x4');\\n`,"
+"led8:`litex.setLeds(8); console.log('[board] LEDs = 0x8');\\n`,"
+"chase:`for (var i=0; i<16; i++) { litex.setLeds(1 << (i & 3)); litex.delay(80); }\\n"
+"litex.setLeds(0); console.log('[board] LED chase done');\\n`,"
+"clear:`framebuffer.clear(0); litex.setLeds(0); console.log('[board] cleared');\\n`};"
 "function preset(n){code.value=presets[n];}"
-"async function run(){log.textContent='running...';try{"
-"const r=await fetch('/run',{method:'POST',headers:{'Content-Type':'text/plain'},body:code.value});"
+"function action(n){send(actions[n]);}"
+"async function send(src){log.textContent='running...';try{"
+"const r=await fetch('/run',{method:'POST',headers:{'Content-Type':'text/plain'},body:src});"
 "log.textContent=await r.text();}catch(e){log.textContent='ERR '+e;}}"
+"function run(){send(code.value);}"
 "</script></main></body></html>\n";
 
 struct live_http_conn {
     struct tcp_pcb *pcb;
     char request[LIVE_HTTP_REQ_MAX + 1];
+    char response_body[LIVE_HTTP_LOG_MAX + 64];
     size_t request_len;
     const char *response;
     size_t response_len;
@@ -120,6 +155,41 @@ struct live_http_conn {
 
 static struct live_http_conn live_http_conns[LIVE_HTTP_MAX_CONNS];
 static JSContext **live_http_ctxp;
+static char live_http_log[LIVE_HTTP_LOG_MAX + 1];
+static size_t live_http_log_len;
+
+static void live_http_log_reset(void)
+{
+    live_http_log_len = 0;
+    live_http_log[0]  = 0;
+}
+
+static void live_http_log_append(const void *buf, size_t len)
+{
+    size_t avail;
+
+    if (live_http_log_len >= LIVE_HTTP_LOG_MAX)
+        return;
+
+    avail = LIVE_HTTP_LOG_MAX - live_http_log_len;
+    if (len > avail)
+        len = avail;
+
+    memcpy(&live_http_log[live_http_log_len], buf, len);
+    live_http_log_len += len;
+    live_http_log[live_http_log_len] = 0;
+}
+
+static void live_http_log_func(void *opaque, const void *buf, size_t buf_len)
+{
+    const char *p = buf;
+
+    (void)opaque;
+
+    for (size_t i = 0; i < buf_len; i++)
+        putchar(p[i]);
+    live_http_log_append(buf, buf_len);
+}
 
 static uint32_t ip_from_octets(const unsigned int ip[4])
 {
@@ -199,13 +269,13 @@ static err_t live_http_send_more(struct live_http_conn *conn)
     return ERR_OK;
 }
 
-static void live_http_reply(struct live_http_conn *conn,
-                            const char *status,
-                            const char *type,
-                            const char *body)
+static void live_http_reply_len(struct live_http_conn *conn,
+                                const char *status,
+                                const char *type,
+                                const char *body,
+                                size_t body_len)
 {
     size_t header_len;
-    size_t body_len = strlen(body);
 
     header_len = snprintf(conn->response_buf, sizeof(conn->response_buf),
                           "HTTP/1.1 %s\r\n"
@@ -235,8 +305,18 @@ static void live_http_reply(struct live_http_conn *conn,
     live_http_send_more(conn);
 }
 
+static void live_http_reply(struct live_http_conn *conn,
+                            const char *status,
+                            const char *type,
+                            const char *body)
+{
+    live_http_reply_len(conn, status, type, body, strlen(body));
+}
+
 static void live_http_run(struct live_http_conn *conn, const char *body, size_t len)
 {
+    int response_len;
+
     if (len > LIVE_HTTP_SCRIPT_MAX) {
         live_http_reply(conn, "413 Payload Too Large", "text/plain",
                         "ERR script too large\n");
@@ -246,19 +326,37 @@ static void live_http_run(struct live_http_conn *conn, const char *body, size_t 
     printf("[live] HTTP script: %u bytes\n", (unsigned)len);
     JS_FreeContext(*live_http_ctxp);
     *live_http_ctxp = new_mqjs_context();
+    live_http_log_reset();
     if (*live_http_ctxp == NULL) {
         live_http_reply(conn, "500 Internal Server Error", "text/plain",
                         "ERR JS_NewContext failed\n");
         return;
     }
+    JS_SetLogFunc(*live_http_ctxp, live_http_log_func);
+    mqjs_set_print_func(live_http_log_func);
 
     if (run_source(*live_http_ctxp, body, len, "live_http.js", JS_EVAL_REPL) == 0) {
+        mqjs_set_print_func(NULL);
         puts("[live] script ok");
-        live_http_reply(conn, "200 OK", "text/plain", "OK\n");
+        response_len = snprintf(conn->response_body, sizeof(conn->response_body),
+                                "OK\n%s", live_http_log);
+        if (response_len < 0)
+            response_len = 0;
+        if (response_len >= (int)sizeof(conn->response_body))
+            response_len = sizeof(conn->response_body) - 1;
+        live_http_reply_len(conn, "200 OK", "text/plain",
+                            conn->response_body, response_len);
     } else {
+        mqjs_set_print_func(NULL);
         puts("[live] script failed");
-        live_http_reply(conn, "500 Internal Server Error", "text/plain",
-                        "ERR script failed; see UART log\n");
+        response_len = snprintf(conn->response_body, sizeof(conn->response_body),
+                                "ERR script failed\n%s", live_http_log);
+        if (response_len < 0)
+            response_len = 0;
+        if (response_len >= (int)sizeof(conn->response_body))
+            response_len = sizeof(conn->response_body) - 1;
+        live_http_reply_len(conn, "500 Internal Server Error", "text/plain",
+                            conn->response_body, response_len);
     }
 }
 
