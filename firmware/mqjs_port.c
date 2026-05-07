@@ -412,7 +412,11 @@ static framebuffer_pixel_t framebuffer_color(uint32_t rgb)
 
     return (framebuffer_pixel_t)((r << 11) | (g << 5) | b);
 #else
-    return (framebuffer_pixel_t)rgb;
+    uint32_t r = (rgb >> 16) & 0xff;
+    uint32_t g = (rgb >>  8) & 0xff;
+    uint32_t b = (rgb >>  0) & 0xff;
+
+    return (framebuffer_pixel_t)((b << 16) | (g << 8) | r);
 #endif
 }
 
