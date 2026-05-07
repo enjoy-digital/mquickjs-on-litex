@@ -80,6 +80,7 @@ litex.setScratch(value)
 litex.csrRead32(addr)
 litex.csrWrite32(addr, value)
 litex.readFile(path)
+litex.writeFile(path, data)
 litex.load(path)
 ```
 
@@ -105,17 +106,13 @@ live demo page directly from the board:
 
 ```text
 Browser
-  GET  /      -> board-served editor page
-  POST /run  -> JavaScript source
-                  |
-                  v
-              mquickjs context reset
-                  |
-                  v
-              script evaluation
-                  |
-                  v
-              HTTP response with OK/ERR and console output
+  GET  /       -> board-served editor page
+  GET  /info   -> target features, framebuffer size, live stats
+  POST /run    -> reset mquickjs context, evaluate source
+  POST /eval   -> evaluate a small snippet in the active context
+  POST /control-> stop, pause, resume or reset the active script
+  GET  /load   -> read main.js from SDCard when available
+  POST /save   -> write main.js to SDCard when available
 ```
 
 The HTTP path uses lwIP in `NO_SYS=1` mode. There is no OS, socket API,
@@ -123,9 +120,19 @@ filesystem or dynamic web server; the page is a static C string and the
 HTTP parser accepts only the small request set needed by the demo.
 
 For robustness while iterating, each `/run` request creates a fresh
-mquickjs context. This keeps failed scripts from poisoning the next run.
-The browser utility buttons simply post short JavaScript snippets that
-use the same `litex.*` and `framebuffer.*` APIs as user scripts.
+mquickjs context. If the script defines `setup()`, it is called once. If
+it defines `frame(t)`, the firmware keeps calling it from the Ethernet
+poll loop and reports frame time/FPS through `/info`. Scripts without
+`frame(t)` still run once.
+
+The sliders use `/eval` to update `params.*` in the current context, so
+the running animation can change without replacing the script. The
+browser utility buttons simply post short JavaScript snippets that use
+the same `litex.*` and `framebuffer.*` APIs as user scripts.
+
+When SDCard support is present, the browser can save the current script
+as `main.js` and load it back later. `litex.writeFile()` exposes the
+same write path to JavaScript.
 
 ## Boot Options
 
