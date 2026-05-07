@@ -48,6 +48,8 @@ cd mquickjs-on-litex
 ./make.py sim
 ./make.py sim examples/demo.js
 ./make.py sim-video examples/plasma.js
+./make.py sim-video examples/fire.js
+./make.py sim-video examples/tunnel.js
 ```
 
 The first run builds the LiteX simulator. Later runs reuse it and only
@@ -81,9 +83,9 @@ For video-capable boards, enable the target framebuffer and run the
 animated indexed-color plasma demo:
 
 ```sh
-./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video-rgb565 --video-framebuffer-format=rgb565 -- --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
-./make.py firmware examples/plasma_animated.js --build-dir build/ecpix5-video-rgb565
-./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video-rgb565
+./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video -- --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
+./make.py firmware examples/plasma_animated.js --build-dir build/ecpix5-video
+./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video
 ./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
 ```
 

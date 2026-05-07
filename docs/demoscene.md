@@ -21,6 +21,8 @@ The practical path is to build it in small pieces, fully testable in
 
 ```sh
 ./make.py sim-video examples/plasma.js
+./make.py sim-video examples/fire.js
+./make.py sim-video examples/tunnel.js
 ```
 
 This builds a separate simulator in `build/sim-video` with:
@@ -72,9 +74,9 @@ other demos can reuse them without pulling in plasma-specific code.
 For hardware, use the animated version:
 
 ```sh
-./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video-rgb565 --video-framebuffer-format=rgb565 -- --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
-./make.py firmware examples/plasma_animated.js --build-dir build/ecpix5-video-rgb565
-./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video-rgb565
+./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video -- --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
+./make.py firmware examples/plasma_animated.js --build-dir build/ecpix5-video
+./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video
 ./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
 ```
 
