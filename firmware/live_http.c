@@ -673,6 +673,7 @@ static void live_http_run(struct live_http_conn *conn, const char *body, size_t 
 {
     JSContext *candidate;
     JSContext *old_ctx;
+    const char *reload_note;
     int candidate_heap;
     int has_frame;
     int response_len;
@@ -699,9 +700,11 @@ static void live_http_run(struct live_http_conn *conn, const char *body, size_t 
             mqjs_set_print_func(NULL);
             JS_FreeContext(candidate);
             puts("[live] setup failed");
+            reload_note = live_http_active ? "previous script kept" :
+                           "live script unchanged";
             response_len = snprintf(conn->response_body,
                                     sizeof(conn->response_body),
-                                    "ERR setup failed; previous script kept\n%s",
+                                    "ERR setup failed; %s\n%s", reload_note,
                                     live_http_log);
             if (response_len < 0)
                 response_len = 0;
@@ -749,8 +752,10 @@ static void live_http_run(struct live_http_conn *conn, const char *body, size_t 
         mqjs_set_print_func(NULL);
         JS_FreeContext(candidate);
         puts("[live] script failed");
+        reload_note = live_http_active ? "previous script kept" :
+                       "live script unchanged";
         response_len = snprintf(conn->response_body, sizeof(conn->response_body),
-                                "ERR script failed; previous script kept\n%s",
+                                "ERR script failed; %s\n%s", reload_note,
                                 live_http_log);
         if (response_len < 0)
             response_len = 0;
@@ -814,6 +819,23 @@ static int live_http_body_is(const char *body, size_t len, const char *cmd)
                        body[len - 1] == ' '))
         len--;
     return len == cmd_len && memcmp(body, cmd, cmd_len) == 0;
+}
+
+static int live_http_request_is(const char *request,
+                                const char *method,
+                                const char *path)
+{
+    size_t method_len = strlen(method);
+    size_t path_len   = strlen(path);
+
+    if (strncmp(request, method, method_len) != 0 || request[method_len] != ' ')
+        return 0;
+
+    request += method_len + 1;
+    if (strncmp(request, path, path_len) != 0)
+        return 0;
+
+    return request[path_len] == ' ' || request[path_len] == '?';
 }
 
 static void live_http_reset_context(void)
@@ -955,32 +977,25 @@ static int live_http_parse(struct live_http_conn *conn)
         return 1;
     }
 
-    if (strncmp(conn->request, "GET / ", 6) == 0 ||
-        strncmp(conn->request, "GET /HTTP", 9) == 0) {
+    if (live_http_request_is(conn->request, "GET", "/")) {
         live_http_reply(conn, "200 OK", "text/html", live_http_index);
         return 1;
     }
 
-    if (strncmp(conn->request, "GET /info ", 10) == 0 ||
-        strncmp(conn->request, "GET /info?", 10) == 0) {
+    if (live_http_request_is(conn->request, "GET", "/info")) {
         live_http_info(conn);
         return 1;
     }
 
-    if (strncmp(conn->request, "GET /load ", 10) == 0 ||
-        strncmp(conn->request, "GET /load?", 10) == 0) {
+    if (live_http_request_is(conn->request, "GET", "/load")) {
         live_http_load_slot(conn, conn->request);
         return 1;
     }
 
-    is_run = strncmp(conn->request, "POST /run ", 10) == 0 ||
-             strncmp(conn->request, "POST /run? ", 11) == 0;
-    is_eval = strncmp(conn->request, "POST /eval ", 11) == 0 ||
-              strncmp(conn->request, "POST /eval? ", 12) == 0;
-    is_control = strncmp(conn->request, "POST /control ", 14) == 0 ||
-                 strncmp(conn->request, "POST /control? ", 15) == 0;
-    is_save = strncmp(conn->request, "POST /save ", 11) == 0 ||
-              strncmp(conn->request, "POST /save? ", 12) == 0;
+    is_run     = live_http_request_is(conn->request, "POST", "/run");
+    is_eval    = live_http_request_is(conn->request, "POST", "/eval");
+    is_control = live_http_request_is(conn->request, "POST", "/control");
+    is_save    = live_http_request_is(conn->request, "POST", "/save");
     if (!is_run && !is_eval && !is_control && !is_save) {
         live_http_reply(conn, "404 Not Found", "text/plain", "ERR not found\n");
         return 1;
