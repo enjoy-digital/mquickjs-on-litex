@@ -105,22 +105,33 @@ static const char live_http_index[] =
 "<p>Edit JavaScript here, press Run, and the board executes it live.</p>"
 "<pre id='info'>detecting board...</pre>"
 "<textarea id='code'>"
-"console.log('[browser] live JavaScript on LiteX');\n"
-"var maxX = framebuffer.width  > 10 ? framebuffer.width  - 10 : 0;\n"
-"var maxY = framebuffer.height > 10 ? framebuffer.height - 10 : 0;\n"
-"for (var frame = 0; frame < 32; frame++) {\n"
-"  var phase = frame * 13;\n"
+"var t0 = 0;\n"
+"\n"
+"function setup() {\n"
+"  t0 = litex.millis();\n"
+"  framebuffer.clear(0x05070a);\n"
+"  console.log('[live] setup done');\n"
+"}\n"
+"\n"
+"function frame(t) {\n"
+"  var phase = ((t - t0) / 16) | 0;\n"
+"  var maxX = framebuffer.width  > 18 ? framebuffer.width  - 18 : 0;\n"
+"  var maxY = framebuffer.height > 18 ? framebuffer.height - 18 : 0;\n"
 "  framebuffer.clear(((phase & 255) << 16) | (((255 - phase) & 255) << 8));\n"
 "  for (var i = 0; i < 96; i++) {\n"
-"    var x = maxX ? (i * 17 + frame * 7) % maxX : 0;\n"
-"    var y = maxY ? (i * 11 + frame * 5) % maxY : 0;\n"
-"    framebuffer.fillRect(x, y, 10, 10, 0xffc857);\n"
+"    var x = maxX ? (i * 17 + phase * 5) % maxX : 0;\n"
+"    var y = maxY ? (i * 11 + phase * 3) % maxY : 0;\n"
+"    framebuffer.fillRect(x, y, 12, 12, 0xffc857);\n"
 "  }\n"
+"  litex.setLeds(1 << ((phase >> 3) & 3));\n"
 "}\n"
-"console.log('[browser] done');\n"
 "</textarea>"
 "<div class='bar'>"
 "<button onclick='run()'>Run</button>"
+"<button class='secondary' onclick='control(\"stop\")'>Stop</button>"
+"<button class='secondary' onclick='control(\"pause\")'>Pause</button>"
+"<button class='secondary' onclick='control(\"resume\")'>Resume</button>"
+"<button class='secondary' onclick='control(\"reset\")'>Reset</button>"
 "<button class='secondary' onclick='preset(\"bars\")'>Bars</button>"
 "<button class='secondary' onclick='preset(\"plasma\")'>Plasma</button>"
 "<button class='secondary' onclick='preset(\"spark\")'>Spark</button>"
@@ -185,16 +196,21 @@ static const char live_http_index[] =
 "function action(n){send(actions[n]);}"
 "async function send(src){log.textContent='running...';try{"
 "const r=await fetch('/run',{method:'POST',headers:{'Content-Type':'text/plain'},body:src});"
-"log.textContent=await r.text();}catch(e){log.textContent='ERR '+e;}}"
+"log.textContent=await r.text();await refreshInfo();}catch(e){log.textContent='ERR '+e;}}"
+"async function control(cmd){log.textContent=cmd+'...';try{"
+"const r=await fetch('/control',{method:'POST',headers:{'Content-Type':'text/plain'},body:cmd});"
+"log.textContent=await r.text();await refreshInfo();}catch(e){log.textContent='ERR '+e;}}"
 "function run(){send(code.value);}"
 "function featureOK(n){if(!boardInfo)return true;if(n==='io')return boardInfo.features.switches||boardInfo.features.buttons;return !!boardInfo.features[n];}"
 "function applyInfo(){"
 "var f=boardInfo.features,fb=boardInfo.framebuffer;"
-"infoEl.textContent=boardInfo.identifier+'\\nCPU '+boardInfo.cpu+' @ '+boardInfo.clock_hz+' Hz, heap '+boardInfo.heap_bytes+' bytes\\nframebuffer '+(fb.present?(fb.width+' x '+fb.height+' x '+fb.depth):'not present')+'\\nfeatures: leds='+f.leds+' switches='+f.switches+' buttons='+f.buttons+' sdcard='+f.sdcard;"
+"var live=boardInfo.live;"
+"infoEl.textContent=boardInfo.identifier+'\\nCPU '+boardInfo.cpu+' @ '+boardInfo.clock_hz+' Hz, heap '+boardInfo.heap_bytes+' bytes\\nframebuffer '+(fb.present?(fb.width+' x '+fb.height+' x '+fb.depth):'not present')+'\\nfeatures: leds='+f.leds+' switches='+f.switches+' buttons='+f.buttons+' sdcard='+f.sdcard+'\\nlive: '+(live.active?(live.paused?'paused':'running'):'idle')+', frames='+live.frames+', last='+live.last_frame_ms+' ms';"
 "document.querySelectorAll('[data-feature]').forEach(function(e){e.disabled=!featureOK(e.dataset.feature);});"
 "}"
 "async function refreshInfo(){try{boardInfo=await (await fetch('/info')).json();applyInfo();}catch(e){infoEl.textContent='board info unavailable: '+e;}}"
 "refreshInfo();"
+"setInterval(refreshInfo,1000);"
 "</script></main></body></html>\n";
 
 struct live_http_conn {
@@ -213,6 +229,26 @@ static struct live_http_conn live_http_conns[LIVE_HTTP_MAX_CONNS];
 static JSContext **live_http_ctxp;
 static char live_http_log[LIVE_HTTP_LOG_MAX + 1];
 static size_t live_http_log_len;
+static uint8_t live_http_active;
+static uint8_t live_http_paused;
+static uint32_t live_http_frame_count;
+static uint32_t live_http_last_frame_ms;
+static uint32_t live_http_next_frame_ms;
+static char live_http_state[32] = "idle";
+
+static uint32_t live_http_millis(void)
+{
+#if defined(CSR_TIMER0_UPTIME_CYCLES_ADDR)
+    timer0_uptime_latch_write(1);
+    return (uint32_t)(timer0_uptime_cycles_read() /
+        (CONFIG_CLOCK_FREQUENCY / 1000));
+#else
+    static uint32_t fallback_ms;
+
+    fallback_ms += 16;
+    return fallback_ms;
+#endif
+}
 
 static void live_http_log_reset(void)
 {
@@ -369,6 +405,63 @@ static void live_http_reply(struct live_http_conn *conn,
     live_http_reply_len(conn, status, type, body, strlen(body));
 }
 
+static void live_http_set_state(const char *state)
+{
+    snprintf(live_http_state, sizeof(live_http_state), "%s", state);
+}
+
+static void live_http_stop_script(const char *state)
+{
+    live_http_active = 0;
+    live_http_paused = 0;
+    live_http_set_state(state);
+}
+
+static void live_http_dump_exception(JSContext *ctx)
+{
+    JSValue e = JS_GetException(ctx);
+
+    fputs("error: ", stdout);
+    JS_PrintValueF(ctx, e, JS_DUMP_LONG);
+    putchar('\n');
+}
+
+static int live_http_has_function(JSContext *ctx, const char *name)
+{
+    JSValue global = JS_GetGlobalObject(ctx);
+    JSValue func   = JS_GetPropertyStr(ctx, global, name);
+
+    return JS_IsFunction(ctx, func);
+}
+
+static int live_http_call_function(JSContext *ctx, const char *name,
+                                   uint32_t arg, int use_arg)
+{
+    JSValue global = JS_GetGlobalObject(ctx);
+    JSValue func   = JS_GetPropertyStr(ctx, global, name);
+    JSValue ret;
+
+    if (!JS_IsFunction(ctx, func))
+        return 0;
+    if (JS_StackCheck(ctx, use_arg ? 3 : 2)) {
+        JS_ThrowOutOfMemory(ctx);
+        live_http_dump_exception(ctx);
+        return -1;
+    }
+
+    if (use_arg)
+        JS_PushArg(ctx, JS_NewInt32(ctx, arg));
+    JS_PushArg(ctx, func);
+    JS_PushArg(ctx, global);
+    ret = JS_Call(ctx, use_arg ? 1 : 0);
+    if (JS_IsException(ret)) {
+        live_http_dump_exception(ctx);
+        return -1;
+    }
+
+    return 1;
+}
+
 static const char *live_http_identifier(void)
 {
 #if defined(CONFIG_IDENTIFIER)
@@ -401,6 +494,13 @@ static void live_http_info(struct live_http_conn *conn)
         "\"width\":%u,"
         "\"height\":%u,"
         "\"depth\":%u"
+        "},"
+        "\"live\":{"
+        "\"active\":%s,"
+        "\"paused\":%s,"
+        "\"state\":\"%s\","
+        "\"frames\":%u,"
+        "\"last_frame_ms\":%u"
         "}"
         "}\n",
         live_http_identifier(),
@@ -416,7 +516,12 @@ static void live_http_info(struct live_http_conn *conn)
         LIVE_HTTP_JSON_BOOL(LIVE_HTTP_HAS_FRAMEBUFFER),
         (unsigned)LIVE_HTTP_FB_WIDTH,
         (unsigned)LIVE_HTTP_FB_HEIGHT,
-        (unsigned)LIVE_HTTP_FB_DEPTH);
+        (unsigned)LIVE_HTTP_FB_DEPTH,
+        LIVE_HTTP_JSON_BOOL(live_http_active),
+        LIVE_HTTP_JSON_BOOL(live_http_paused),
+        live_http_state,
+        (unsigned)live_http_frame_count,
+        (unsigned)live_http_last_frame_ms);
     if (response_len < 0)
         response_len = 0;
     if (response_len >= (int)sizeof(conn->response_body))
@@ -447,12 +552,38 @@ static void live_http_run(struct live_http_conn *conn, const char *body, size_t 
     }
     JS_SetLogFunc(*live_http_ctxp, live_http_log_func);
     mqjs_set_print_func(live_http_log_func);
+    live_http_stop_script("idle");
 
     if (run_source(*live_http_ctxp, body, len, "live_http.js", JS_EVAL_REPL) == 0) {
+        if (live_http_call_function(*live_http_ctxp, "setup", 0, 0) < 0) {
+            mqjs_set_print_func(NULL);
+            live_http_stop_script("setup failed");
+            puts("[live] setup failed");
+            response_len = snprintf(conn->response_body,
+                                    sizeof(conn->response_body),
+                                    "ERR setup failed\n%s", live_http_log);
+            if (response_len < 0)
+                response_len = 0;
+            if (response_len >= (int)sizeof(conn->response_body))
+                response_len = sizeof(conn->response_body) - 1;
+            live_http_reply_len(conn, "500 Internal Server Error", "text/plain",
+                                conn->response_body, response_len);
+            return;
+        }
+        if (live_http_has_function(*live_http_ctxp, "frame")) {
+            live_http_active        = 1;
+            live_http_paused        = 0;
+            live_http_frame_count   = 0;
+            live_http_last_frame_ms = 0;
+            live_http_next_frame_ms = live_http_millis();
+            live_http_set_state("running");
+        }
         mqjs_set_print_func(NULL);
         puts("[live] script ok");
         response_len = snprintf(conn->response_body, sizeof(conn->response_body),
-                                "OK\n%s", live_http_log);
+                                live_http_active ?
+                                "OK live loop started\n%s" : "OK\n%s",
+                                live_http_log);
         if (response_len < 0)
             response_len = 0;
         if (response_len >= (int)sizeof(conn->response_body))
@@ -473,12 +604,58 @@ static void live_http_run(struct live_http_conn *conn, const char *body, size_t 
     }
 }
 
+static int live_http_body_is(const char *body, size_t len, const char *cmd)
+{
+    size_t cmd_len = strlen(cmd);
+
+    while (len > 0 && (body[len - 1] == '\r' || body[len - 1] == '\n' ||
+                       body[len - 1] == ' '))
+        len--;
+    return len == cmd_len && memcmp(body, cmd, cmd_len) == 0;
+}
+
+static void live_http_reset_context(void)
+{
+    JS_FreeContext(*live_http_ctxp);
+    *live_http_ctxp = new_mqjs_context();
+    live_http_stop_script(*live_http_ctxp == NULL ? "reset failed" : "idle");
+}
+
+static void live_http_control(struct live_http_conn *conn,
+                              const char *body, size_t len)
+{
+    if (live_http_body_is(body, len, "stop")) {
+        live_http_stop_script("stopped");
+        live_http_reply(conn, "200 OK", "text/plain", "OK stopped\n");
+    } else if (live_http_body_is(body, len, "pause")) {
+        if (live_http_active) {
+            live_http_paused = 1;
+            live_http_set_state("paused");
+        }
+        live_http_reply(conn, "200 OK", "text/plain", "OK paused\n");
+    } else if (live_http_body_is(body, len, "resume")) {
+        if (live_http_active) {
+            live_http_paused = 0;
+            live_http_set_state("running");
+        }
+        live_http_reply(conn, "200 OK", "text/plain", "OK resumed\n");
+    } else if (live_http_body_is(body, len, "reset")) {
+        live_http_reset_context();
+        live_http_reply(conn, "200 OK", "text/plain", "OK reset\n");
+    } else {
+        live_http_reply(conn, "400 Bad Request", "text/plain",
+                        "ERR unknown control\n");
+    }
+}
+
 static int live_http_parse(struct live_http_conn *conn)
 {
     char *body;
     int body_len;
     int header_len;
     int content_len;
+    int is_control;
+    int is_run;
 
     conn->request[conn->request_len] = 0;
     body = strstr(conn->request, "\r\n\r\n");
@@ -500,8 +677,11 @@ static int live_http_parse(struct live_http_conn *conn)
         return 1;
     }
 
-    if (strncmp(conn->request, "POST /run ", 10) != 0 &&
-        strncmp(conn->request, "POST /run? ", 11) != 0) {
+    is_run = strncmp(conn->request, "POST /run ", 10) == 0 ||
+             strncmp(conn->request, "POST /run? ", 11) == 0;
+    is_control = strncmp(conn->request, "POST /control ", 14) == 0 ||
+                 strncmp(conn->request, "POST /control? ", 15) == 0;
+    if (!is_run && !is_control) {
         live_http_reply(conn, "404 Not Found", "text/plain", "ERR not found\n");
         return 1;
     }
@@ -511,9 +691,38 @@ static int live_http_parse(struct live_http_conn *conn)
     if (body_len < content_len)
         return 0;
 
-    live_http_run(conn, body, content_len);
+    if (is_run)
+        live_http_run(conn, body, content_len);
+    else
+        live_http_control(conn, body, content_len);
 
     return 1;
+}
+
+static void live_http_service_frame(void)
+{
+    uint32_t elapsed;
+    uint32_t now;
+    uint32_t start;
+
+    if (!live_http_active || live_http_paused || *live_http_ctxp == NULL)
+        return;
+
+    now = live_http_millis();
+    if ((int32_t)(now - live_http_next_frame_ms) < 0)
+        return;
+
+    start = live_http_millis();
+    mqjs_set_print_func(NULL);
+    if (live_http_call_function(*live_http_ctxp, "frame", now, 1) < 0) {
+        live_http_stop_script("frame failed");
+        puts("[live] frame failed");
+        return;
+    }
+    elapsed = live_http_millis() - start;
+    live_http_frame_count++;
+    live_http_last_frame_ms = elapsed;
+    live_http_next_frame_ms = live_http_millis() + 33;
 }
 
 static err_t live_http_recv(void *arg, struct tcp_pcb *pcb,
@@ -637,6 +846,7 @@ void live_http_loop(JSContext **ctxp)
     for (;;) {
         liteeth_lwip_poll(&netif);
         sys_check_timeouts();
+        live_http_service_frame();
     }
 }
 
