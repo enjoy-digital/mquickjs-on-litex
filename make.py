@@ -15,16 +15,17 @@ import subprocess
 from pathlib import Path
 
 
-DEFAULT_SCRIPT  = Path("examples/hello.js")
-SIM_BUILD_DIR   = Path("build/sim")
-VIDEO_BUILD_DIR = Path("build/sim-video")
-BOARD_BUILD_DIR = Path("build/board")
-SIM_RUNNER      = Path("sim/run_sim.py")
-FIRMWARE_DIR    = Path("firmware")
-FIRMWARE_BIN    = FIRMWARE_DIR / "firmware.bin"
-SDCARD_LOADER   = Path("examples/sdcard/loader.js")
-SDCARD_MAIN     = Path("examples/sdcard/main.js")
-UART_BAUDRATE   = 115200
+DEFAULT_SCRIPT       = Path("examples/hello.js")
+DEFAULT_VIDEO_SCRIPT = Path("examples/showcase.js")
+SIM_BUILD_DIR        = Path("build/sim")
+VIDEO_BUILD_DIR      = Path("build/sim-video")
+BOARD_BUILD_DIR      = Path("build/board")
+SIM_RUNNER           = Path("sim/run_sim.py")
+FIRMWARE_DIR         = Path("firmware")
+FIRMWARE_BIN         = FIRMWARE_DIR / "firmware.bin"
+SDCARD_LOADER        = Path("examples/sdcard/loader.js")
+SDCARD_MAIN          = Path("examples/sdcard/main.js")
+UART_BAUDRATE        = 115200
 
 
 # Helpers ------------------------------------------------------------------------------------------
@@ -316,7 +317,7 @@ def main():
         "sim-video",
         help="Run a JavaScript framebuffer demo in litex_sim.")
     sim_video.add_argument("script",        nargs="?",  type=Path,
-                           default=Path("examples/plasma.js"),
+                           default=DEFAULT_VIDEO_SCRIPT,
                            help="JavaScript source.")
     sim_video.add_argument("--output-dir",  type=Path,  default=VIDEO_BUILD_DIR,
                            help="Simulator output directory.")

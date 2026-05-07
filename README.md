@@ -47,6 +47,7 @@ cd mquickjs-on-litex
 
 ./make.py sim
 ./make.py sim examples/demo.js
+./make.py sim-video
 ./make.py sim-video examples/plasma.js
 ./make.py sim-video examples/fire.js
 ./make.py sim-video examples/tunnel.js
@@ -80,11 +81,11 @@ Edit `main.js` on the SDCard, reset the board, and the FPGA runs the
 new JavaScript.
 
 For video-capable boards, enable the target framebuffer and run the
-animated indexed-color plasma demo:
+showcase playlist. It runs plasma, fire and tunnel from one firmware:
 
 ```sh
 ./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video -- --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
-./make.py firmware examples/plasma_animated.js --build-dir build/ecpix5-video
+./make.py firmware examples/showcase.js --build-dir build/ecpix5-video
 ./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video
 ./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
 ```

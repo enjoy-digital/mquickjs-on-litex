@@ -382,6 +382,7 @@ static const JSPropDef js_litex[] = {
     JS_CFUNC_DEF("getScratch",  0, js_litex_get_scratch),
     JS_CFUNC_DEF("setScratch",  1, js_litex_set_scratch),
     /* Timing */
+    JS_CFUNC_DEF("clockFrequency", 0, js_litex_clock_frequency),
     JS_CFUNC_DEF("millis",      0, js_litex_millis),
     JS_CFUNC_DEF("delay",       1, js_litex_delay),
     /* CSR: raw access, useful for binding to any LiteX peripheral */

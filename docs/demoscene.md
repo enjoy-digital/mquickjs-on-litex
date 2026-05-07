@@ -20,9 +20,7 @@ The practical path is to build it in small pieces, fully testable in
 ## First Prototype
 
 ```sh
-./make.py sim-video examples/plasma.js
-./make.py sim-video examples/fire.js
-./make.py sim-video examples/tunnel.js
+./make.py sim-video
 ```
 
 This builds a separate simulator in `build/sim-video` with:
@@ -71,11 +69,24 @@ blitIndexedScale(..., paletteOffset, dirtyX, dirtyY, dirtyW, dirtyH)
 scrolling, and small UI overlays. They are intentionally generic, so
 other demos can reuse them without pulling in plasma-specific code.
 
-For hardware, use the animated version:
+`examples/showcase.js` is the default video demo. It runs plasma, fire
+and tunnel as a playlist. In 1MHz simulation it uses tiny one-frame
+settings; on hardware it automatically uses a larger animated tile.
+
+The individual demos are useful while tuning one effect:
+
+```sh
+./make.py sim-video examples/plasma.js
+./make.py sim-video examples/fire.js
+./make.py sim-video examples/tunnel.js
+./make.py firmware examples/plasma_animated.js --build-dir build/ecpix5-video
+```
+
+For hardware, use the showcase firmware:
 
 ```sh
 ./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video -- --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
-./make.py firmware examples/plasma_animated.js --build-dir build/ecpix5-video
+./make.py firmware examples/showcase.js --build-dir build/ecpix5-video
 ./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video
 ./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
 ```

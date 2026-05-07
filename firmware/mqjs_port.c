@@ -181,6 +181,12 @@ JSValue js_litex_set_scratch(JSContext *ctx, JSValue *this_val, int argc, JSValu
     return JS_UNDEFINED;
 }
 
+JSValue js_litex_clock_frequency(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv)
+{
+    (void)this_val; (void)argc; (void)argv;
+    return JS_NewUint32(ctx, CONFIG_CLOCK_FREQUENCY);
+}
+
 JSValue js_litex_millis(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv)
 {
     (void)this_val; (void)argc; (void)argv;

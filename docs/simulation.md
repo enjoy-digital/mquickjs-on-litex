@@ -59,11 +59,16 @@ interactive serial session:
 For framebuffer experiments:
 
 ```sh
+./make.py sim-video
 ./make.py sim-video examples/plasma.js
+./make.py sim-video examples/fire.js
+./make.py sim-video examples/tunnel.js
 ```
 
 This uses a separate `build/sim-video` directory and enables simulated
-SDRAM plus the LiteX video framebuffer. See
+SDRAM plus the LiteX video framebuffer. The default `sim-video` script
+is `examples/showcase.js`, which runs the visual demo playlist with
+small simulation settings. See
 [demoscene.md](demoscene.md) for the staged live-graphics plan.
 
 ## Tests

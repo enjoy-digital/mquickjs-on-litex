@@ -20,6 +20,7 @@ JSValue js_litex_get_buttons (JSContext *ctx, JSValue *this_val, int argc, JSVal
 JSValue js_litex_get_identifier(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 JSValue js_litex_get_scratch(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 JSValue js_litex_set_scratch(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
+JSValue js_litex_clock_frequency(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 JSValue js_litex_millis      (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 JSValue js_litex_delay       (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 JSValue js_litex_csr_read32  (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
