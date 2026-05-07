@@ -97,6 +97,8 @@ static const char live_http_index[] =
 "h1{font-size:22px;margin:0 0 4px;color:#fff}p{margin:0 0 16px;color:#8b949e}"
 "textarea{box-sizing:border-box;width:100%;height:380px;background:#111820;color:#d6deeb;border:1px solid #30363d;border-radius:6px;padding:14px;font:14px monospace;line-height:1.45}"
 ".bar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}"
+".bar label{display:flex;align-items:center;gap:6px;color:#8b949e}"
+"input[type=range]{width:118px}"
 "button{background:#238636;color:white;border:0;border-radius:6px;padding:9px 13px;font:13px sans-serif;cursor:pointer}"
 "button:disabled{opacity:.35;cursor:not-allowed}button.secondary{background:#30363d}button.tool{background:#1f6feb}"
 "pre{white-space:pre-wrap;background:#070b10;border:1px solid #30363d;border-radius:6px;padding:12px;min-height:42px}"
@@ -109,21 +111,21 @@ static const char live_http_index[] =
 "\n"
 "function setup() {\n"
 "  t0 = litex.millis();\n"
-"  framebuffer.clear(0x05070a);\n"
+"  demo.clear(0x05070a);\n"
 "  console.log('[live] setup done');\n"
 "}\n"
 "\n"
 "function frame(t) {\n"
-"  var phase = ((t - t0) / 16) | 0;\n"
+"  var phase = (((t - t0) * params.speed) / 256) | 0;\n"
 "  var maxX = framebuffer.width  > 18 ? framebuffer.width  - 18 : 0;\n"
 "  var maxY = framebuffer.height > 18 ? framebuffer.height - 18 : 0;\n"
-"  framebuffer.clear(((phase & 255) << 16) | (((255 - phase) & 255) << 8));\n"
-"  for (var i = 0; i < 96; i++) {\n"
+"  demo.clear(demo.hue(phase + params.hue));\n"
+"  for (var i = 0; i < params.count; i++) {\n"
 "    var x = maxX ? (i * 17 + phase * 5) % maxX : 0;\n"
 "    var y = maxY ? (i * 11 + phase * 3) % maxY : 0;\n"
-"    framebuffer.fillRect(x, y, 12, 12, 0xffc857);\n"
+"    framebuffer.fillRect(x, y, 12, 12, demo.hue(phase + i * 3));\n"
 "  }\n"
-"  litex.setLeds(1 << ((phase >> 3) & 3));\n"
+"  demo.led(phase >> 3);\n"
 "}\n"
 "</textarea>"
 "<div class='bar'>"
@@ -135,6 +137,13 @@ static const char live_http_index[] =
 "<button class='secondary' onclick='preset(\"bars\")'>Bars</button>"
 "<button class='secondary' onclick='preset(\"plasma\")'>Plasma</button>"
 "<button class='secondary' onclick='preset(\"spark\")'>Spark</button>"
+"<button class='secondary' onclick='preset(\"tunnel\")'>Tunnel</button>"
+"</div>"
+"<div class='bar'>"
+"<label>speed <input id='speed' type='range' min='1' max='96' value='32' onchange='syncParams()'></label>"
+"<label>scale <input id='scale' type='range' min='2' max='8' value='6' onchange='syncParams()'></label>"
+"<label>count <input id='count' type='range' min='16' max='256' value='96' onchange='syncParams()'></label>"
+"<label>hue <input id='hue' type='range' min='0' max='255' value='0' onchange='syncParams()'></label>"
 "</div>"
 "<div class='bar'>"
 "<button class='tool' onclick='action(\"info\")'>Identify</button>"
@@ -150,28 +159,66 @@ static const char live_http_index[] =
 "<pre id='log'>ready</pre>"
 "<script>"
 "const code=document.getElementById('code'),log=document.getElementById('log'),infoEl=document.getElementById('info');"
+"const speed=document.getElementById('speed'),scale=document.getElementById('scale'),count=document.getElementById('count'),hue=document.getElementById('hue');"
 "let boardInfo=null;"
+"const helper=`var params={speed:32,scale:6,count:96,hue:0};\\n"
+"var demo={\\n"
+"  rgb:function(r,g,b){return ((r&255)<<16)|((g&255)<<8)|(b&255);},\\n"
+"  hue:function(h){h&=255;return demo.rgb((h*5)&255,(255-h)&255,(h*3)&255);},\\n"
+"  clear:function(c){if(framebuffer.width)framebuffer.clear(c);},\\n"
+"  led:function(n){litex.setLeds(1<<(n&3));},\\n"
+"  centerX:function(w){return ((framebuffer.width-w)/2)|0;},\\n"
+"  centerY:function(h){return ((framebuffer.height-h)/2)|0;},\\n"
+"  blitIndexed:function(idx,pal,w,h,s){framebuffer.blitIndexedScale(idx,pal,w,h,demo.centerX(w*s),demo.centerY(h*s),s);}\\n"
+"};\\n`;"
 "const presets={"
-"bars:`for (var f=0; f<48; f++) {\\n"
-"  for (var y=0; y<=framebuffer.height-8; y+=8) {\\n"
-"    var c=((y*3+f*9)&255)<<16 | ((255-y+f*5)&255)<<8 | ((y+f*7)&255);\\n"
+"bars:`var t0=0;\\n"
+"function setup(){t0=litex.millis();console.log('[bars] running');}\\n"
+"function frame(t){\\n"
+"  var p=(((t-t0)*params.speed)/256)|0;\\n"
+"  for(var y=0;y<=framebuffer.height-8;y+=8){\\n"
+"    var c=demo.hue(y+p+params.hue);\\n"
 "    framebuffer.fillRect(0,y,framebuffer.width,8,c);\\n"
 "  }\\n"
+"  demo.led(p>>4);\\n"
 "}\\n`,"
-"plasma:`var w=framebuffer.width, h=framebuffer.height;\\n"
-"for (var f=0; f<24; f++) {\\n"
-"  for (var y=0; y<=h-4; y+=4) for (var x=0; x<=w-4; x+=4) {\\n"
-"    var v=((x*x+y*y+f*173)>>6)&255;\\n"
-"    framebuffer.fillRect(x,y,4,4,(v<<16)|(((255-v)&255)<<8)|((v*3)&255));\\n"
-"  }\\n"
+"plasma:`var w=80,h=60,idx,pal,t0=0;\\n"
+"function setup(){\\n"
+"  t0=litex.millis();idx=new Uint8Array(w*h);pal=new Uint32Array(256);\\n"
+"  for(var i=0;i<256;i++)pal[i]=demo.hue(i);\\n"
+"  console.log('[plasma] low-res indexed plasma');\\n"
+"}\\n"
+"function frame(t){\\n"
+"  var p=(((t-t0)*params.speed)/128)|0;\\n"
+"  for(var y=0;y<h;y++)for(var x=0;x<w;x++)idx[y*w+x]=((x*x+y*y+(x*p)+(y*(p>>1)))>>5)&255;\\n"
+"  demo.blitIndexed(idx,pal,w,h,params.scale);\\n"
+"  demo.led(p>>4);\\n"
 "}\\n`,"
-"spark:`for (var f=0; f<64; f++) {\\n"
-"  framebuffer.clear(0);\\n"
-"  var maxX=framebuffer.width>6?framebuffer.width-6:0, maxY=framebuffer.height>6?framebuffer.height-6:0;\\n"
-"  for (var i=0; i<160; i++) {\\n"
-"    var x=maxX?(i*23+f*9)%maxX:0, y=maxY?(i*i+f*13)%maxY:0;\\n"
-"    framebuffer.fillRect(x,y,6,6,0x40d9ff);\\n"
+"spark:`var t0=0;\\n"
+"function setup(){t0=litex.millis();demo.clear(0);console.log('[spark] particles');}\\n"
+"function frame(t){\\n"
+"  var p=(((t-t0)*params.speed)/192)|0;demo.clear(0);\\n"
+"  var mx=framebuffer.width>6?framebuffer.width-6:0,my=framebuffer.height>6?framebuffer.height-6:0;\\n"
+"  for(var i=0;i<params.count;i++){\\n"
+"    var x=mx?(i*23+p*9)%mx:0,y=my?(i*i+p*13)%my:0;\\n"
+"    framebuffer.fillRect(x,y,6,6,demo.hue(params.hue+p+i));\\n"
 "  }\\n"
+"  demo.led(p>>3);\\n"
+"}\\n`,"
+"tunnel:`var w=80,h=60,idx,pal,t0=0;\\n"
+"function setup(){\\n"
+"  t0=litex.millis();idx=new Uint8Array(w*h);pal=new Uint32Array(256);\\n"
+"  for(var i=0;i<256;i++)pal[i]=demo.hue(i+params.hue);\\n"
+"  console.log('[tunnel] integer tunnel');\\n"
+"}\\n"
+"function frame(t){\\n"
+"  var p=(((t-t0)*params.speed)/160)|0,cx=w>>1,cy=h>>1;\\n"
+"  for(var y=0;y<h;y++)for(var x=0;x<w;x++){\\n"
+"    var dx=x-cx,dy=y-cy,d=(dx*dx+dy*dy+1);\\n"
+"    idx[y*w+x]=((4096/d)+(x*3)+(y*5)+p)&255;\\n"
+"  }\\n"
+"  demo.blitIndexed(idx,pal,w,h,params.scale);\\n"
+"  demo.led(p>>4);\\n"
 "}\\n`};"
 "const actions={"
 "info:`console.log('[board] identifier =', litex.getIdentifier());\\n"
@@ -197,10 +244,14 @@ static const char live_http_index[] =
 "async function send(src){log.textContent='running...';try{"
 "const r=await fetch('/run',{method:'POST',headers:{'Content-Type':'text/plain'},body:src});"
 "log.textContent=await r.text();await refreshInfo();}catch(e){log.textContent='ERR '+e;}}"
+"async function evalJS(src){try{"
+"const r=await fetch('/eval',{method:'POST',headers:{'Content-Type':'text/plain'},body:src});"
+"log.textContent=await r.text();await refreshInfo();}catch(e){log.textContent='ERR '+e;}}"
 "async function control(cmd){log.textContent=cmd+'...';try{"
 "const r=await fetch('/control',{method:'POST',headers:{'Content-Type':'text/plain'},body:cmd});"
 "log.textContent=await r.text();await refreshInfo();}catch(e){log.textContent='ERR '+e;}}"
-"function run(){send(code.value);}"
+"function run(){send(helper+code.value);}"
+"function syncParams(){evalJS('params.speed='+speed.value+';params.scale='+scale.value+';params.count='+count.value+';params.hue='+hue.value+';console.log(\"[params] speed='+speed.value+' scale='+scale.value+' count='+count.value+' hue='+hue.value+'\");');}"
 "function featureOK(n){if(!boardInfo)return true;if(n==='io')return boardInfo.features.switches||boardInfo.features.buttons;return !!boardInfo.features[n];}"
 "function applyInfo(){"
 "var f=boardInfo.features,fb=boardInfo.framebuffer;"
@@ -604,6 +655,51 @@ static void live_http_run(struct live_http_conn *conn, const char *body, size_t 
     }
 }
 
+static void live_http_eval(struct live_http_conn *conn, const char *body, size_t len)
+{
+    int response_len;
+
+    if (len > LIVE_HTTP_SCRIPT_MAX) {
+        live_http_reply(conn, "413 Payload Too Large", "text/plain",
+                        "ERR script too large\n");
+        return;
+    }
+    if (*live_http_ctxp == NULL) {
+        live_http_reply(conn, "500 Internal Server Error", "text/plain",
+                        "ERR JS context is not ready\n");
+        return;
+    }
+
+    printf("[live] HTTP eval: %u bytes\n", (unsigned)len);
+    live_http_log_reset();
+    JS_SetLogFunc(*live_http_ctxp, live_http_log_func);
+    mqjs_set_print_func(live_http_log_func);
+
+    if (run_source(*live_http_ctxp, body, len, "live_eval.js", JS_EVAL_REPL) == 0) {
+        mqjs_set_print_func(NULL);
+        puts("[live] eval ok");
+        response_len = snprintf(conn->response_body, sizeof(conn->response_body),
+                                "OK\n%s", live_http_log);
+        if (response_len < 0)
+            response_len = 0;
+        if (response_len >= (int)sizeof(conn->response_body))
+            response_len = sizeof(conn->response_body) - 1;
+        live_http_reply_len(conn, "200 OK", "text/plain",
+                            conn->response_body, response_len);
+    } else {
+        mqjs_set_print_func(NULL);
+        puts("[live] eval failed");
+        response_len = snprintf(conn->response_body, sizeof(conn->response_body),
+                                "ERR eval failed\n%s", live_http_log);
+        if (response_len < 0)
+            response_len = 0;
+        if (response_len >= (int)sizeof(conn->response_body))
+            response_len = sizeof(conn->response_body) - 1;
+        live_http_reply_len(conn, "500 Internal Server Error", "text/plain",
+                            conn->response_body, response_len);
+    }
+}
+
 static int live_http_body_is(const char *body, size_t len, const char *cmd)
 {
     size_t cmd_len = strlen(cmd);
@@ -655,6 +751,7 @@ static int live_http_parse(struct live_http_conn *conn)
     int header_len;
     int content_len;
     int is_control;
+    int is_eval;
     int is_run;
 
     conn->request[conn->request_len] = 0;
@@ -679,9 +776,11 @@ static int live_http_parse(struct live_http_conn *conn)
 
     is_run = strncmp(conn->request, "POST /run ", 10) == 0 ||
              strncmp(conn->request, "POST /run? ", 11) == 0;
+    is_eval = strncmp(conn->request, "POST /eval ", 11) == 0 ||
+              strncmp(conn->request, "POST /eval? ", 12) == 0;
     is_control = strncmp(conn->request, "POST /control ", 14) == 0 ||
                  strncmp(conn->request, "POST /control? ", 15) == 0;
-    if (!is_run && !is_control) {
+    if (!is_run && !is_eval && !is_control) {
         live_http_reply(conn, "404 Not Found", "text/plain", "ERR not found\n");
         return 1;
     }
@@ -693,6 +792,8 @@ static int live_http_parse(struct live_http_conn *conn)
 
     if (is_run)
         live_http_run(conn, body, content_len);
+    else if (is_eval)
+        live_http_eval(conn, body, content_len);
     else
         live_http_control(conn, body, content_len);
 
