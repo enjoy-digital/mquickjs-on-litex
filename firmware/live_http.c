@@ -28,6 +28,7 @@
 #define LIVE_HTTP_REQ_MAX       24576
 #define LIVE_HTTP_SCRIPT_MAX    16384
 #define LIVE_HTTP_LOG_MAX       2048
+#define LIVE_HTTP_SLOT_COUNT    4
 
 #if defined(CSR_LEDS_BASE)
 #define LIVE_HTTP_HAS_LEDS 1
@@ -87,6 +88,13 @@ static const unsigned int live_ip[4] = {LOCALIP1, LOCALIP2, LOCALIP3, LOCALIP4};
 static const unsigned int live_ip[4] = {192, 168, 1, 50};
 #endif
 
+static const char *live_http_slots[LIVE_HTTP_SLOT_COUNT] = {
+    "main.js",
+    "demo1.js",
+    "demo2.js",
+    "demo3.js",
+};
+
 static const char live_http_index[] =
 "<!doctype html><html><head><meta charset='utf-8'>"
 "<meta name='viewport' content='width=device-width,initial-scale=1'>"
@@ -134,8 +142,9 @@ static const char live_http_index[] =
 "<button class='secondary' onclick='control(\"pause\")'>Pause</button>"
 "<button class='secondary' onclick='control(\"resume\")'>Resume</button>"
 "<button class='secondary' onclick='control(\"reset\")'>Reset</button>"
-"<button class='secondary' data-feature='sdcard' onclick='saveMain()'>Save main.js</button>"
-"<button class='secondary' data-feature='sdcard' onclick='loadMain()'>Load main.js</button>"
+"<select id='slot' data-feature='sdcard'><option>main.js</option><option>demo1.js</option><option>demo2.js</option><option>demo3.js</option></select>"
+"<button class='secondary' data-feature='sdcard' onclick='saveSlot()'>Save slot</button>"
+"<button class='secondary' data-feature='sdcard' onclick='loadSlot()'>Load slot</button>"
 "<button class='secondary' onclick='preset(\"bars\")'>Bars</button>"
 "<button class='secondary' onclick='preset(\"plasma\")'>Plasma</button>"
 "<button class='secondary' onclick='preset(\"spark\")'>Spark</button>"
@@ -166,7 +175,7 @@ static const char live_http_index[] =
 "</div>"
 "<pre id='log'>ready</pre>"
 "<script>"
-"const code=document.getElementById('code'),log=document.getElementById('log'),infoEl=document.getElementById('info');"
+"const code=document.getElementById('code'),log=document.getElementById('log'),infoEl=document.getElementById('info'),slot=document.getElementById('slot');"
 "const speed=document.getElementById('speed'),scale=document.getElementById('scale'),count=document.getElementById('count'),hue=document.getElementById('hue'),overlay=document.getElementById('overlay');"
 "let boardInfo=null;"
 "const helper=`var params={speed:32,scale:6,count:96,hue:0,overlay:1};\\n"
@@ -288,11 +297,11 @@ static const char live_http_index[] =
 "async function evalJS(src){try{"
 "const r=await fetch('/eval',{method:'POST',headers:{'Content-Type':'text/plain'},body:src});"
 "log.textContent=await r.text();await refreshInfo();}catch(e){log.textContent='ERR '+e;}}"
-"async function saveMain(){log.textContent='saving main.js...';try{"
-"const r=await fetch('/save',{method:'POST',headers:{'Content-Type':'text/plain'},body:helper+code.value});"
+"async function saveSlot(){log.textContent='saving '+slot.value+'...';try{"
+"const r=await fetch('/save?name='+encodeURIComponent(slot.value),{method:'POST',headers:{'Content-Type':'text/plain'},body:helper+code.value});"
 "log.textContent=await r.text();await refreshInfo();}catch(e){log.textContent='ERR '+e;}}"
-"async function loadMain(){log.textContent='loading main.js...';try{"
-"const r=await fetch('/load');if(!r.ok)throw await r.text();code.value=await r.text();log.textContent='OK loaded main.js';}"
+"async function loadSlot(){log.textContent='loading '+slot.value+'...';try{"
+"const r=await fetch('/load?name='+encodeURIComponent(slot.value));if(!r.ok)throw await r.text();code.value=await r.text();log.textContent='OK loaded '+slot.value;}"
 "catch(e){log.textContent='ERR '+e;}}"
 "async function control(cmd){log.textContent=cmd+'...';try{"
 "const r=await fetch('/control',{method:'POST',headers:{'Content-Type':'text/plain'},body:cmd});"
@@ -806,13 +815,41 @@ static void live_http_control(struct live_http_conn *conn,
     }
 }
 
-static void live_http_load_main(struct live_http_conn *conn)
+static const char *live_http_slot_path(const char *request)
+{
+    const char *name = strstr(request, "?name=");
+
+    if (name == NULL)
+        return live_http_slots[0];
+    name += strlen("?name=");
+
+    for (int i = 0; i < LIVE_HTTP_SLOT_COUNT; i++) {
+        size_t len = strlen(live_http_slots[i]);
+
+        if (strncmp(name, live_http_slots[i], len) == 0 &&
+            (name[len] == ' ' || name[len] == '&')) {
+            return live_http_slots[i];
+        }
+    }
+
+    return NULL;
+}
+
+static void live_http_load_slot(struct live_http_conn *conn,
+                                const char *request)
 {
     const char *data;
+    const char *path = live_http_slot_path(request);
     size_t len;
     char err[96];
 
-    if (mqjs_fs_read_file("main.js", &data, &len, err, sizeof(err)) != 0) {
+    if (path == NULL) {
+        live_http_reply(conn, "400 Bad Request", "text/plain",
+                        "ERR unknown slot\n");
+        return;
+    }
+
+    if (mqjs_fs_read_file(path, &data, &len, err, sizeof(err)) != 0) {
         snprintf(conn->response_body, sizeof(conn->response_body),
                  "ERR %s\n", err);
         live_http_reply(conn, "500 Internal Server Error", "text/plain",
@@ -821,24 +858,31 @@ static void live_http_load_main(struct live_http_conn *conn)
     }
     if (len > LIVE_HTTP_SCRIPT_MAX) {
         live_http_reply(conn, "413 Payload Too Large", "text/plain",
-                        "ERR main.js too large\n");
+                        "ERR script slot too large\n");
         return;
     }
 
     live_http_reply_len(conn, "200 OK", "text/plain", data, len);
 }
 
-static void live_http_save_main(struct live_http_conn *conn,
+static void live_http_save_slot(struct live_http_conn *conn,
+                                const char *request,
                                 const char *body, size_t len)
 {
+    const char *path = live_http_slot_path(request);
     char err[96];
 
+    if (path == NULL) {
+        live_http_reply(conn, "400 Bad Request", "text/plain",
+                        "ERR unknown slot\n");
+        return;
+    }
     if (len > LIVE_HTTP_SCRIPT_MAX) {
         live_http_reply(conn, "413 Payload Too Large", "text/plain",
                         "ERR script too large\n");
         return;
     }
-    if (mqjs_fs_write_file("main.js", body, len, err, sizeof(err)) != 0) {
+    if (mqjs_fs_write_file(path, body, len, err, sizeof(err)) != 0) {
         snprintf(conn->response_body, sizeof(conn->response_body),
                  "ERR %s\n", err);
         live_http_reply(conn, "500 Internal Server Error", "text/plain",
@@ -846,7 +890,9 @@ static void live_http_save_main(struct live_http_conn *conn,
         return;
     }
 
-    live_http_reply(conn, "200 OK", "text/plain", "OK saved main.js\n");
+    snprintf(conn->response_body, sizeof(conn->response_body),
+             "OK saved %s\n", path);
+    live_http_reply(conn, "200 OK", "text/plain", conn->response_body);
 }
 
 static int live_http_parse(struct live_http_conn *conn)
@@ -882,7 +928,7 @@ static int live_http_parse(struct live_http_conn *conn)
 
     if (strncmp(conn->request, "GET /load ", 10) == 0 ||
         strncmp(conn->request, "GET /load?", 10) == 0) {
-        live_http_load_main(conn);
+        live_http_load_slot(conn, conn->request);
         return 1;
     }
 
@@ -909,7 +955,7 @@ static int live_http_parse(struct live_http_conn *conn)
     else if (is_eval)
         live_http_eval(conn, body, content_len);
     else if (is_save)
-        live_http_save_main(conn, body, content_len);
+        live_http_save_slot(conn, conn->request, body, content_len);
     else
         live_http_control(conn, body, content_len);
 
