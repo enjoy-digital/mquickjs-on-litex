@@ -69,20 +69,20 @@ For HDMI output, enable the target framebuffer and use the animated
 plasma demo:
 
 ```sh
-./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video -- --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
-./make.py firmware examples/plasma_animated.js --build-dir build/ecpix5-video
-./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video
+./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video-rgb565 --video-framebuffer-format=rgb565 -- --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
+./make.py firmware examples/plasma_animated.js --build-dir build/ecpix5-video-rgb565
+./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video-rgb565
 ./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
 ```
 
 Validated output:
 
 ```text
-[plasma] framebuffer = 640 x 480 x 32
+[plasma] framebuffer = 640 x 480 x 16
 [plasma] animated tile = 48 x 36 x 8
 [plasma] frames = 64
 [plasma] final checksum = 0x34c93
-[plasma] animation took 19456 ms
+[plasma] animation took 18940 ms
 [plasma] done
 [mqjs] done
 ```

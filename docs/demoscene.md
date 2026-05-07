@@ -43,7 +43,9 @@ framebuffer.blitScale(buffer, width, height, x, y, scale)
 framebuffer.blitIndexedScale(indexes, palette, width, height, x, y, scale)
 ```
 
-`buffer` is normally a `Uint32Array` of RGB pixels. The optional
+`buffer` is normally a `Uint32Array` of 24-bit RGB pixels. The firmware
+packs colors to the active framebuffer format, so the same JavaScript
+works with 32-bit RGB888 and 16-bit RGB565 framebuffers. The optional
 dirty rectangle lets scripts update only part of the source tile.
 `blitScale` expands each source pixel to a square block in C, so the
 simulator demo stays fast while still producing a visible HDMI image on
@@ -64,15 +66,15 @@ blitIndexedScale(..., paletteOffset, dirtyX, dirtyY, dirtyW, dirtyH)
 ```
 
 `fillRect` and `copyRect` are bulk primitives for text consoles, games,
-scrolling, and small UI overlays. They are intentionally generic and do
-not know anything about the plasma demo.
+scrolling, and small UI overlays. They are intentionally generic, so
+other demos can reuse them without pulling in plasma-specific code.
 
 For hardware, use the animated version:
 
 ```sh
-./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video -- --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
-./make.py firmware examples/plasma_animated.js --build-dir build/ecpix5-video
-./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video
+./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video-rgb565 --video-framebuffer-format=rgb565 -- --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
+./make.py firmware examples/plasma_animated.js --build-dir build/ecpix5-video-rgb565
+./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video-rgb565
 ./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
 ```
 

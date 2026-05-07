@@ -10,6 +10,7 @@ import os
 import sys
 import shutil
 import argparse
+import importlib
 import subprocess
 from pathlib import Path
 
@@ -41,6 +42,38 @@ def run(cmd, cwd=None):
     cmd = [str(c) for c in cmd]
     print("[make.py] $ " + " ".join(cmd), flush=True)
     return subprocess.run(cmd, cwd=cwd).returncode
+
+
+def run_target_module(target, argv, video_framebuffer_format=None):
+    cmd = [sys.executable, "-m", target] + argv
+    print("[make.py] $ " + " ".join(cmd), flush=True)
+
+    if video_framebuffer_format is None:
+        return subprocess.run(cmd).returncode
+
+    from litex.soc.integration.soc_core import SoCCore
+
+    original_argv = sys.argv[:]
+    original_add_video_framebuffer = SoCCore.add_video_framebuffer
+
+    def add_video_framebuffer(self, *args, **kwargs):
+        kwargs["format"] = video_framebuffer_format
+        return original_add_video_framebuffer(self, *args, **kwargs)
+
+    try:
+        SoCCore.add_video_framebuffer = add_video_framebuffer
+        sys.argv = [target] + argv
+        module = importlib.import_module(target)
+        try:
+            rc = module.main()
+        except SystemExit as e:
+            rc = e.code
+        if rc is None:
+            return 0
+        return rc if isinstance(rc, int) else 1
+    finally:
+        sys.argv = original_argv
+        SoCCore.add_video_framebuffer = original_add_video_framebuffer
 
 
 def firmware_cmd(args, script=None):
@@ -191,8 +224,7 @@ def cmd_firmware(args):
 
 
 def cmd_board_build(args):
-    cmd = [
-        sys.executable, "-m", args.target,
+    target_argv = [
         "--build",
         f"--cpu-type={args.cpu_type}",
         "--libc-mode=full",
@@ -200,9 +232,13 @@ def cmd_board_build(args):
         f"--output-dir={args.build_dir}",
     ]
     if args.cpu_variant is not None:
-        cmd.append(f"--cpu-variant={args.cpu_variant}")
-    cmd += target_args(args)
-    return run(cmd)
+        target_argv.append(f"--cpu-variant={args.cpu_variant}")
+    target_argv += target_args(args)
+    return run_target_module(
+        target                   = args.target,
+        argv                     = target_argv,
+        video_framebuffer_format = args.video_framebuffer_format,
+    )
 
 
 def cmd_board_load(args):
@@ -311,6 +347,10 @@ def main():
                              help="LiteX CPU type.")
     board_build.add_argument("--cpu-variant", default=None,
                              help="LiteX CPU variant.")
+    board_build.add_argument("--video-framebuffer-format",
+                             choices=["rgb888", "rgb565"], default=None,
+                             help="Force framebuffer format on targets that use "
+                                  "LiteX add_video_framebuffer().")
     board_build.add_argument("target_args", nargs=argparse.REMAINDER,
                              help="Extra target arguments after --.")
     board_build.set_defaults(func=cmd_board_build)
