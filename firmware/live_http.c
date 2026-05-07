@@ -335,8 +335,11 @@ struct live_http_conn {
 
 static struct live_http_conn live_http_conns[LIVE_HTTP_MAX_CONNS];
 static JSContext **live_http_ctxp;
+static uint8_t live_http_heaps[2][LITEX_MQJS_HEAP_SIZE]
+    __attribute__((aligned(16)));
 static char live_http_log[LIVE_HTTP_LOG_MAX + 1];
 static size_t live_http_log_len;
+static int live_http_active_heap = -1;
 static uint8_t live_http_active;
 static uint8_t live_http_paused;
 static uint32_t live_http_frame_count;
@@ -536,6 +539,18 @@ static void live_http_stop_script(const char *state)
     live_http_set_state(state);
 }
 
+static int live_http_inactive_heap(void)
+{
+    return live_http_active_heap == 0 ? 1 : 0;
+}
+
+static JSContext *live_http_new_candidate_context(int *heap_index)
+{
+    *heap_index = live_http_inactive_heap();
+    return new_mqjs_context_with_heap(live_http_heaps[*heap_index],
+                                      sizeof(live_http_heaps[*heap_index]));
+}
+
 static void live_http_dump_exception(JSContext *ctx)
 {
     JSValue e = JS_GetException(ctx);
@@ -656,6 +671,10 @@ static void live_http_info(struct live_http_conn *conn)
 
 static void live_http_run(struct live_http_conn *conn, const char *body, size_t len)
 {
+    JSContext *candidate;
+    JSContext *old_ctx;
+    int candidate_heap;
+    int has_frame;
     int response_len;
 
     if (len > LIVE_HTTP_SCRIPT_MAX) {
@@ -665,26 +684,25 @@ static void live_http_run(struct live_http_conn *conn, const char *body, size_t 
     }
 
     printf("[live] HTTP script: %u bytes\n", (unsigned)len);
-    JS_FreeContext(*live_http_ctxp);
-    *live_http_ctxp = new_mqjs_context();
     live_http_log_reset();
-    if (*live_http_ctxp == NULL) {
+    candidate = live_http_new_candidate_context(&candidate_heap);
+    if (candidate == NULL) {
         live_http_reply(conn, "500 Internal Server Error", "text/plain",
                         "ERR JS_NewContext failed\n");
         return;
     }
-    JS_SetLogFunc(*live_http_ctxp, live_http_log_func);
+    JS_SetLogFunc(candidate, live_http_log_func);
     mqjs_set_print_func(live_http_log_func);
-    live_http_stop_script("idle");
 
-    if (run_source(*live_http_ctxp, body, len, "live_http.js", JS_EVAL_REPL) == 0) {
-        if (live_http_call_function(*live_http_ctxp, "setup", 0, 0) < 0) {
+    if (run_source(candidate, body, len, "live_http.js", JS_EVAL_REPL) == 0) {
+        if (live_http_call_function(candidate, "setup", 0, 0) < 0) {
             mqjs_set_print_func(NULL);
-            live_http_stop_script("setup failed");
+            JS_FreeContext(candidate);
             puts("[live] setup failed");
             response_len = snprintf(conn->response_body,
                                     sizeof(conn->response_body),
-                                    "ERR setup failed\n%s", live_http_log);
+                                    "ERR setup failed; previous script kept\n%s",
+                                    live_http_log);
             if (response_len < 0)
                 response_len = 0;
             if (response_len >= (int)sizeof(conn->response_body))
@@ -693,7 +711,14 @@ static void live_http_run(struct live_http_conn *conn, const char *body, size_t 
                                 conn->response_body, response_len);
             return;
         }
-        if (live_http_has_function(*live_http_ctxp, "frame")) {
+        has_frame = live_http_has_function(candidate, "frame");
+        old_ctx = *live_http_ctxp;
+        *live_http_ctxp = candidate;
+        live_http_active_heap = candidate_heap;
+        if (old_ctx != NULL)
+            JS_FreeContext(old_ctx);
+
+        if (has_frame) {
             live_http_active        = 1;
             live_http_paused        = 0;
             live_http_frame_count   = 0;
@@ -705,6 +730,8 @@ static void live_http_run(struct live_http_conn *conn, const char *body, size_t 
             live_http_stats_time_ms  = 0;
             live_http_next_frame_ms = live_http_millis();
             live_http_set_state("running");
+        } else {
+            live_http_stop_script("idle");
         }
         mqjs_set_print_func(NULL);
         puts("[live] script ok");
@@ -720,9 +747,11 @@ static void live_http_run(struct live_http_conn *conn, const char *body, size_t 
                             conn->response_body, response_len);
     } else {
         mqjs_set_print_func(NULL);
+        JS_FreeContext(candidate);
         puts("[live] script failed");
         response_len = snprintf(conn->response_body, sizeof(conn->response_body),
-                                "ERR script failed\n%s", live_http_log);
+                                "ERR script failed; previous script kept\n%s",
+                                live_http_log);
         if (response_len < 0)
             response_len = 0;
         if (response_len >= (int)sizeof(conn->response_body))
@@ -791,6 +820,7 @@ static void live_http_reset_context(void)
 {
     JS_FreeContext(*live_http_ctxp);
     *live_http_ctxp = new_mqjs_context();
+    live_http_active_heap = -1;
     live_http_stop_script(*live_http_ctxp == NULL ? "reset failed" : "idle");
 }
 

@@ -120,10 +120,12 @@ filesystem or dynamic web server; the page is a static C string and the
 HTTP parser accepts only the small request set needed by the demo.
 
 For robustness while iterating, each `/run` request creates a fresh
-mquickjs context. If the script defines `setup()`, it is called once. If
-it defines `frame(t)`, the firmware keeps calling it from the Ethernet
-poll loop and reports frame time/FPS through `/info`. Scripts without
-`frame(t)` still run once.
+mquickjs context on an inactive heap. The new context is evaluated and
+`setup()` is tested before it replaces the previous context, so a syntax
+error or setup-time exception does not stop the animation already
+running on the board. If the script defines `frame(t)`, the firmware
+keeps calling it from the Ethernet poll loop and reports frame time/FPS
+through `/info`. Scripts without `frame(t)` still run once.
 
 The sliders use `/eval` to update `params.*` in the current context, so
 the running animation can change without replacing the script. The

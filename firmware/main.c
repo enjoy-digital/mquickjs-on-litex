@@ -51,7 +51,12 @@ static uint8_t mqjs_heap[LITEX_MQJS_HEAP_SIZE] __attribute__((aligned(16)));
 
 JSContext *new_mqjs_context(void)
 {
-    JSContext *ctx = JS_NewContext(mqjs_heap, sizeof(mqjs_heap), &js_stdlib);
+    return new_mqjs_context_with_heap(mqjs_heap, sizeof(mqjs_heap));
+}
+
+JSContext *new_mqjs_context_with_heap(void *heap, size_t heap_size)
+{
+    JSContext *ctx = JS_NewContext(heap, heap_size, &js_stdlib);
 
     if (ctx)
         JS_SetLogFunc(ctx, mqjs_log_func);
