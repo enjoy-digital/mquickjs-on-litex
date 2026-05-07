@@ -395,6 +395,13 @@ static uint32_t *framebuffer_pixels(void)
     return (uint32_t *)(uintptr_t)VIDEO_FRAMEBUFFER_BASE;
 }
 
+static void framebuffer_copy_words(uint32_t *dst, const uint32_t *src,
+                                   uint32_t count)
+{
+    for (uint32_t i = 0; i < count; i++)
+        dst[i] = src[i];
+}
+
 static int framebuffer_get_typed_array(JSContext *ctx, JSValue obj,
                                        int expected_class_id,
                                        uint32_t byte_length_min,
@@ -528,10 +535,10 @@ static void framebuffer_expand_pixel(uint32_t *dst, uint32_t pixel,
 static void framebuffer_repeat_scaled_row(uint32_t *dst, uint32_t dst_stride,
                                           uint32_t width, uint32_t scale)
 {
-    size_t size = width * scale * sizeof(uint32_t);
+    uint32_t count = width * scale;
 
     for (uint32_t y = 1; y < scale; y++)
-        memcpy(dst + y * dst_stride, dst, size);
+        framebuffer_copy_words(dst + y * dst_stride, dst, count);
 }
 
 static void framebuffer_blit_scale_u32(const uint32_t *pixels,
@@ -677,10 +684,9 @@ JSValue js_framebuffer_fill_rect(JSContext *ctx, JSValue *this_val,
 
     for (uint32_t col = 0; col < width; col++)
         first[col] = color;
-    for (uint32_t row = 1; row < height; row++) {
-        memcpy(first + row * VIDEO_FRAMEBUFFER_HRES, first,
-            width * sizeof(uint32_t));
-    }
+    for (uint32_t row = 1; row < height; row++)
+        framebuffer_copy_words(first + row * VIDEO_FRAMEBUFFER_HRES,
+            first, width);
     return JS_UNDEFINED;
 #else
     (void)argc; (void)argv;

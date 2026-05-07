@@ -63,11 +63,14 @@ function makePhases(width, height) {
     return phases;
 }
 
-function renderFrame(indexes, width, height, phases, waves, frame) {
+function renderFrame(indexes, xwaves, width, height, phases, waves, frame) {
     var sum = 0;
     var t0  = frame * 5;
     var t1  = frame * 3;
     var t2  = frame * 9;
+
+    for (var x = 0; x < width; x++)
+        xwaves[x] = waves[(phases.x[x] + t0) & 255];
 
     for (var y = 0; y < height; y++) {
         var yw  = waves[(phases.y[y] + t1) & 255];
@@ -75,7 +78,7 @@ function renderFrame(indexes, width, height, phases, waves, frame) {
 
         for (var x = 0; x < width; x++) {
             var i = row + x;
-            var v = waves[(phases.x[x] + t0) & 255];
+            var v = xwaves[x];
 
             v += yw;
             v += waves[(phases.radial[i] + t0) & 255];
@@ -100,6 +103,7 @@ if (fbWidth === 0 || fbHeight === 0) {
     var x0      = (fbWidth  - width  * scale) >> 1;
     var y0      = (fbHeight - height * scale) >> 1;
     var indexes = new Uint8Array(width * height);
+    var xwaves  = new Uint8Array(width);
     var palette = makePalette();
     var waves   = makeWaves();
     var phases  = makePhases(width, height);
@@ -114,7 +118,7 @@ if (fbWidth === 0 || fbHeight === 0) {
     framebuffer.clear(0x000000);
 
     for (var frame = 0; frame < frames; frame++) {
-        sum = renderFrame(indexes, width, height, phases, waves, frame);
+        sum = renderFrame(indexes, xwaves, width, height, phases, waves, frame);
         framebuffer.blitIndexedScale(indexes, palette, width, height,
             x0, y0, scale, frame * 2);
 

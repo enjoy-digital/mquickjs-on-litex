@@ -82,7 +82,7 @@ Validated output:
 [plasma] animated tile = 48 x 36 x 8
 [plasma] frames = 64
 [plasma] final checksum = 0x34c93
-[plasma] animation took 24298 ms
+[plasma] animation took 19456 ms
 [plasma] done
 [mqjs] done
 ```
