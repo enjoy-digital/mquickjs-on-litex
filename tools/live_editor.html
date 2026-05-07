@@ -82,17 +82,115 @@ var demo={
 };
 `;
 const presets={
-Splash:`function setup(){framebuffer.clear(0x05070a);framebuffer.text(64,90,'MQUICKJS',0xffffff,5);framebuffer.text(94,150,'ON LITEX',0xffc857,4);framebuffer.text(92,230,'LIVE FROM BROWSER',0x33dd88,2);}
-function frame(t){framebuffer.circle((t/8)%framebuffer.width,340,42,demo.hue(t/16),0);demo.overlay('SPLASH',t);}`,
-Plasma:`var w=80,h=60,idx,pal,t0=0;
-function setup(){t0=litex.millis();idx=new Uint8Array(w*h);pal=new Uint32Array(256);for(var i=0;i<256;i++)pal[i]=demo.hue(i);}
-function frame(t){demo.controls();var p=(((t-t0)*params.speed)/128)|0;for(var y=0;y<h;y++)for(var x=0;x<w;x++)idx[y*w+x]=((x*x+y*y+x*p+y*(p>>1))>>5)&255;demo.blitIndexed(idx,pal,w,h,params.scale);demo.overlay('PLASMA',t);}`,
-Vector:`var t0=0;function setup(){t0=litex.millis();demo.clear(0);}
-function frame(t){demo.controls();var p=(((t-t0)*params.speed)/128)|0,cx=framebuffer.width>>1,cy=framebuffer.height>>1;framebuffer.fade(28);for(var i=0;i<20;i++){var x=(i*43+p*7)%framebuffer.width,y=(i*29+p*5)%framebuffer.height;framebuffer.line(cx,cy,x,y,demo.hue(params.hue+p+i*13));}framebuffer.circle(cx,cy,(p%90)+20,demo.hue(params.hue+p),0);demo.overlay('VECTOR',t);}`,
-Stars:`var sx=[],sy=[],sz=[];function setup(){for(var i=0;i<256;i++){sx[i]=(i*37)%640-320;sy[i]=(i*71)%480-240;sz[i]=(i%64)+1;}demo.clear(0);}
-function frame(t){demo.controls();framebuffer.fade(36);for(var i=0;i<params.count;i++){sz[i]-=params.speed/24;if(sz[i]<1)sz[i]=64;var x=(framebuffer.width/2+(sx[i]*48)/sz[i])|0,y=(framebuffer.height/2+(sy[i]*48)/sz[i])|0;framebuffer.fillRect(x,y,2,2,demo.hue(params.hue+sz[i]*4));}demo.overlay('STARS',t);}`,
-Logo:`var t0=0;function setup(){t0=litex.millis();}
-function frame(t){demo.controls();var p=(((t-t0)*params.speed)/180)|0;demo.clear(0x05070a);var x=(p*5)%(framebuffer.width-240),y=(p*3)%(framebuffer.height-80);framebuffer.circle(x+120,y+42,48,demo.hue(params.hue+p),1);framebuffer.text(x,y+18,'MQUICKJS',0xffffff,3);framebuffer.text(x+22,y+48,'ON LITEX',0xffc857,2);demo.overlay('LOGO',t);}`
+Splash:`// Splash screen for checking text and circle drawing.
+function setup() {
+  framebuffer.clear(0x05070a);
+  framebuffer.text(64, 90, 'MQUICKJS', 0xffffff, 5);
+  framebuffer.text(94, 150, 'ON LITEX', 0xffc857, 4);
+  framebuffer.text(92, 230, 'LIVE FROM BROWSER', 0x33dd88, 2);
+}
+
+function frame(t) {
+  framebuffer.circle((t / 8) % framebuffer.width, 340,
+                     42, demo.hue(t / 16), 0);
+  demo.overlay('SPLASH', t);
+}`,
+Plasma:`// Low-resolution indexed plasma, scaled by the C framebuffer helper.
+var w = 80, h = 60;
+var pixels, palette, start;
+
+function setup() {
+  start = litex.millis();
+  pixels = new Uint8Array(w * h);
+  palette = new Uint32Array(256);
+
+  for (var i = 0; i < 256; i++) palette[i] = demo.hue(i);
+}
+
+function frame(t) {
+  demo.controls();
+  var phase = (((t - start) * params.speed) / 128) | 0;
+
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      pixels[y*w+x] = ((x*x + y*y + x*phase + y*(phase >> 1)) >> 5) & 255;
+    }
+  }
+
+  demo.blitIndexed(pixels, palette, w, h, params.scale);
+  demo.overlay('PLASMA', t);
+}`,
+Vector:`// Vector-scope style lines with framebuffer fading trails.
+var start = 0;
+
+function setup() {
+  start = litex.millis();
+  demo.clear(0);
+}
+
+function frame(t) {
+  demo.controls();
+  var phase = (((t - start) * params.speed) / 128) | 0;
+  var cx = framebuffer.width >> 1;
+  var cy = framebuffer.height >> 1;
+
+  framebuffer.fade(28);
+  for (var i = 0; i < 20; i++) {
+    var x = (i * 43 + phase * 7) % framebuffer.width;
+    var y = (i * 29 + phase * 5) % framebuffer.height;
+    framebuffer.line(cx, cy, x, y, demo.hue(params.hue + phase + i * 13));
+  }
+
+  framebuffer.circle(cx, cy, (phase % 90) + 20,
+                     demo.hue(params.hue + phase), 0);
+  demo.overlay('VECTOR', t);
+}`,
+Stars:`// Simple star field. Lower z means closer to the viewer.
+var starX = [], starY = [], starZ = [];
+
+function setup() {
+  for (var i = 0; i < 256; i++) {
+    starX[i] = (i * 37) % 640 - 320;
+    starY[i] = (i * 71) % 480 - 240;
+    starZ[i] = (i % 64) + 1;
+  }
+  demo.clear(0);
+}
+
+function frame(t) {
+  demo.controls();
+  framebuffer.fade(36);
+
+  for (var i = 0; i < params.count; i++) {
+    starZ[i] -= params.speed / 24;
+    if (starZ[i] < 1) starZ[i] = 64;
+
+    var x = (framebuffer.width  / 2 + (starX[i] * 48) / starZ[i]) | 0;
+    var y = (framebuffer.height / 2 + (starY[i] * 48) / starZ[i]) | 0;
+    framebuffer.fillRect(x, y, 2, 2, demo.hue(params.hue + starZ[i] * 4));
+  }
+
+  demo.overlay('STARS', t);
+}`,
+Logo:`// Bouncing text badge, useful to check text/circle helpers.
+var start = 0;
+
+function setup() {
+  start = litex.millis();
+}
+
+function frame(t) {
+  demo.controls();
+  var phase = (((t - start) * params.speed) / 180) | 0;
+  var x = (phase * 5) % (framebuffer.width - 240);
+  var y = (phase * 3) % (framebuffer.height - 80);
+
+  demo.clear(0x05070a);
+  framebuffer.circle(x + 120, y + 42, 48, demo.hue(params.hue + phase), 1);
+  framebuffer.text(x, y + 18, 'MQUICKJS', 0xffffff, 3);
+  framebuffer.text(x + 22, y + 48, 'ON LITEX', 0xffc857, 2);
+  demo.overlay('LOGO', t);
+}`
 };
 for(const name of Object.keys(presets)){const opt=document.createElement("option");opt.textContent=name;preset.appendChild(opt);}
 function url(path){return board.value.replace(/\/$/,"")+path;}
