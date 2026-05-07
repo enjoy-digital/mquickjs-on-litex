@@ -14,17 +14,20 @@ body{margin:0;background:#020406;color:#e8edf2;font:13px/1.45 ui-monospace,SFMon
 header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:16px 18px 12px;border-bottom:1px solid #075b82}
 strong{display:block;font:700 24px/1.05 system-ui,sans-serif;color:#f7f9fb}strong b{color:#12bdf2}small{display:block;margin-top:5px;color:#12bdf2;text-transform:uppercase}
 .badge{border:1px solid #0b87bd;color:#12bdf2;border-radius:4px;padding:6px 9px}
-main{display:grid;grid-template-columns:260px minmax(0,1fr);gap:12px;min-height:calc(100vh - 67px);padding:12px}
-nav,section{background:#06080b;border:1px solid #30343a;border-radius:4px;box-shadow:0 0 0 1px #05070a inset}
-nav{padding:12px}
+main{display:grid;grid-template-columns:280px minmax(0,1fr);gap:12px;min-height:calc(100vh - 67px);padding:12px}
+nav{display:flex;flex-direction:column;gap:10px}
+.panel,section{background:#06080b;border:1px solid #30343a;border-radius:4px;box-shadow:0 0 0 1px #05070a inset}
+.title{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border-bottom:1px solid #10384d;color:#12bdf2;text-transform:uppercase}.title span:last-child{color:#8fa3b2}
+.body{padding:10px}.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 button,input,select{width:100%;height:34px;border:1px solid #30343a;border-radius:4px;background:#080c10;color:#dce8f2;padding:0 10px}
 button{margin:0 0 8px;cursor:pointer;background:#0a0d11;border-color:#30343a;color:#c6d2dc;font:13px system-ui,sans-serif}
+button:last-child,.row button{margin-bottom:0}
 button.primary{background:#072234;border-color:#0b87bd;color:#e8f8ff}
 button.tool{background:#061923;border-color:#12bdf2;color:#12bdf2}
 label{display:block;margin:10px 0;color:#8fa3b2;text-transform:uppercase}
 textarea{display:block;width:100%;height:100%;min-height:620px;padding:14px;background:#020406;color:#dce8f2;border:0;outline:0;font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;resize:vertical}
 pre{margin:0;padding:12px;min-height:100px;background:#020406;border-top:1px solid #10384d;white-space:pre-wrap;overflow:auto;color:#dce8f2}
-section{display:grid;grid-template-rows:1fr auto;overflow:hidden}
+section{display:grid;grid-template-rows:auto 1fr auto;overflow:hidden}
 @media(max-width:860px){main{grid-template-columns:1fr}textarea{min-height:430px}}
 </style>
 </head>
@@ -35,20 +38,26 @@ section{display:grid;grid-template-rows:1fr auto;overflow:hidden}
 </header>
 <main>
 <nav>
+<div class="panel"><div class="title"><span>board</span><span>http</span></div><div class="body">
 <label>Board URL<input id="board" value="http://192.168.1.50"></label>
-<button class="primary" onclick="run()">Run</button>
-<button onclick="control('pause')">Pause</button>
-<button onclick="control('resume')">Resume</button>
-<button onclick="control('stop')">Stop</button>
 <button class="tool" onclick="info()">Info</button>
+</div></div>
+<div class="panel"><div class="title"><span>runtime</span><span>control</span></div><div class="body">
+<button class="primary" onclick="run()">Run</button>
+<div class="row"><button onclick="control('pause')">Pause</button><button onclick="control('resume')">Resume</button></div>
+<button onclick="control('stop')">Stop</button>
+</div></div>
+<div class="panel"><div class="title"><span>script</span><span>preset</span></div><div class="body">
 <label>Preset<select id="preset" onchange="loadPreset(this.value)"></select></label>
+<div class="row"><button onclick="share()">Share URL</button><button onclick="downloadJS()">Download JS</button></div>
+</div></div>
+<div class="panel"><div class="title"><span>sdcard</span><span>slots</span></div><div class="body">
 <label>Slot<select id="slot"><option>main.js</option><option>demo1.js</option><option>demo2.js</option><option>demo3.js</option></select></label>
-<button onclick="saveSlot()">Save Slot</button>
-<button onclick="loadSlot()">Load Slot</button>
-<button onclick="share()">Share URL</button>
-<button onclick="downloadJS()">Download JS</button>
+<div class="row"><button onclick="saveSlot()">Save Slot</button><button onclick="loadSlot()">Load Slot</button></div>
+</div></div>
 </nav>
 <section>
+<div class="title"><span>script.js</span><span>mquickjs</span></div>
 <textarea id="code" spellcheck="false"></textarea>
 <pre id="log">Ready.</pre>
 </section>
