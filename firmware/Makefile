@@ -30,6 +30,7 @@ include $(SOC_DIRECTORY)/software/common.mak
 endif
 
 MQJS_DIR := $(abspath third_party/mquickjs)
+LWIP_DIR := $(abspath third_party/lwip)
 FW_DIR   := $(abspath .)
 GEN_DIR  := $(abspath build)
 
@@ -57,6 +58,14 @@ EMBED_CFLAGS += -DLITEX_MQJS_DUMP_MEMORY=1
 endif
 ifeq ($(LIVE_DEMO),1)
 EMBED_CFLAGS += -DLITEX_MQJS_LIVE_DEMO=1
+LIVE_MODE ?= http
+ifeq ($(LIVE_MODE),http)
+EMBED_CFLAGS += -DLITEX_MQJS_LIVE_HTTP=1
+else ifeq ($(LIVE_MODE),udp)
+EMBED_CFLAGS += -DLITEX_MQJS_LIVE_UDP=1
+else
+$(error LIVE_MODE must be http or udp)
+endif
 endif
 ifneq ($(LIVE_PORT),)
 EMBED_CFLAGS += -DLITEX_MQJS_LIVE_PORT=$(LIVE_PORT)
@@ -67,6 +76,17 @@ endif
 MQJS_OBJS := mquickjs.o cutils.o dtoa.o libm.o
 FW_OBJS   := main.o mqjs_port.o crt0.o
 OBJECTS   := $(FW_OBJS) $(MQJS_OBJS)
+
+ifeq ($(LIVE_DEMO),1)
+ifeq ($(LIVE_MODE),http)
+LWIP_OBJS := init.o def.o inet_chksum.o ip.o mem.o memp.o netif.o pbuf.o \
+             raw.o stats.o sys.o tcp.o tcp_in.o tcp_out.o timeouts.o \
+             etharp.o icmp.o ip4.o ip4_addr.o ip4_frag.o ethernet.o
+FW_OBJS   += live_http.o liteeth_lwip.o
+OBJECTS   += live_http.o liteeth_lwip.o $(LWIP_OBJS)
+endif
+endif
+
 GENERATED_SOC_HEADERS := \
 	$(BUILD_DIR)/software/include/generated/csr.h \
 	$(BUILD_DIR)/software/include/generated/soc.h \
@@ -80,6 +100,11 @@ BUILD_CONTEXT := $(GEN_DIR)/build_context.mk
 # there and skip the cross-compile.
 vpath %.c $(FW_DIR) $(MQJS_DIR) $(BIOS_DIRECTORY) $(BIOS_DIRECTORY)/cmds $(CPU_DIRECTORY)
 vpath %.S $(FW_DIR) $(MQJS_DIR) $(BIOS_DIRECTORY) $(BIOS_DIRECTORY)/cmds $(CPU_DIRECTORY)
+ifeq ($(LIVE_DEMO),1)
+ifeq ($(LIVE_MODE),http)
+vpath %.c $(LWIP_DIR)/src/core $(LWIP_DIR)/src/core/ipv4 $(LWIP_DIR)/src/netif
+endif
+endif
 
 # GEN_DIR must come first: if the user has built the host-side `mqjs`
 # interpreter inside third_party/mquickjs (`make -C third_party/mquickjs mqjs`),
@@ -88,6 +113,11 @@ vpath %.S $(FW_DIR) $(MQJS_DIR) $(BIOS_DIRECTORY) $(BIOS_DIRECTORY)/cmds $(CPU_D
 # and would silently shadow our cross-compiled versions.
 MQJS_INC := -I$(GEN_DIR) -I$(FW_DIR) -I$(MQJS_DIR)
 CFLAGS   += $(MQJS_INC) $(EMBED_CFLAGS)
+ifeq ($(LIVE_DEMO),1)
+ifeq ($(LIVE_MODE),http)
+CFLAGS   += -I$(FW_DIR)/lwip_inc -I$(LWIP_DIR)/src/include
+endif
+endif
 
 # We need libgcc for a handful of soft-float / long-long helpers that
 # neither libcompiler_rt nor picolibc ship. LiteX's CPUFLAGS can use
@@ -114,6 +144,9 @@ endif
 MQJS_EXTRA_CFLAGS := -Wno-unused-parameter -Wno-sign-compare \
                      -Wno-unused-function -Wno-unused-variable \
                      -Wno-unused-but-set-variable -Wno-format \
+                     -Wno-missing-prototypes
+LWIP_EXTRA_CFLAGS := -Wno-unused-parameter -Wno-sign-compare \
+                     -Wno-unused-function -Wno-unused-variable \
                      -Wno-missing-prototypes
 
 # --- Host-side stdlib generator (runs on the build machine) ------------
@@ -146,8 +179,9 @@ help:
 	@echo "  SCRIPT        JavaScript source to embed (default: REPL)"
 	@echo "  HEAP_SIZE     mquickjs heap size override"
 	@echo "  MEMORY_DUMP=1 print mquickjs heap statistics at exit"
-	@echo "  LIVE_DEMO=1   keep firmware alive and accept JS over UDP"
-	@echo "  LIVE_PORT     UDP port for LIVE_DEMO (default: 12345)"
+	@echo "  LIVE_DEMO=1   keep firmware alive and accept JS over Ethernet"
+	@echo "  LIVE_MODE     http or udp (default: http)"
+	@echo "  LIVE_PORT     TCP/UDP port for LIVE_DEMO"
 	@echo "  V=1           verbose compile lines"
 
 firmware.elf: $(OBJECTS) linker.ld
@@ -183,7 +217,7 @@ $(BUILD_CONTEXT): FORCE | $(GEN_DIR)
 	    } > $@; \
 	}
 
-$(FW_OBJS): $(GENERATED_SOC_HEADERS) $(BUILD_CONTEXT)
+$(FW_OBJS) $(LWIP_OBJS): $(GENERATED_SOC_HEADERS) $(BUILD_CONTEXT)
 $(filter-out mquickjs.o,$(MQJS_OBJS)): $(BUILD_CONTEXT)
 
 %.bin: %.elf
@@ -248,6 +282,7 @@ mquickjs.o: CFLAGS += $(MQJS_EXTRA_CFLAGS)
 dtoa.o    : CFLAGS += $(MQJS_EXTRA_CFLAGS)
 libm.o    : CFLAGS += $(MQJS_EXTRA_CFLAGS)
 cutils.o  : CFLAGS += $(MQJS_EXTRA_CFLAGS)
+$(LWIP_OBJS): CFLAGS += $(LWIP_EXTRA_CFLAGS)
 
 %.o: %.c
 	$(compile)

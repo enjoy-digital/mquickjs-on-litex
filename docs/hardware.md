@@ -91,8 +91,8 @@ Expected output starts with:
 
 ## Live Editing
 
-For the interactive demoscene workflow, add Ethernet to the video build
-and use the live firmware:
+For the interactive demoscene workflow, add Ethernet to the video build.
+The live firmware serves a small browser editor from the board itself:
 
 ```sh
 ./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-live -- --with-ethernet --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
@@ -101,15 +101,23 @@ and use the live firmware:
 ./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
 ```
 
-Keep `board-run` open. In another terminal, start the browser bridge:
+Keep `board-run` open for the UART log, then open the board page:
 
 ```sh
-./tools/live_bridge.py --board 192.168.1.50
+xdg-open http://192.168.1.50/
 ```
 
-Open `http://127.0.0.1:8000`. The page sends compact JavaScript demos to
-the board over UDP port `12345`; the board evaluates them in mquickjs and
-draws through the same framebuffer API as the standalone examples.
+Open `http://192.168.1.50/` if `xdg-open` is not available. The page
+sends compact JavaScript demos to the board over HTTP; the board
+evaluates them in mquickjs and draws through the same framebuffer API as
+the standalone examples.
+
+The host bridge remains useful while debugging Ethernet:
+
+```sh
+./make.py live --live-mode udp --build-dir build/ecpix5-live
+./tools/live_bridge.py --board 192.168.1.50
+```
 
 ## SDCard Boot
 

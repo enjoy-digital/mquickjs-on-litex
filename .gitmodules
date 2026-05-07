@@ -2,3 +2,7 @@
 	path = firmware/third_party/mquickjs
 	url = https://github.com/bellard/mquickjs.git
 	ignore = untracked
+[submodule "firmware/third_party/lwip"]
+	path = firmware/third_party/lwip
+	url = https://git.savannah.nongnu.org/git/lwip.git
+	ignore = untracked

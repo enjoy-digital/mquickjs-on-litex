@@ -90,19 +90,19 @@ showcase playlist. It runs plasma, fire and tunnel from one firmware:
 ./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
 ```
 
-The first live-editing step is also available: build the board with
-Ethernet and video, upload the live firmware, then open a browser UI on
-the host:
+The live-editing step serves the browser UI directly from the board:
 
 ```sh
 ./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-live -- --with-ethernet --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
 ./make.py live --build-dir build/ecpix5-live
 ./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-live
 ./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
-./tools/live_bridge.py --board 192.168.1.50
 ```
 
-Then open `http://127.0.0.1:8000` and press `Run`.
+Then open `http://192.168.1.50/`, edit JavaScript in the browser, and
+press `Run`. For debugging, the older host bridge is still available
+with `./make.py live --live-mode udp --build-dir build/ecpix5-live` and
+`./tools/live_bridge.py --board 192.168.1.50`.
 
 ## [> Files
 
@@ -122,5 +122,5 @@ Useful docs:
 
 ## [> License
 
-BSD-2-Clause for this repository. The mquickjs submodule keeps its
-upstream MIT license.
+BSD-2-Clause for this repository. The mquickjs and lwIP submodules keep
+their upstream licenses.

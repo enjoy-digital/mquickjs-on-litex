@@ -93,17 +93,15 @@ For hardware, use the showcase firmware:
 
 ## Live Editing
 
-The first live-editing path is intentionally small:
+The live-editing path is intentionally small:
 
 ```text
-Browser editor -> host bridge -> UDP packet -> LiteX board -> mquickjs
+Browser editor -> HTTP POST -> LiteX board -> mquickjs -> framebuffer
 ```
 
-The JavaScript still runs on the board. The host bridge only serves the
-editor page and forwards the `Run` button to the board's UDP live-loader
-port. This keeps the firmware small and uses LiteX's existing bare-metal
-Ethernet stack. A later step can replace the bridge with an on-board
-HTTP/WebSocket server.
+The JavaScript runs on the board. The browser page is served by a tiny
+lwIP HTTP endpoint in the firmware and the `Run` button posts the edited
+script back to mquickjs.
 
 Build an Ethernet + video target, then build live firmware:
 
@@ -114,15 +112,16 @@ Build an Ethernet + video target, then build live firmware:
 ./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
 ```
 
-In another terminal:
+Open `http://192.168.1.50/`, choose a preset, edit the JavaScript and
+press `Run`. Scripts are bounded to 8 KiB in the firmware, so keep live
+experiments compact.
+
+The older UDP host bridge is still present as a fallback:
 
 ```sh
+./make.py live --live-mode udp --build-dir build/ecpix5-live
 ./tools/live_bridge.py --board 192.168.1.50
 ```
-
-Open `http://127.0.0.1:8000`, choose a preset, edit the JavaScript and
-press `Run`. Scripts are currently sent as one UDP packet, so keep them
-compact; the included presets are sized for that path.
 
 The goal is that the same demo scripts remain portable across
 simulation and LiteX board targets.

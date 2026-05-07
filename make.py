@@ -96,6 +96,8 @@ def firmware_cmd(args, script=None):
         cmd.append("MEMORY_DUMP=1")
     if getattr(args, "live_demo", False):
         cmd.append("LIVE_DEMO=1")
+    if getattr(args, "live_mode", None) is not None:
+        cmd.append(f"LIVE_MODE={args.live_mode}")
     if getattr(args, "live_port", None) is not None:
         cmd.append(f"LIVE_PORT={args.live_port}")
 
@@ -354,8 +356,10 @@ def main():
         help="Build live-reload firmware for an Ethernet LiteX build directory.")
     live.add_argument("script", nargs="?", type=Path, default=DEFAULT_LIVE_SCRIPT,
                       help="Initial JavaScript source.")
-    live.add_argument("--live-port", type=int, default=12345,
-                      help="UDP port used by the live JavaScript loader.")
+    live.add_argument("--live-mode", choices=["http", "udp"], default="http",
+                      help="Live loader transport.")
+    live.add_argument("--live-port", type=int, default=None,
+                      help="TCP/UDP port used by the live JavaScript loader.")
     add_build_options(live, BOARD_BUILD_DIR)
     live.set_defaults(func=cmd_live)
 
