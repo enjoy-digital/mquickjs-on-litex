@@ -28,7 +28,11 @@ def firmware_cmd(args, script=None):
     root      = repo_root()
     build_dir = args.build_dir.resolve()
     js        = script if script is not None else getattr(args, "script", None)
-    cmd       = ["make", "-C", str(root / "firmware"), f"BUILD_DIRECTORY={build_dir}", "-j"]
+    cmd       = [
+        "make", "-C", str(root / "firmware"),
+        f"BUILD_DIRECTORY={build_dir}",
+        "-j",
+    ]
 
     if js is not None:
         cmd.append(f"SCRIPT={js.resolve()}")
@@ -66,7 +70,11 @@ def cmd_sim(args):
 
 def cmd_repl(args):
     root = repo_root()
-    cmd  = [root / "sim" / "run_sim.py", "--output-dir", args.output_dir, "--keep-running"]
+    cmd  = [
+        root / "sim" / "run_sim.py",
+        "--output-dir", args.output_dir,
+        "--keep-running",
+    ]
     return run(cmd)
 
 
@@ -97,7 +105,10 @@ def cmd_board_load(args):
 
 def cmd_board_run(args):
     root = repo_root()
-    return run(["litex_term", args.serial, f"--kernel={root / 'firmware' / 'firmware.bin'}"])
+    return run([
+        "litex_term", args.serial,
+        f"--kernel={root / 'firmware' / 'firmware.bin'}",
+    ])
 
 
 def cmd_sdcard(args):
@@ -125,9 +136,12 @@ def cmd_clean(args):
 # Parser -------------------------------------------------------------------------------------------
 
 def add_build_options(parser, default_build_dir):
-    parser.add_argument("--build-dir",   type=Path, default=Path(default_build_dir), help="LiteX build directory.")
-    parser.add_argument("--heap-size",   type=int,  default=None,                    help="Override mquickjs heap size.")
-    parser.add_argument("--memory-dump", action="store_true",                       help="Print mquickjs heap statistics.")
+    parser.add_argument("--build-dir",   type=Path, default=Path(default_build_dir),
+                        help="LiteX build directory.")
+    parser.add_argument("--heap-size",   type=int,  default=None,
+                        help="Override mquickjs heap size.")
+    parser.add_argument("--memory-dump", action="store_true",
+                        help="Print mquickjs heap stats.")
 
 
 def main():
@@ -135,31 +149,40 @@ def main():
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     sim = subparsers.add_parser("sim", help="Build and run a JavaScript file in litex_sim.")
-    sim.add_argument("script",       nargs="?", type=Path, default=Path("examples/hello.js"), help="JavaScript source.")
-    sim.add_argument("--output-dir", type=Path, default=Path("build/sim"),                    help="LiteX simulator output directory.")
-    sim.add_argument("--timeout",    type=float, default=120.0,                               help="Seconds to wait for DONE marker.")
-    sim.add_argument("--heap-size",  type=int,   default=None,                                help="Override mquickjs heap size.")
-    sim.add_argument("--memory-dump", action="store_true",                                   help="Print mquickjs heap statistics.")
+    sim.add_argument("script",        nargs="?",  type=Path,  default=Path("examples/hello.js"),
+                     help="JavaScript source.")
+    sim.add_argument("--output-dir",  type=Path,  default=Path("build/sim"),
+                     help="Simulator output directory.")
+    sim.add_argument("--timeout",     type=float, default=120.0,
+                     help="Seconds to wait for DONE marker.")
+    sim.add_argument("--heap-size",   type=int,   default=None,
+                     help="Override mquickjs heap size.")
+    sim.add_argument("--memory-dump", action="store_true",
+                     help="Print mquickjs heap stats.")
     sim.set_defaults(func=cmd_sim)
 
     repl = subparsers.add_parser("repl", help="Run litex_sim and keep it alive for serial interaction.")
-    repl.add_argument("--output-dir", type=Path, default=Path("build/sim"), help="LiteX simulator output directory.")
+    repl.add_argument("--output-dir", type=Path, default=Path("build/sim"),
+                      help="LiteX simulator output directory.")
     repl.set_defaults(func=cmd_repl)
 
     firmware = subparsers.add_parser("firmware", help="Build firmware for an existing LiteX build directory.")
-    firmware.add_argument("script", nargs="?", type=Path, default=Path("examples/hello.js"), help="JavaScript source.")
+    firmware.add_argument("script", nargs="?", type=Path, default=Path("examples/hello.js"),
+                          help="JavaScript source.")
     add_build_options(firmware, "build/sim")
     firmware.set_defaults(func=cmd_firmware)
 
     board_build = subparsers.add_parser("board-build", help="Build a LiteX-Boards target.")
-    board_build.add_argument("--target",    required=True, help="LiteX-Boards target module.")
-    board_build.add_argument("--build-dir", type=Path, default=Path("build/board"), help="Board build directory.")
+    board_build.add_argument("--target",    required=True,            help="LiteX-Boards target module.")
+    board_build.add_argument("--build-dir", type=Path,                default=Path("build/board"),
+                             help="Board build directory.")
     board_build.add_argument("target_args", nargs=argparse.REMAINDER, help="Extra target arguments after --.")
     board_build.set_defaults(func=cmd_board_build)
 
     board_load = subparsers.add_parser("board-load", help="Load a LiteX-Boards target bitstream.")
-    board_load.add_argument("--target",    required=True, help="LiteX-Boards target module.")
-    board_load.add_argument("--build-dir", type=Path, default=Path("build/board"), help="Board build directory.")
+    board_load.add_argument("--target",    required=True,            help="LiteX-Boards target module.")
+    board_load.add_argument("--build-dir", type=Path,                default=Path("build/board"),
+                            help="Board build directory.")
     board_load.add_argument("target_args", nargs=argparse.REMAINDER, help="Extra target arguments after --.")
     board_load.set_defaults(func=cmd_board_load)
 
