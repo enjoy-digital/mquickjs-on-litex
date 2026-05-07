@@ -27,11 +27,11 @@ static uint8_t mqjs_heap[LITEX_MQJS_HEAP_SIZE] __attribute__((aligned(16)));
 The default heap is 1 MiB. Override it when building:
 
 ```sh
-make sim HEAP_SIZE=2097152
-make firmware HEAP_SIZE=2097152
+./make.py sim --heap-size 2097152
+./make.py firmware --heap-size 2097152
 ```
 
-Add `MEMORY_DUMP=1` when you want the mquickjs memory summary.
+Add `--memory-dump` when you want the mquickjs memory summary.
 
 ## Embedded Script
 
@@ -70,9 +70,10 @@ host tool, then runs it to generate:
 The generator is run with `-m32` so the tables match the rv32 firmware
 layout even on a 64-bit host.
 
-The Makefile removes a stale upstream `third_party/mquickjs/mquickjs_atom.h`
-before compiling mquickjs. This keeps the target build using the LiteX
-stdlib atoms, not a host-side upstream table.
+`firmware/Makefile` removes a stale upstream
+`third_party/mquickjs/mquickjs_atom.h` before compiling mquickjs. This
+keeps the target build using the LiteX stdlib atoms, not a host-side
+upstream table.
 
 ## SDCard Support
 

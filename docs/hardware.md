@@ -12,26 +12,23 @@ The examples below use a Digilent Arty A7, but the flow is intentionally
 generic: pick a LiteX-Boards target, build it with enough `main_ram`,
 build the firmware against that output directory, then load/run.
 
-## Variables
+## Options
 
-| Variable | Meaning |
-|----------|---------|
-| `BOARD_TARGET` | LiteX-Boards target module, for example `litex_boards.targets.digilent_arty` |
-| `BOARD_BUILD_DIR` | Board build directory used by LiteX and the firmware |
-| `BOARD_EXTRA` | Extra arguments passed to the board target |
-| `BOARD_SERIAL` | Serial device used by `litex_term` |
-| `BOARD_SDCARD` | Mounted FAT SDCard root |
+| Option | Meaning |
+|--------|---------|
+| `--target` | LiteX-Boards target module, for example `litex_boards.targets.digilent_arty` |
+| `--build-dir` | Board build directory used by LiteX and the firmware |
+| `--serial` | Serial device used by `litex_term` |
+| `--mount` | Mounted FAT SDCard root |
+| `-- <args>` | Extra arguments passed to the board target |
 
 ## Serial Boot
 
 ```sh
-make board-build \
-    BOARD_TARGET=litex_boards.targets.digilent_arty \
-    BOARD_BUILD_DIR=build/arty
-
-make firmware BOARD_BUILD_DIR=build/arty SCRIPT=examples/demo.js
-make board-load BOARD_TARGET=litex_boards.targets.digilent_arty BOARD_BUILD_DIR=build/arty
-make board-run BOARD_SERIAL=/dev/ttyUSB2
+./make.py board-build --target litex_boards.targets.digilent_arty --build-dir build/arty
+./make.py firmware examples/demo.js --build-dir build/arty
+./make.py board-load --target litex_boards.targets.digilent_arty --build-dir build/arty
+./make.py board-run --serial /dev/ttyUSB2
 ```
 
 `board-load` delegates to the board target `--load` option, so the
@@ -46,17 +43,13 @@ For a standalone demo, let LiteX BIOS boot `boot.bin` from the card,
 then let mquickjs load `main.js` from the same card:
 
 ```sh
-make board-build \
-    BOARD_TARGET=litex_boards.targets.digilent_arty \
-    BOARD_BUILD_DIR=build/arty-sd \
-    BOARD_EXTRA="--with-sdcard"
-
-make board-sdcard-prepare BOARD_BUILD_DIR=build/arty-sd BOARD_SDCARD=/media/$USER/LITEX
-make board-load BOARD_TARGET=litex_boards.targets.digilent_arty BOARD_BUILD_DIR=build/arty-sd
+./make.py board-build --target litex_boards.targets.digilent_arty --build-dir build/arty-sd -- --with-sdcard
+./make.py sdcard --build-dir build/arty-sd --mount /media/$USER/LITEX
+./make.py board-load --target litex_boards.targets.digilent_arty --build-dir build/arty-sd
 ```
 
-`board-sdcard-prepare` builds `examples/sdcard_loader.js`, removes known
-stale LiteX/Linux boot files from the mounted FAT root, then copies:
+`sdcard` builds `examples/sdcard_loader.js`, removes known stale
+LiteX/Linux boot files from the mounted FAT root, then copies:
 
 | SDCard file | Source |
 |-------------|--------|
@@ -84,14 +77,10 @@ Expected mquickjs output:
 Start with the smallest script:
 
 ```sh
-make board-build \
-    BOARD_TARGET=litex_boards.targets.<target_module> \
-    BOARD_BUILD_DIR=build/<board> \
-    BOARD_EXTRA="<target-specific options>"
-
-make firmware BOARD_BUILD_DIR=build/<board> SCRIPT=examples/hello.js
-make board-load BOARD_TARGET=litex_boards.targets.<target_module> BOARD_BUILD_DIR=build/<board>
-make board-run BOARD_SERIAL=/dev/ttyUSBn
+./make.py board-build --target litex_boards.targets.<target_module> --build-dir build/<board> -- <target-specific options>
+./make.py firmware examples/hello.js --build-dir build/<board>
+./make.py board-load --target litex_boards.targets.<target_module> --build-dir build/<board>
+./make.py board-run --serial /dev/ttyUSBn
 ```
 
 Then try `examples/demo.js`. LED writes are no-ops when no LED CSR is

@@ -10,10 +10,11 @@
  * REPL parser, and a few kilobytes of user script. Fits easily
  * inside litex_sim's default 16 MiB main_ram.
  *
- * Override at build time with `make HEAP_SIZE=<bytes>` — the firmware
- * Makefile forwards that as `-DLITEX_MQJS_HEAP_SIZE=<bytes>`, which
- * wins over the default below thanks to the #ifndef guard. Useful for
- * showing how tight the engine can run. */
+ * Override at build time with `./make.py sim --heap-size <bytes>` or
+ * `make -C firmware HEAP_SIZE=<bytes>`. The firmware Makefile forwards
+ * that as `-DLITEX_MQJS_HEAP_SIZE=<bytes>`, which wins over the default
+ * below thanks to the #ifndef guard. Useful for showing how tight the
+ * engine can run. */
 #ifndef LITEX_MQJS_HEAP_SIZE
 #define LITEX_MQJS_HEAP_SIZE (1u << 20)   /* 1 MiB */
 #endif

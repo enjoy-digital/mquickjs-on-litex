@@ -44,8 +44,8 @@ enough `main_ram`, and has been validated on a Digilent Arty A7.
 git clone --recursive https://github.com/enjoy-digital/mquickjs-on-litex
 cd mquickjs-on-litex
 
-make sim
-make sim SCRIPT=examples/demo.js
+./make.py sim
+./make.py sim examples/demo.js
 ```
 
 The first run builds the LiteX simulator. Later runs reuse it and only
@@ -66,27 +66,19 @@ Use any upstream LiteX-Boards target that provides enough `main_ram`.
 The Arty A7 commands below are just an example:
 
 ```sh
-make board-build \
-    BOARD_TARGET=litex_boards.targets.digilent_arty \
-    BOARD_BUILD_DIR=build/arty
-
-make firmware BOARD_BUILD_DIR=build/arty SCRIPT=examples/demo.js
-make board-load BOARD_TARGET=litex_boards.targets.digilent_arty BOARD_BUILD_DIR=build/arty
-make board-run BOARD_SERIAL=/dev/ttyUSB2
+./make.py board-build --target litex_boards.targets.digilent_arty --build-dir build/arty
+./make.py firmware examples/demo.js --build-dir build/arty
+./make.py board-load --target litex_boards.targets.digilent_arty --build-dir build/arty
+./make.py board-run --serial /dev/ttyUSB2
 ```
 
 For the SDCard flow, LiteX BIOS loads `boot.bin`, then mquickjs loads
 `main.js` from the card:
 
 ```sh
-make board-build \
-    BOARD_TARGET=litex_boards.targets.digilent_arty \
-    BOARD_BUILD_DIR=build/arty-sd \
-    BOARD_EXTRA="--with-sdcard"
-
-make firmware BOARD_BUILD_DIR=build/arty-sd SCRIPT=examples/sdcard_loader.js
-make board-sdcard-prepare BOARD_BUILD_DIR=build/arty-sd BOARD_SDCARD=/media/$USER/LITEX
-make board-load BOARD_TARGET=litex_boards.targets.digilent_arty BOARD_BUILD_DIR=build/arty-sd
+./make.py board-build --target litex_boards.targets.digilent_arty --build-dir build/arty-sd -- --with-sdcard
+./make.py sdcard --build-dir build/arty-sd --mount /media/$USER/LITEX
+./make.py board-load --target litex_boards.targets.digilent_arty --build-dir build/arty-sd
 ```
 
 Edit `main.js` on the SDCard, reset the board, and the FPGA runs the
@@ -95,6 +87,7 @@ new JavaScript.
 ## [> Files
 
 ```
+make.py       friendly build/run entry point
 firmware/     mquickjs port and LiteX bindings
 examples/     hello, demo, SDCard loader
 sim/          litex_sim runner

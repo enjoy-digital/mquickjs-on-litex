@@ -32,9 +32,8 @@ riscv64-unknown-elf-gcc -march=rv32im -mabi=ilp32 -print-libgcc-file-name
 ## Run
 
 ```sh
-make sim
-make sim SCRIPT=examples/demo.js
-./sim/run_sim.py --script examples/hello.js
+./make.py sim
+./make.py sim examples/demo.js
 ```
 
 The first run asks `litex_sim` to generate the SoC, LiteX software
@@ -45,16 +44,15 @@ firmware with the selected JavaScript embedded, refresh
 Useful options:
 
 ```sh
-make sim HEAP_SIZE=262144
-make sim MEMORY_DUMP=1
-./sim/run_sim.py --keep-running
+./make.py sim --heap-size 262144
+./make.py sim --memory-dump
 ```
 
-`MEMORY_DUMP=1` prints mquickjs heap statistics at exit. `--keep-running`
-is useful for the REPL:
+`--memory-dump` prints mquickjs heap statistics at exit. For an
+interactive serial session:
 
 ```sh
-make sim-repl
+./make.py repl
 ```
 
 ## Firmware Only
@@ -63,9 +61,7 @@ To build the firmware without running simulation, point it at a LiteX
 build directory containing `software/include/generated/variables.mak`:
 
 ```sh
-make -C firmware \
-    BUILD_DIRECTORY=$(pwd)/build/sim \
-    SCRIPT=$(pwd)/examples/hello.js
+./make.py firmware examples/hello.js --build-dir build/sim
 ```
 
 Outputs are `firmware/firmware.elf` and `firmware/firmware.bin`.
