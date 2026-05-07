@@ -20,7 +20,8 @@ if (framebuffer.width !== 0 && framebuffer.height !== 0) {
 
     for (var i = 0; i < colors.length; i++) {
         var x = ((w / colors.length) * i) >> 0;
-        var cw = ((w / colors.length) + 1) >> 0;
+        var next_x = ((w / colors.length) * (i + 1)) >> 0;
+        var cw = next_x - x;
         framebuffer.fillRect(x, 0, cw, h, colors[i]);
     }
 

@@ -179,12 +179,13 @@ static void live_udp_rx(uint32_t src_ip, uint16_t src_port, uint16_t dst_port,
 static void live_send_reply(uint32_t dst_ip, uint16_t dst_port, const char *text)
 {
     size_t len = strlen(text);
-    char *tx = udp_get_tx_buffer();
+    char *tx;
 
     if (len > UDP_BUFSIZE)
         len = UDP_BUFSIZE;
     if (!udp_arp_resolve(dst_ip))
         return;
+    tx = udp_get_tx_buffer();
     memcpy(tx, text, len);
     udp_send(LITEX_MQJS_LIVE_PORT, dst_port, len);
 }
