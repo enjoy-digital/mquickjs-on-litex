@@ -36,22 +36,36 @@ framebuffer.width
 framebuffer.height
 framebuffer.depth
 framebuffer.clear(color)
+framebuffer.fillRect(x, y, width, height, color)
+framebuffer.copyRect(srcX, srcY, width, height, dstX, dstY)
 framebuffer.blit(buffer, width, height, x, y)
 framebuffer.blitScale(buffer, width, height, x, y, scale)
 framebuffer.blitIndexedScale(indexes, palette, width, height, x, y, scale)
 ```
 
 `buffer` is normally a `Uint32Array` of RGB pixels. The optional
-`width`, `height`, `x` and `y` arguments let scripts draw a smaller tile
-inside the framebuffer. `blitScale` expands each source pixel to a
-square block in C, so the simulator demo stays fast while still
-producing a visible HDMI image on hardware.
+dirty rectangle lets scripts update only part of the source tile.
+`blitScale` expands each source pixel to a square block in C, so the
+simulator demo stays fast while still producing a visible HDMI image on
+hardware.
 
 `blitIndexedScale` is the hardware-friendly variant for retro effects:
 JavaScript fills a `Uint8Array` tile and a 256-entry `Uint32Array`
 palette, then C expands the indexed pixels to the framebuffer. The
 effect remains scripted, but the repeated pixel copy is no longer a
-property-by-property JavaScript loop.
+property-by-property JavaScript loop. `paletteOffset` supports cheap
+palette-cycling effects without rewriting the index buffer.
+
+Both scaled blitters also accept optional dirty rectangles:
+
+```text
+blitScale(..., dirtyX, dirtyY, dirtyW, dirtyH)
+blitIndexedScale(..., paletteOffset, dirtyX, dirtyY, dirtyW, dirtyH)
+```
+
+`fillRect` and `copyRect` are bulk primitives for text consoles, games,
+scrolling, and small UI overlays. They are intentionally generic and do
+not know anything about the plasma demo.
 
 For hardware, use the animated version:
 

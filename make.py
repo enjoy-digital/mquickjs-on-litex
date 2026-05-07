@@ -182,11 +182,14 @@ def cmd_board_build(args):
     cmd = [
         sys.executable, "-m", args.target,
         "--build",
-        "--cpu-type=vexriscv",
+        f"--cpu-type={args.cpu_type}",
         "--libc-mode=full",
         "--timer-uptime",
         f"--output-dir={args.build_dir}",
-    ] + target_args(args)
+    ]
+    if args.cpu_variant is not None:
+        cmd.append(f"--cpu-variant={args.cpu_variant}")
+    cmd += target_args(args)
     return run(cmd)
 
 
@@ -255,7 +258,9 @@ def main():
                      help="Print mquickjs heap stats.")
     sim.set_defaults(func=cmd_sim)
 
-    sim_repl = subparsers.add_parser("sim-repl", help="Run litex_sim and keep it alive for serial interaction.")
+    sim_repl = subparsers.add_parser(
+        "sim-repl",
+        help="Run litex_sim and keep it alive for serial interaction.")
     sim_repl.add_argument("--output-dir", type=Path, default=SIM_BUILD_DIR,
                           help="LiteX simulator output directory.")
     sim_repl.set_defaults(func=cmd_sim_repl)
@@ -278,24 +283,34 @@ def main():
                            help="Also enable simulated Ethernet.")
     sim_video.set_defaults(func=cmd_sim_video)
 
-    firmware = subparsers.add_parser("firmware", help="Build firmware for an existing LiteX build directory.")
+    firmware = subparsers.add_parser(
+        "firmware",
+        help="Build firmware for an existing LiteX build directory.")
     firmware.add_argument("script", nargs="?", type=Path, default=DEFAULT_SCRIPT,
                           help="JavaScript source.")
     add_build_options(firmware, SIM_BUILD_DIR)
     firmware.set_defaults(func=cmd_firmware)
 
     board_build = subparsers.add_parser("board-build", help="Build a LiteX-Boards target.")
-    board_build.add_argument("--target",    required=True,            help="LiteX-Boards target module.")
+    board_build.add_argument("--target",    required=True,
+                             help="LiteX-Boards target module.")
     board_build.add_argument("--build-dir", type=Path,                default=BOARD_BUILD_DIR,
                              help="Board build directory.")
-    board_build.add_argument("target_args", nargs=argparse.REMAINDER, help="Extra target arguments after --.")
+    board_build.add_argument("--cpu-type",  default="vexriscv",
+                             help="LiteX CPU type.")
+    board_build.add_argument("--cpu-variant", default=None,
+                             help="LiteX CPU variant.")
+    board_build.add_argument("target_args", nargs=argparse.REMAINDER,
+                             help="Extra target arguments after --.")
     board_build.set_defaults(func=cmd_board_build)
 
     board_load = subparsers.add_parser("board-load", help="Load a LiteX-Boards target bitstream.")
-    board_load.add_argument("--target",    required=True,            help="LiteX-Boards target module.")
+    board_load.add_argument("--target",    required=True,
+                            help="LiteX-Boards target module.")
     board_load.add_argument("--build-dir", type=Path,                default=BOARD_BUILD_DIR,
                             help="Board build directory.")
-    board_load.add_argument("target_args", nargs=argparse.REMAINDER, help="Extra target arguments after --.")
+    board_load.add_argument("target_args", nargs=argparse.REMAINDER,
+                            help="Extra target arguments after --.")
     board_load.set_defaults(func=cmd_board_load)
 
     board_run = subparsers.add_parser("board-run", help="Upload firmware with litex_term.")

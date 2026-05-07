@@ -32,6 +32,8 @@ JSValue js_framebuffer_get_width (JSContext *ctx, JSValue *this_val, int argc, J
 JSValue js_framebuffer_get_height(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 JSValue js_framebuffer_get_depth (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 JSValue js_framebuffer_clear     (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
+JSValue js_framebuffer_fill_rect (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
+JSValue js_framebuffer_copy_rect (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 JSValue js_framebuffer_blit      (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 JSValue js_framebuffer_blit_scale(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 JSValue js_framebuffer_blit_indexed_scale(JSContext *ctx, JSValue *this_val,

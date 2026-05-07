@@ -84,14 +84,20 @@ MQJS_INC := -I$(GEN_DIR) -I$(FW_DIR) -I$(MQJS_DIR)
 CFLAGS   += $(MQJS_INC) $(EMBED_CFLAGS)
 
 # We need libgcc for a handful of soft-float / long-long helpers that
-# neither libcompiler_rt nor picolibc ship (`__extendsfdf2`,
-# `__truncdfsf2`, `__clzdi2`, ...). LiteX's CPUFLAGS uses the versioned
-# `-march=rv32i2p0_m` spelling which gcc's multilib matcher rejects
-# (only the un-versioned `rv32im` maps to a multilib directory). Resolve
-# it manually using an un-versioned flavour so the driver returns the
-# correct rv32im/ilp32 libgcc.a path. */
+# neither libcompiler_rt nor picolibc ship. LiteX's CPUFLAGS can use
+# versioned RISC-V ISA strings, which GCC's multilib matcher rejects.
+# Resolve libgcc with a compact ISA derived from the ABI instead.
 ifeq ($(filter $(NO_BUILDDIR_TARGETS),$(MAKECMDGOALS)),)
-TARGET_LIBGCC := $(shell $(TARGET_PREFIX)gcc -march=rv32im -mabi=ilp32 \
+TARGET_ABI     := $(shell echo "$(CPUFLAGS)" | sed -n 's/.*-mabi=\([^ ]*\).*/\1/p')
+TARGET_XLEN    := $(if $(findstring lp64,$(TARGET_ABI)),64,32)
+TARGET_RV_ARCH := rv$(TARGET_XLEN)im
+ifneq ($(findstring f,$(TARGET_ABI)),)
+TARGET_RV_ARCH := $(TARGET_RV_ARCH)af
+endif
+ifneq ($(findstring d,$(TARGET_ABI)),)
+TARGET_RV_ARCH := $(TARGET_RV_ARCH)d
+endif
+TARGET_LIBGCC  := $(shell $(TARGET_PREFIX)gcc -march=$(TARGET_RV_ARCH) -mabi=$(TARGET_ABI) \
                      -print-libgcc-file-name)
 endif
 
@@ -153,17 +159,24 @@ endif
 $(BUILD_CONTEXT): FORCE | $(GEN_DIR)
 	@{ \
 	    echo "BUILD_DIRECTORY=$(BUILD_DIR)"; \
+	    echo "TRIPLE=$(TRIPLE)"; \
+	    echo "CPUFLAGS=$(CPUFLAGS)"; \
+	    echo "TARGET_ABI=$(TARGET_ABI)"; \
 	    echo "PACKAGES=$(PACKAGES)"; \
 	    echo "LIBS=$(LIBS)"; \
 	} | cmp -s - $@ || { \
 	    { \
 	        echo "BUILD_DIRECTORY=$(BUILD_DIR)"; \
+	        echo "TRIPLE=$(TRIPLE)"; \
+	        echo "CPUFLAGS=$(CPUFLAGS)"; \
+	        echo "TARGET_ABI=$(TARGET_ABI)"; \
 	        echo "PACKAGES=$(PACKAGES)"; \
 	        echo "LIBS=$(LIBS)"; \
 	    } > $@; \
 	}
 
-main.o mqjs_port.o: $(GENERATED_SOC_HEADERS) $(BUILD_CONTEXT)
+$(FW_OBJS): $(GENERATED_SOC_HEADERS) $(BUILD_CONTEXT)
+$(filter-out mquickjs.o,$(MQJS_OBJS)): $(BUILD_CONTEXT)
 
 %.bin: %.elf
 	$(OBJCOPY) -O binary $< $@
@@ -214,7 +227,8 @@ endif
 # Header dependencies.
 main.o:      $(STDLIB_H) $(ATOM_H) $(USER_SCRIPT_H)
 mqjs_port.o: $(STDLIB_H) $(ATOM_H)
-mquickjs.o:  $(GEN_DIR)/mquickjs.c $(GEN_DIR)/mquickjs.h $(ATOM_H) clean-mqjs-generated-headers
+mquickjs.o:  $(GEN_DIR)/mquickjs.c $(GEN_DIR)/mquickjs.h $(ATOM_H) \
+             clean-mqjs-generated-headers $(BUILD_CONTEXT)
 
 # --- Compile rules ------------------------------------------------------
 

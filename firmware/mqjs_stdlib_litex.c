@@ -407,6 +407,8 @@ static const JSPropDef js_framebuffer[] = {
     JS_CGETSET_DEF("depth",  js_framebuffer_get_depth,  NULL),
 
     JS_CFUNC_DEF("clear",            1, js_framebuffer_clear),
+    JS_CFUNC_DEF("fillRect",         5, js_framebuffer_fill_rect),
+    JS_CFUNC_DEF("copyRect",         6, js_framebuffer_copy_rect),
     JS_CFUNC_DEF("blit",             1, js_framebuffer_blit),
     JS_CFUNC_DEF("blitScale",        6, js_framebuffer_blit_scale),
     JS_CFUNC_DEF("blitIndexedScale", 7, js_framebuffer_blit_indexed_scale),

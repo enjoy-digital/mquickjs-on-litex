@@ -81,8 +81,8 @@ Validated output:
 [plasma] framebuffer = 640 x 480 x 32
 [plasma] animated tile = 48 x 36 x 8
 [plasma] frames = 64
-[plasma] final checksum = 0x36513
-[plasma] animation took 24224 ms
+[plasma] final checksum = 0x34c93
+[plasma] animation took 24298 ms
 [plasma] done
 [mqjs] done
 ```
@@ -138,6 +138,25 @@ present; switch/button reads return zero when those CSRs are absent. If
 the target has video, pass its framebuffer option after `--` and run
 `examples/plasma.js` in simulation or `examples/plasma_animated.js` on
 hardware.
+
+`board-build` defaults to VexRiscv, but can forward another LiteX CPU
+cleanly:
+
+```sh
+./make.py board-build --target litex_boards.targets.<target_module> --build-dir build/<board> --cpu-type vexiiriscv --cpu-variant standard -- <target-specific options>
+```
+
+CPU-specific options still go after `--`. For example, this builds a
+FPU-capable VexiiRiscv experiment:
+
+```sh
+./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video-vexii-fpu --cpu-type vexiiriscv --cpu-variant standard -- --with-video-framebuffer --sys-clk-freq=50000000 --uart-baudrate=1000000 --uart-fifo-depth=512 --with-isa f d --update-repo=no
+```
+
+On the ECPIX-5 test setup, the 75MHz VexiiRiscv F/D build routed but
+missed timing, while a 50MHz build passed timing. The firmware reached
+the JavaScript runtime but stalled before the animated plasma script
+started printing, so the validated demo path remains VexRiscv for now.
 
 For custom peripherals, add C bindings in `firmware/mqjs_port.c` and
 register the JavaScript entry points in `firmware/mqjs_stdlib_litex.c`.

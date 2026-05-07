@@ -68,7 +68,6 @@ function renderFrame(indexes, width, height, phases, waves, frame) {
     var t0  = frame * 5;
     var t1  = frame * 3;
     var t2  = frame * 9;
-    var base = frame * 2;
 
     for (var y = 0; y < height; y++) {
         var yw  = waves[(phases.y[y] + t1) & 255];
@@ -82,7 +81,7 @@ function renderFrame(indexes, width, height, phases, waves, frame) {
             v += waves[(phases.radial[i] + t0) & 255];
             v += waves[(phases.diag[i] + t2) & 255] >> 1;
 
-            var index = (v + base) & 255;
+            var index = v & 255;
             indexes[i] = index;
             sum = (sum + index) >>> 0;
         }
@@ -116,7 +115,8 @@ if (fbWidth === 0 || fbHeight === 0) {
 
     for (var frame = 0; frame < frames; frame++) {
         sum = renderFrame(indexes, width, height, phases, waves, frame);
-        framebuffer.blitIndexedScale(indexes, palette, width, height, x0, y0, scale);
+        framebuffer.blitIndexedScale(indexes, palette, width, height,
+            x0, y0, scale, frame * 2);
 
         if ((frame & 15) === 15)
             console.log("[plasma] frame", frame + 1, "checksum = 0x" + sum.toString(16));
