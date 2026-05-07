@@ -91,14 +91,38 @@ For hardware, use the showcase firmware:
 ./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
 ```
 
-## Next Step
+## Live Editing
 
-Once the visual path is solid, add a live code path:
+The first live-editing path is intentionally small:
 
-- UART TCP first: easiest to debug in simulation.
-- UDP over simulated Ethernet next: simple and board-like.
-- HTTP/WebSocket browser editor later: nicest demo, but more moving
-  parts.
+```text
+Browser editor -> host bridge -> UDP packet -> LiteX board -> mquickjs
+```
+
+The JavaScript still runs on the board. The host bridge only serves the
+editor page and forwards the `Run` button to the board's UDP live-loader
+port. This keeps the firmware small and uses LiteX's existing bare-metal
+Ethernet stack. A later step can replace the bridge with an on-board
+HTTP/WebSocket server.
+
+Build an Ethernet + video target, then build live firmware:
+
+```sh
+./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-live -- --with-ethernet --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
+./make.py live --build-dir build/ecpix5-live
+./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-live
+./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
+```
+
+In another terminal:
+
+```sh
+./tools/live_bridge.py --board 192.168.1.50
+```
+
+Open `http://127.0.0.1:8000`, choose a preset, edit the JavaScript and
+press `Run`. Scripts are currently sent as one UDP packet, so keep them
+compact; the included presets are sized for that path.
 
 The goal is that the same demo scripts remain portable across
 simulation and LiteX board targets.

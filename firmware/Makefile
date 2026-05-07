@@ -55,6 +55,12 @@ endif
 ifeq ($(MEMORY_DUMP),1)
 EMBED_CFLAGS += -DLITEX_MQJS_DUMP_MEMORY=1
 endif
+ifeq ($(LIVE_DEMO),1)
+EMBED_CFLAGS += -DLITEX_MQJS_LIVE_DEMO=1
+endif
+ifneq ($(LIVE_PORT),)
+EMBED_CFLAGS += -DLITEX_MQJS_LIVE_PORT=$(LIVE_PORT)
+endif
 
 # --- Sources ------------------------------------------------------------
 
@@ -140,6 +146,8 @@ help:
 	@echo "  SCRIPT        JavaScript source to embed (default: REPL)"
 	@echo "  HEAP_SIZE     mquickjs heap size override"
 	@echo "  MEMORY_DUMP=1 print mquickjs heap statistics at exit"
+	@echo "  LIVE_DEMO=1   keep firmware alive and accept JS over UDP"
+	@echo "  LIVE_PORT     UDP port for LIVE_DEMO (default: 12345)"
 	@echo "  V=1           verbose compile lines"
 
 firmware.elf: $(OBJECTS) linker.ld
