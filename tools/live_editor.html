@@ -267,13 +267,16 @@ const slot   = document.getElementById("slot");
 
 const helper = LiveDemo.helper;
 const defaultScript = LiveDemo.defaultScript;
+const presetInfo = LiveDemo.presetInfo;
 const presets = LiveDemo.presets;
 
 for (const name of Object.keys(presets)) {
     const option = document.createElement("option");
+    const info = presetInfo[name] || {title: name};
 
     option.value = name;
-    option.textContent = name[0].toUpperCase() + name.slice(1);
+    option.textContent = info.title;
+    option.title = info.description || "";
     preset.appendChild(option);
 }
 

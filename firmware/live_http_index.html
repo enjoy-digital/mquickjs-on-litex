@@ -182,6 +182,10 @@ pre {
     gap: 7px;
 }
 
+.quick {
+    grid-template-columns: 1fr 1fr 1fr;
+}
+
 .tools {
     grid-template-columns: repeat(2, 1fr);
 }
@@ -251,6 +255,15 @@ pre {
 </div>
 
 <div class="panel">
+<div class="title"><span>quick</span><span>show</span></div>
+<div class="body bar quick">
+<button onclick="runPreset('logo')">Logo</button>
+<button onclick="runPreset('plasma')">Plasma</button>
+<button onclick="runPreset('stars')">Stars</button>
+</div>
+</div>
+
+<div class="panel">
 <div class="title"><span>presets</span><span>scene</span></div>
 <div class="body bar">
 <button class="secondary" onclick="preset('bars')">Bars</button>
@@ -263,6 +276,7 @@ pre {
 <button class="secondary" onclick="preset('vector')">Vector</button>
 <button class="secondary" onclick="preset('logo')">Logo</button>
 </div>
+<pre id="scene">pick a preset</pre>
 </div>
 
 <div class="panel">
@@ -301,6 +315,7 @@ pre {
 const code = document.getElementById("code");
 const log = document.getElementById("log");
 const infoEl = document.getElementById("info");
+const sceneEl = document.getElementById("scene");
 const stateEl = document.getElementById("state");
 const slot = document.getElementById("slot");
 
@@ -308,6 +323,7 @@ let boardInfo = null;
 
 const helper = LiveDemo.helper;
 const defaultScript = LiveDemo.defaultScript;
+const presetInfo = LiveDemo.presetInfo;
 const presets = LiveDemo.presets;
 
 // These scripts exercise LiteX peripherals through the mquickjs bindings.
@@ -537,12 +553,20 @@ async function preview(status, prefix) {
 }
 
 function run() {
-  sendScript(helper + code.value);
+  return sendScript(helper + code.value);
 }
 
 function preset(name) {
+  const info = presetInfo[name] || {title: name, description: ""};
+
   code.value = presets[name];
+  sceneEl.textContent = info.title + "\n" + info.description;
   preview("LOADED " + name.toUpperCase());
+}
+
+async function runPreset(name) {
+  preset(name);
+  await run();
 }
 
 async function action(name) {

@@ -563,9 +563,49 @@ function frame(t) {
 }`
 };
 
+const presetInfo = {
+  bars: {
+    title: "Bars",
+    description: "Fast color stripes for checking the framebuffer and palette path.",
+  },
+  plasma: {
+    title: "Plasma",
+    description: "Low-resolution indexed plasma scaled by the C framebuffer helper.",
+  },
+  spark: {
+    title: "Spark",
+    description: "Tiny particle field with fading trails and switch/button controls.",
+  },
+  tunnel: {
+    title: "Tunnel",
+    description: "Classic distance-field tunnel using compact integer math.",
+  },
+  fire: {
+    title: "Fire",
+    description: "Small fire buffer seeded in JavaScript and expanded to video.",
+  },
+  stars: {
+    title: "Stars",
+    description: "Star field with depth values and live speed/count controls.",
+  },
+  life: {
+    title: "Life",
+    description: "Cellular automaton rendered through an indexed framebuffer.",
+  },
+  vector: {
+    title: "Vector",
+    description: "Vector-scope lines with framebuffer fading trails.",
+  },
+  logo: {
+    title: "Logo",
+    description: "Minimal DVD-style badge with bounce-triggered color changes.",
+  },
+};
+
 global.LiveDemo = {
   helper: helper,
   defaultScript: defaultScript,
+  presetInfo: presetInfo,
   presets: presets,
 };
 })(typeof window !== "undefined" ? window : globalThis);
