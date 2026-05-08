@@ -78,7 +78,54 @@ var demo={
   centerY:function(h){return ((framebuffer.height-h)/2)|0;},
   blitIndexed:function(idx,pal,w,h,s){framebuffer.blitIndexedScale(idx,pal,w,h,demo.centerX(w*s),demo.centerY(h*s),s);},
   controls:function(){var sw=litex.getSwitches(),btn=litex.getButtons();if(sw)params.hue=(sw*17)&255;if(btn&1)params.speed=64;if(btn&2)params.count=192;},
-  overlay:function(name,t){if(!params.overlay||!framebuffer.width)return;var ww=framebuffer.width;framebuffer.fillRect(0,0,ww,26,0x020406);if(ww>16)framebuffer.fillRect(8,5,ww-16,16,0x06080b);framebuffer.line(0,25,ww-1,25,0x10384d);framebuffer.text(16,9,name+' '+((t/1000)|0)+'S',0x12bdf2,1);if(ww>220)framebuffer.text(ww-210,9,'SPD '+params.speed+' SW '+litex.getSwitches(),0x8fa3b2,1);}
+  overlay:function(name,t){if(!params.overlay||!framebuffer.width)return;var ww=framebuffer.width;framebuffer.fillRect(0,0,ww,26,0x020406);if(ww>16)framebuffer.fillRect(8,5,ww-16,16,0x06080b);framebuffer.line(0,25,ww-1,25,0x10384d);framebuffer.text(16,9,name+' '+((t/1000)|0)+'S',0x12bdf2,1);if(ww>220)framebuffer.text(ww-210,9,'SPD '+params.speed+' SW '+litex.getSwitches(),0x8fa3b2,1);},
+  panel:function(x,y,pw,ph,title,tag){
+    framebuffer.fillRect(x,y,pw,ph,0x06080b);
+    framebuffer.line(x,y,x+pw-1,y,0x30343a);
+    framebuffer.line(x,y+ph-1,x+pw-1,y+ph-1,0x30343a);
+    framebuffer.line(x,y,x,y+ph-1,0x30343a);
+    framebuffer.line(x+pw-1,y,x+pw-1,y+ph-1,0x30343a);
+    framebuffer.line(x+1,y+28,x+pw-2,y+28,0x10384d);
+    framebuffer.text(x+10,y+10,title,0x12bdf2,1);
+    if(tag)framebuffer.text(x+pw-tag.length*6-10,y+10,tag,0x8fa3b2,1);
+  },
+  scriptPreview:function(status,lines){
+    var w=framebuffer.width,h=framebuffer.height;
+    if(!w||!h){console.log('[preview] no framebuffer');return;}
+    framebuffer.clear(0x020406);
+    if(w<560||h<420){framebuffer.text(8,10,'SCRIPT.JS',0xf7f9fb,1);framebuffer.text(8,30,status,0x12bdf2,1);return;}
+    var m=24,gap=16,leftW=(((w-2*m-gap)*3)/5)|0;
+    var rightX=m+leftW+gap,rightW=w-rightX-m,topY=92,panelH=h-228,bottomY=h-88;
+    framebuffer.line(m,70,w-m,70,0x0b87bd);
+    framebuffer.text(m,26,'MQUICKJS',0xf7f9fb,3);
+    framebuffer.text(m+162,26,'ON LITEX',0x12bdf2,3);
+    framebuffer.text(m+2,62,'LIVE JAVASCRIPT // FPGA VIDEO',0x12bdf2,1);
+    framebuffer.fillRect(w-m-96,33,96,26,0x080c10);
+    framebuffer.line(w-m-96,33,w-m-1,33,0x0b87bd);
+    framebuffer.line(w-m-96,58,w-m-1,58,0x0b87bd);
+    framebuffer.line(w-m-96,33,w-m-96,58,0x0b87bd);
+    framebuffer.line(w-m-1,33,w-m-1,58,0x0b87bd);
+    framebuffer.text(w-m-76,42,status,0x8ed94f,1);
+    demo.panel(m,topY,leftW,panelH,'SCRIPT.JS','LOADED');
+    framebuffer.fillRect(m+12,topY+42,leftW-24,panelH-54,0x020406);
+    for(var i=0;i<lines.length&&i<7;i++){
+      var y=topY+54+i*22,n=i+1;
+      framebuffer.text(m+28,y,n<10?'0'+n:''+n,0x8fa3b2,1);
+      framebuffer.text(m+58,y,lines[i],0xdce8f2,1);
+    }
+    demo.panel(rightX,topY,rightW,112,'BOARD','STATUS');
+    framebuffer.text(rightX+12,topY+44,litex.getIdentifier(),0xdce8f2,1);
+    framebuffer.text(rightX+12,topY+66,'FB '+w+'X'+h+'X'+framebuffer.depth,0x8fa3b2,1);
+    framebuffer.text(rightX+12,topY+88,'ETH 192.168.1.50',0x8ed94f,1);
+    demo.panel(rightX,topY+128,rightW,panelH-128,'RUNTIME','IDLE');
+    framebuffer.text(rightX+12,topY+172,'BROWSER EDITOR',0xdce8f2,1);
+    framebuffer.text(rightX+12,topY+194,'RUN TO EXECUTE',0x8fa3b2,1);
+    framebuffer.text(rightX+12,topY+216,'JS EXECUTES HERE',0x12bdf2,1);
+    demo.panel(m,bottomY,w-2*m,64,'CONSOLE','READY');
+    framebuffer.text(m+14,bottomY+34,'OPEN HTTP://192.168.1.50/',0x8ed94f,1);
+    framebuffer.text(m+14,bottomY+52,'SCRIPT.JS PREVIEW REFRESHED FROM WEB UI',0x8fa3b2,1);
+    console.log('[preview] '+status+' - script.js shown on framebuffer');
+  }
 };
 `;
 const presets={
@@ -208,14 +255,17 @@ function url(path){return board.value.replace(/\/$/,"")+path;}
 function setLog(text){log.textContent=text;}
 async function post(path,body){const r=await fetch(url(path),{method:"POST",headers:{"Content-Type":"text/plain"},body});const t=await r.text();setLog(t);return {ok:r.ok,text:t};}
 async function run(){setLog("Sending...");await post("/run",helper+code.value);}
-async function control(cmd){await post("/control",cmd);}
+function cleanLine(line){const allowed="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .:/-><=_+*()[]{};,!?&|";let out="";line=line.toUpperCase();for(let i=0;i<line.length&&out.length<44;i++){const c=line[i];out+=allowed.indexOf(c)>=0?c:" ";}return out.replace(/  +/g," ");}
+function previewScript(status){const lines=[];for(const raw of code.value.split(/\r?\n/)){const s=cleanLine(raw);if(s)lines.push(s);if(lines.length===7)break;}if(!lines.length)lines.push("EMPTY SCRIPT");if(status.length>12)status=status.slice(0,12);return helper+"demo.scriptPreview("+JSON.stringify(status)+","+JSON.stringify(lines)+");\n";}
+async function preview(status,prefix=""){setLog("Refreshing framebuffer...");const r=await post("/run",previewScript(status));if(prefix)setLog(prefix+r.text);return r;}
+async function control(cmd){const r=await post("/control",cmd);if(r.ok&&(cmd==="stop"||cmd==="reset"))await preview(cmd.toUpperCase(),r.text);}
 async function info(){const r=await fetch(url("/info"));setLog(JSON.stringify(await r.json(),null,2));}
 async function saveSlot(){await post("/save?name="+encodeURIComponent(slot.value),helper+code.value);}
-async function loadSlot(){const r=await fetch(url("/load?name="+encodeURIComponent(slot.value)));const t=await r.text();if(r.ok){code.value=t;setLog("Loaded "+slot.value);}else setLog(t);}
-function loadPreset(name){code.value=presets[name];}
+async function loadSlot(){const r=await fetch(url("/load?name="+encodeURIComponent(slot.value)));const t=await r.text();if(r.ok){code.value=t;await preview("LOADED "+slot.value,"Loaded "+slot.value+"\n");}else setLog(t);}
+function loadPreset(name){code.value=presets[name];preview("LOADED "+name.toUpperCase());}
 function share(){location.hash=btoa(unescape(encodeURIComponent(code.value)));navigator.clipboard&&navigator.clipboard.writeText(location.href);setLog("Share URL updated.");}
 function downloadJS(){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([code.value],{type:"text/javascript"}));a.download="demo.js";a.click();}
-if(location.hash.length>1){try{code.value=decodeURIComponent(escape(atob(location.hash.slice(1))));}catch(e){loadPreset("Plasma");}}else loadPreset("Plasma");
+if(location.hash.length>1){try{code.value=decodeURIComponent(escape(atob(location.hash.slice(1))));}catch(e){code.value=presets.Plasma;}}else code.value=presets.Plasma;
 </script>
 </body>
 </html>

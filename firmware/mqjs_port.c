@@ -676,7 +676,24 @@ static const uint8_t *framebuffer_font_rows(char c)
     static const uint8_t dot[7]   = {0, 0, 0, 0, 0, 0x0c, 0x0c};
     static const uint8_t colon[7] = {0, 0x0c, 0x0c, 0, 0x0c, 0x0c, 0};
     static const uint8_t slash[7] = {0x01, 0x02, 0x02, 0x04, 0x08, 0x08, 0x10};
+    static const uint8_t under[7] = {0, 0, 0, 0, 0, 0, 0x1f};
+    static const uint8_t equal[7] = {0, 0, 0x1f, 0, 0x1f, 0, 0};
+    static const uint8_t plus[7]  = {0, 0x04, 0x04, 0x1f, 0x04, 0x04, 0};
+    static const uint8_t star[7]  = {0, 0x15, 0x0e, 0x1f, 0x0e, 0x15, 0};
+    static const uint8_t lpar[7]  = {0x02, 0x04, 0x08, 0x08, 0x08, 0x04, 0x02};
+    static const uint8_t rpar[7]  = {0x08, 0x04, 0x02, 0x02, 0x02, 0x04, 0x08};
+    static const uint8_t lbra[7]  = {0x0e, 0x08, 0x08, 0x08, 0x08, 0x08, 0x0e};
+    static const uint8_t rbra[7]  = {0x0e, 0x02, 0x02, 0x02, 0x02, 0x02, 0x0e};
+    static const uint8_t lcur[7]  = {0x03, 0x04, 0x04, 0x18, 0x04, 0x04, 0x03};
+    static const uint8_t rcur[7]  = {0x18, 0x04, 0x04, 0x03, 0x04, 0x04, 0x18};
+    static const uint8_t comma[7] = {0, 0, 0, 0, 0, 0x04, 0x08};
+    static const uint8_t semi[7]  = {0, 0x04, 0x04, 0, 0, 0x04, 0x08};
+    static const uint8_t lt[7]    = {0x02, 0x04, 0x08, 0x10, 0x08, 0x04, 0x02};
     static const uint8_t gt[7]    = {0x10, 0x08, 0x04, 0x02, 0x04, 0x08, 0x10};
+    static const uint8_t bang[7]  = {0x04, 0x04, 0x04, 0x04, 0, 0x04, 0};
+    static const uint8_t ques[7]  = {0x0e, 0x11, 0x01, 0x02, 0x04, 0, 0x04};
+    static const uint8_t amp[7]   = {0x0c, 0x12, 0x14, 0x08, 0x15, 0x12, 0x0d};
+    static const uint8_t pipe[7]  = {0x04, 0x04, 0x04, 0, 0x04, 0x04, 0x04};
 
     if (c >= 'a' && c <= 'z')
         c -= 'a' - 'A';
@@ -692,8 +709,42 @@ static const uint8_t *framebuffer_font_rows(char c)
         return colon;
     if (c == '/')
         return slash;
+    if (c == '_')
+        return under;
+    if (c == '=')
+        return equal;
+    if (c == '+')
+        return plus;
+    if (c == '*')
+        return star;
+    if (c == '(')
+        return lpar;
+    if (c == ')')
+        return rpar;
+    if (c == '[')
+        return lbra;
+    if (c == ']')
+        return rbra;
+    if (c == '{')
+        return lcur;
+    if (c == '}')
+        return rcur;
+    if (c == ',')
+        return comma;
+    if (c == ';')
+        return semi;
+    if (c == '<')
+        return lt;
     if (c == '>')
         return gt;
+    if (c == '!')
+        return bang;
+    if (c == '?')
+        return ques;
+    if (c == '&')
+        return amp;
+    if (c == '|')
+        return pipe;
     return blank;
 }
 

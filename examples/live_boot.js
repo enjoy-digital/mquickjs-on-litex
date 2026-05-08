@@ -27,7 +27,7 @@ if (framebuffer.width !== 0 && framebuffer.height !== 0) {
         return s.length * 8 * scale;
     };
 
-    var frame = function(x, y, pw, ph, title, tag) {
+    var drawPanel = function(x, y, pw, ph, title, tag) {
         framebuffer.fillRect(x, y, pw, ph, panel);
         framebuffer.line(x, y, x + pw - 1, y, border);
         framebuffer.line(x, y + ph - 1, x + pw - 1, y + ph - 1, border);
@@ -68,7 +68,7 @@ if (framebuffer.width !== 0 && framebuffer.height !== 0) {
         framebuffer.line(w - m - 1, 33, w - m - 1, 58, cyanDim);
         framebuffer.text(w - m - 76, 42, "READY", ok, 1);
 
-        frame(m, topY, leftW, panelH, "SCRIPT.JS", "MQUICKJS");
+        drawPanel(m, topY, leftW, panelH, "SCRIPT.JS", "MQUICKJS");
         framebuffer.fillRect(m + 12, topY + 42, leftW - 24, panelH - 54, bg);
         framebuffer.text(m + 28, topY + 54, "01", muted, 1);
         framebuffer.text(m + 58, topY + 54, "FUNCTION FRAME(T) {", cyan, 1);
@@ -83,17 +83,17 @@ if (framebuffer.width !== 0 && framebuffer.height !== 0) {
         framebuffer.text(m + 28, topY + 174, "06", muted, 1);
         framebuffer.text(m + 58, topY + 174, "}", cyan, 1);
 
-        frame(rightX, topY, rightW, 112, "BOARD", "STATUS");
+        drawPanel(rightX, topY, rightW, 112, "BOARD", "STATUS");
         framebuffer.text(rightX + 12, topY + 44, "CPU VEXRISCV", soft, 1);
         framebuffer.text(rightX + 12, topY + 66, "FB " + w + "X" + h + "X" + framebuffer.depth, muted, 1);
         framebuffer.text(rightX + 12, topY + 88, "ETH 192.168.1.50", ok, 1);
 
-        frame(rightX, topY + 128, rightW, panelH - 128, "RUNTIME", "HTTP");
+        drawPanel(rightX, topY + 128, rightW, panelH - 128, "RUNTIME", "HTTP");
         framebuffer.text(rightX + 12, topY + 172, "BROWSER EDITOR", soft, 1);
         framebuffer.text(rightX + 12, topY + 194, "RUN / STOP / SAVE", muted, 1);
         framebuffer.text(rightX + 12, topY + 216, "JS EXECUTES HERE", cyan, 1);
 
-        frame(m, bottomY, w - 2 * m, 64, "CONSOLE", "READY");
+        drawPanel(m, bottomY, w - 2 * m, 64, "CONSOLE", "READY");
         framebuffer.text(m + 14, bottomY + 34, "OPEN " + url, ok, 1);
         framebuffer.text(m + 14, bottomY + 52, board, muted, 1);
     }
