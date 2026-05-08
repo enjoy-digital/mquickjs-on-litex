@@ -615,6 +615,8 @@ function applyInfo() {
   const live = boardInfo.live;
   const fps = (live.fps_x100 / 100).toFixed(2);
   const avg = (live.avg_frame_ms_x100 / 100).toFixed(2);
+  const error = live.last_error ? ("\nlast error: " + live.last_error) : "";
+  const log = live.last_log ? ("\nlast log:\n" + live.last_log) : "";
 
   stateEl.textContent = live.active ? (live.paused ? "paused" : "running") : "idle";
   stateEl.className = "badge " + (live.active ? "on" : "");
@@ -628,7 +630,8 @@ function applyInfo() {
     " buttons=" + f.buttons + " sdcard=" + f.sdcard + "\n" +
     "live: " + (live.active ? (live.paused ? "paused" : "running") : "idle") +
     ", frames=" + live.frames + ", last=" + live.last_frame_ms +
-    " ms, avg=" + avg + " ms, fps=" + fps;
+    " ms, avg=" + avg + " ms, fps=" + fps + "\n" +
+    "script: " + live.script + error + log;
 
   document.querySelectorAll("[data-feature]").forEach(function(el) {
     el.disabled = !featureOK(el.dataset.feature);
