@@ -110,6 +110,7 @@ static const char *live_http_slots[LIVE_HTTP_SLOT_COUNT] = {
 };
 
 #include "live_http_index.h"
+#include "live_assets.h"
 
 struct live_http_conn {
     struct tcp_pcb *pcb;
@@ -772,6 +773,12 @@ static int live_http_parse(struct live_http_conn *conn)
     if (live_http_request_is(conn->request, "GET", "/")) {
         live_http_reply_len(conn, "200 OK", "text/html",
                             live_http_index, live_http_index_len);
+        return 1;
+    }
+
+    if (live_http_request_is(conn->request, "GET", "/live_assets.js")) {
+        live_http_reply_len(conn, "200 OK", "application/javascript",
+                            live_assets, live_assets_len);
         return 1;
     }
 

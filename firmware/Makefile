@@ -161,6 +161,8 @@ MQJS_PATCH  := $(FW_DIR)/patches/mquickjs-typed-array-buffer.patch
 MQJS_PATCHED_STAMP := $(GEN_DIR)/mquickjs-patched.stamp
 LIVE_HTTP_INDEX_SRC := $(FW_DIR)/live_http_index.html
 LIVE_HTTP_INDEX_H   := $(GEN_DIR)/live_http_index.h
+LIVE_ASSETS_SRC     := $(abspath $(FW_DIR)/../tools/live_assets.js)
+LIVE_ASSETS_H       := $(GEN_DIR)/live_assets.h
 
 # Force 32-bit layout so the generated tables match the JSW=4 target
 # (RISC-V rv32). The generator itself is native.
@@ -273,13 +275,16 @@ ifeq ($(LIVE_MODE),http)
 $(LIVE_HTTP_INDEX_H): $(LIVE_HTTP_INDEX_SRC) $(FW_DIR)/embed_asset.py | $(GEN_DIR)
 	@echo " GEN     $@"
 	@$(PYTHON) $(FW_DIR)/embed_asset.py $< $@ live_http_index
+$(LIVE_ASSETS_H): $(LIVE_ASSETS_SRC) $(FW_DIR)/embed_asset.py | $(GEN_DIR)
+	@echo " GEN     $@"
+	@$(PYTHON) $(FW_DIR)/embed_asset.py $< $@ live_assets
 endif
 endif
 
 # Header dependencies.
 main.o:      $(STDLIB_H) $(ATOM_H) $(USER_SCRIPT_H)
 mqjs_port.o: $(STDLIB_H) $(ATOM_H)
-live_http.o: $(LIVE_HTTP_INDEX_H)
+live_http.o: $(LIVE_HTTP_INDEX_H) $(LIVE_ASSETS_H)
 mquickjs.o:  $(GEN_DIR)/mquickjs.c $(GEN_DIR)/mquickjs.h $(ATOM_H) \
              clean-mqjs-generated-headers $(BUILD_CONTEXT)
 
