@@ -335,12 +335,12 @@ function frame(t) {
   demo.led(phase >> 4);
 }`,
 
-  spark: `// Cheap particle field using deterministic integer motion.
+  spark: `// Cheap particle field with fading trails instead of full clears.
 var start = 0;
 
 function setup() {
   start = litex.millis();
-  demo.clear(0);
+  demo.clear(0x020406);
   console.log("[spark] particles");
 }
 
@@ -350,7 +350,7 @@ function frame(t) {
   var maxX = framebuffer.width  > 6 ? framebuffer.width  - 6 : 0;
   var maxY = framebuffer.height > 6 ? framebuffer.height - 6 : 0;
 
-  demo.clear(0);
+  framebuffer.fade(44);
   for (var i = 0; i < params.count; i++) {
     var x = maxX ? (i * 23 + phase * 9) % maxX : 0;
     var y = maxY ? (i * i  + phase * 13) % maxY : 0;
@@ -551,9 +551,34 @@ function drawBadge(x, y) {
   framebuffer.text(x + 132, y + 34, "ON LITEX", accent, 2);
 }
 
+function clearRect(x, y, w, h) {
+  if (w > 0 && h > 0) framebuffer.fillRect(x, y, w, h, 0x020406);
+}
+
+function eraseOldBadge(oldX, oldY, newX, newY) {
+  var oldR = oldX + badgeW;
+  var oldB = oldY + badgeH;
+  var newR = newX + badgeW;
+  var newB = newY + badgeH;
+  var ix0 = oldX > newX ? oldX : newX;
+  var iy0 = oldY > newY ? oldY : newY;
+  var ix1 = oldR < newR ? oldR : newR;
+  var iy1 = oldB < newB ? oldB : newB;
+
+  if (ix0 >= ix1 || iy0 >= iy1) {
+    clearRect(oldX, oldY, badgeW, badgeH);
+    return;
+  }
+
+  clearRect(oldX, oldY, badgeW, iy0 - oldY);
+  clearRect(oldX, iy1, badgeW, oldB - iy1);
+  clearRect(oldX, iy0, ix0 - oldX, iy1 - iy0);
+  clearRect(ix1, iy0, oldR - ix1, iy1 - iy0);
+}
+
 function frame(t) {
   demo.controls();
-  if (!framebuffer.width || (t - lastStep) < 60) return;
+  if (!framebuffer.width || (t - lastStep) < 40) return;
   lastStep = t;
 
   var maxX = framebuffer.width > badgeW ? framebuffer.width - badgeW : 1;
@@ -586,8 +611,8 @@ function frame(t) {
     accent = demo.hue(hue);
   }
 
-  if (lastX >= 0) framebuffer.fillRect(lastX, lastY, badgeW, badgeH, 0x020406);
   drawBadge(x, y);
+  if (lastX >= 0) eraseOldBadge(lastX, lastY, x, y);
   lastX = x;
   lastY = y;
   demo.led((x + y) >> 5);
