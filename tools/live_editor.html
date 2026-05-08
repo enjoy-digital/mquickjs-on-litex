@@ -78,21 +78,26 @@ var demo={
   centerY:function(h){return ((framebuffer.height-h)/2)|0;},
   blitIndexed:function(idx,pal,w,h,s){framebuffer.blitIndexedScale(idx,pal,w,h,demo.centerX(w*s),demo.centerY(h*s),s);},
   controls:function(){var sw=litex.getSwitches(),btn=litex.getButtons();if(sw)params.hue=(sw*17)&255;if(btn&1)params.speed=64;if(btn&2)params.count=192;},
-  overlay:function(name,t){if(!params.overlay||!framebuffer.width)return;framebuffer.fillRect(0,0,framebuffer.width,18,0x05070a);framebuffer.text(8,5,name+' '+((t/1000)|0)+'S',0xffffff,1);}
+  overlay:function(name,t){if(!params.overlay||!framebuffer.width)return;var ww=framebuffer.width;framebuffer.fillRect(0,0,ww,26,0x020406);if(ww>16)framebuffer.fillRect(8,5,ww-16,16,0x06080b);framebuffer.line(0,25,ww-1,25,0x10384d);framebuffer.text(16,9,name+' '+((t/1000)|0)+'S',0x12bdf2,1);if(ww>220)framebuffer.text(ww-210,9,'SPD '+params.speed+' SW '+litex.getSwitches(),0x8fa3b2,1);}
 };
 `;
 const presets={
-Splash:`// Splash screen for checking text and circle drawing.
+Splash:`// Splash screen for checking the dark/cyan live UI style.
 function setup() {
-  framebuffer.clear(0x05070a);
-  framebuffer.text(64, 90, 'MQUICKJS', 0xffffff, 5);
-  framebuffer.text(94, 150, 'ON LITEX', 0xffc857, 4);
-  framebuffer.text(92, 230, 'LIVE FROM BROWSER', 0x33dd88, 2);
+  framebuffer.clear(0x020406);
+  framebuffer.fillRect(38, 58, framebuffer.width - 76, framebuffer.height - 116, 0x06080b);
+  framebuffer.line(38, 58, framebuffer.width - 39, 58, 0x30343a);
+  framebuffer.line(38, 94, framebuffer.width - 39, 94, 0x10384d);
+  framebuffer.text(56, 72, 'LIVE JS', 0x12bdf2, 1);
+  framebuffer.text(72, 132, 'MQUICKJS', 0xf7f9fb, 4);
+  framebuffer.text(72, 178, 'ON LITEX', 0x12bdf2, 4);
+  framebuffer.text(76, 250, 'BROWSER TO FPGA VIDEO', 0x8ed94f, 2);
 }
 
 function frame(t) {
-  framebuffer.circle((t / 8) % framebuffer.width, 340,
-                     42, demo.hue(t / 16), 0);
+  var x = 76 + ((t / 8) % (framebuffer.width - 168));
+  framebuffer.fillRect(72, 318, framebuffer.width - 144, 8, 0x080c10);
+  framebuffer.fillRect(x, 318, 92, 8, 0x12bdf2);
   demo.overlay('SPLASH', t);
 }`,
 Plasma:`// Low-resolution indexed plasma, scaled by the C framebuffer helper.
@@ -185,10 +190,16 @@ function frame(t) {
   var x = (phase * 5) % (framebuffer.width - 240);
   var y = (phase * 3) % (framebuffer.height - 80);
 
-  demo.clear(0x05070a);
-  framebuffer.circle(x + 120, y + 42, 48, demo.hue(params.hue + phase), 1);
-  framebuffer.text(x, y + 18, 'MQUICKJS', 0xffffff, 3);
-  framebuffer.text(x + 22, y + 48, 'ON LITEX', 0xffc857, 2);
+  demo.clear(0x020406);
+  framebuffer.fillRect(x, y, 238, 78, 0x06080b);
+  framebuffer.line(x, y, x + 237, y, 0x30343a);
+  framebuffer.line(x, y + 77, x + 237, y + 77, 0x30343a);
+  framebuffer.line(x, y, x, y + 77, 0x30343a);
+  framebuffer.line(x + 237, y, x + 237, y + 77, 0x30343a);
+  framebuffer.line(x + 1, y + 24, x + 236, y + 24, 0x10384d);
+  framebuffer.text(x + 10, y + 9, 'LIVE JS', 0x12bdf2, 1);
+  framebuffer.text(x + 24, y + 34, 'MQUICKJS', 0xf7f9fb, 2);
+  framebuffer.text(x + 132, y + 34, 'ON LITEX', 0x12bdf2, 2);
   demo.overlay('LOGO', t);
 }`
 };
