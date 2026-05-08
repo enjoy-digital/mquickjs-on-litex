@@ -929,6 +929,7 @@ static void live_http_service_frame(void)
     if (live_http_call_function(*live_http_ctxp, "frame", now, 1) < 0) {
         live_http_stop_script("frame failed");
         live_http_set_error("frame failed");
+        mqjs_framebuffer_error_banner("see browser status");
         puts("[live] frame failed");
         return;
     }

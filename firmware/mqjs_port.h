@@ -56,4 +56,6 @@ JSValue js_framebuffer_blit_scale(JSContext *ctx, JSValue *this_val, int argc, J
 JSValue js_framebuffer_blit_indexed_scale(JSContext *ctx, JSValue *this_val,
                                           int argc, JSValue *argv);
 
+void mqjs_framebuffer_error_banner(const char *message);
+
 #endif
