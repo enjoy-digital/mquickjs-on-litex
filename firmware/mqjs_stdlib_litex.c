@@ -407,7 +407,10 @@ static const JSPropDef js_framebuffer[] = {
     JS_CGETSET_DEF("width",  js_framebuffer_get_width,  NULL),
     JS_CGETSET_DEF("height", js_framebuffer_get_height, NULL),
     JS_CGETSET_DEF("depth",  js_framebuffer_get_depth,  NULL),
+    JS_CGETSET_DEF("doubleBuffered", js_framebuffer_get_double_buffered, NULL),
 
+    JS_CFUNC_DEF("begin",            0, js_framebuffer_begin),
+    JS_CFUNC_DEF("present",          1, js_framebuffer_present),
     JS_CFUNC_DEF("clear",            1, js_framebuffer_clear),
     JS_CFUNC_DEF("fillRect",         5, js_framebuffer_fill_rect),
     JS_CFUNC_DEF("copyRect",         6, js_framebuffer_copy_rect),

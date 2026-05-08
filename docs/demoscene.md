@@ -35,6 +35,9 @@ The JavaScript API is intentionally small:
 framebuffer.width
 framebuffer.height
 framebuffer.depth
+framebuffer.doubleBuffered
+framebuffer.begin()
+framebuffer.present()
 framebuffer.clear(color)
 framebuffer.fillRect(x, y, width, height, color)
 framebuffer.copyRect(srcX, srcY, width, height, dstX, dstY)
@@ -50,6 +53,21 @@ dirty rectangle lets scripts update only part of the source tile.
 `blitScale` expands each source pixel to a square block in C, so the
 simulator demo stays fast while still producing a visible HDMI image on
 hardware.
+
+On hardware, avoid drawing multi-step animations directly into the
+visible scanout buffer when `framebuffer.doubleBuffered` is true:
+
+```js
+var page = framebuffer.begin();
+framebuffer.clear(0x020406);
+framebuffer.fillRect(40, 40, 120, 60, 0x12bdf2);
+framebuffer.present();
+```
+
+`begin()` returns the hidden page index, which lets sparse animations
+remember what was last drawn on each page and update only dirty regions
+before `present()`. The Logo preset uses this to get clean HDMI output
+without clearing the full 640 x 480 frame every tick.
 
 `blitIndexedScale` is the hardware-friendly variant for retro effects:
 JavaScript fills a `Uint8Array` tile and a 256-entry `Uint32Array`

@@ -1,6 +1,10 @@
 // Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
 // SPDX-License-Identifier: BSD-2-Clause
 
+#include <generated/mem.h>
+/* csr.h includes soc.h, which also defines VIDEO_FRAMEBUFFER_BASE. Keep
+ * VIDEO_FRAMEBUFFER_SIZE from mem.h, then let soc.h provide the base. */
+#undef VIDEO_FRAMEBUFFER_BASE
 #include <generated/csr.h>
 #include <generated/soc.h>
 
@@ -66,11 +70,21 @@
 #define LIVE_HTTP_FB_WIDTH  VIDEO_FRAMEBUFFER_HRES
 #define LIVE_HTTP_FB_HEIGHT VIDEO_FRAMEBUFFER_VRES
 #define LIVE_HTTP_FB_DEPTH  VIDEO_FRAMEBUFFER_DEPTH
+#if defined(VIDEO_FRAMEBUFFER_SIZE) && \
+    defined(CSR_VIDEO_FRAMEBUFFER_DMA_BASE_ADDR) && \
+    (VIDEO_FRAMEBUFFER_SIZE >= \
+     (2 * VIDEO_FRAMEBUFFER_HRES * VIDEO_FRAMEBUFFER_VRES * \
+      (VIDEO_FRAMEBUFFER_DEPTH / 8)))
+#define LIVE_HTTP_FB_DOUBLE_BUFFERED 1
+#else
+#define LIVE_HTTP_FB_DOUBLE_BUFFERED 0
+#endif
 #else
 #define LIVE_HTTP_HAS_FRAMEBUFFER 0
 #define LIVE_HTTP_FB_WIDTH  0
 #define LIVE_HTTP_FB_HEIGHT 0
 #define LIVE_HTTP_FB_DEPTH  0
+#define LIVE_HTTP_FB_DOUBLE_BUFFERED 0
 #endif
 
 #define LIVE_HTTP_JSON_BOOL(v) ((v) ? "true" : "false")
@@ -403,7 +417,8 @@ static void live_http_info(struct live_http_conn *conn)
         "\"present\":%s,"
         "\"width\":%u,"
         "\"height\":%u,"
-        "\"depth\":%u"
+        "\"depth\":%u,"
+        "\"double_buffered\":%s"
         "},"
         "\"live\":{"
         "\"active\":%s,"
@@ -429,6 +444,7 @@ static void live_http_info(struct live_http_conn *conn)
         (unsigned)LIVE_HTTP_FB_WIDTH,
         (unsigned)LIVE_HTTP_FB_HEIGHT,
         (unsigned)LIVE_HTTP_FB_DEPTH,
+        LIVE_HTTP_JSON_BOOL(LIVE_HTTP_FB_DOUBLE_BUFFERED),
         LIVE_HTTP_JSON_BOOL(live_http_active),
         LIVE_HTTP_JSON_BOOL(live_http_paused),
         live_http_state,

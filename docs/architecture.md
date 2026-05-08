@@ -95,6 +95,9 @@ framebuffer:
 framebuffer.width
 framebuffer.height
 framebuffer.depth
+framebuffer.doubleBuffered
+framebuffer.begin()
+framebuffer.present()
 framebuffer.clear(color)
 framebuffer.fillRect(x, y, width, height, color)
 framebuffer.copyRect(srcX, srcY, width, height, dstX, dstY)
@@ -102,6 +105,13 @@ framebuffer.blit(buffer, width, height, x, y)
 framebuffer.blitScale(buffer, width, height, x, y, scale)
 framebuffer.blitIndexedScale(indexes, palette, width, height, x, y, scale)
 ```
+
+When the LiteX framebuffer memory region is large enough for two video
+pages, `framebuffer.doubleBuffered` is true. A script can then call
+`begin()` to draw into the hidden page and `present()` to flip the video
+DMA base at a frame boundary. Simple scripts can ignore this and draw
+directly to the visible page; glitch-sensitive demos use it to avoid
+showing half-drawn frames.
 
 ## Live Browser Demo
 

@@ -39,6 +39,10 @@ JSValue js_litex_reboot      (JSContext *ctx, JSValue *this_val, int argc, JSVal
 JSValue js_framebuffer_get_width (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 JSValue js_framebuffer_get_height(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 JSValue js_framebuffer_get_depth (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
+JSValue js_framebuffer_get_double_buffered(JSContext *ctx, JSValue *this_val,
+                                           int argc, JSValue *argv);
+JSValue js_framebuffer_begin     (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
+JSValue js_framebuffer_present   (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 JSValue js_framebuffer_clear     (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 JSValue js_framebuffer_fill_rect (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 JSValue js_framebuffer_copy_rect (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);

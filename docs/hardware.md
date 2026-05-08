@@ -117,7 +117,9 @@ and draws through the same framebuffer API as the standalone examples.
 The page also exposes portable board utilities through the same JS API:
 identifier, scratch register and an interactive I/O demo that mirrors
 switches/buttons to LEDs when those CSRs are present. It also reports
-frame timing and FPS. On SDCard-capable SoCs, `Save main.js` and
+frame timing, FPS and whether the framebuffer has two video pages for
+clean `begin()` / `present()` updates. On SDCard-capable SoCs,
+`Save main.js` and
 `Load main.js` let the browser turn the current live script into the
 standalone boot script.
 

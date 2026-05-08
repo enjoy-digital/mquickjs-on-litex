@@ -156,6 +156,14 @@ var demo = {
   clear: function(c) {
     if (framebuffer.width) framebuffer.clear(c);
   },
+  beginFrame: function(c) {
+    if (!framebuffer.width) return;
+    if (framebuffer.doubleBuffered) framebuffer.begin();
+    framebuffer.clear(c);
+  },
+  endFrame: function() {
+    if (framebuffer.width && framebuffer.doubleBuffered) framebuffer.present();
+  },
   led: function(n) {
     litex.setLeds(1 << (n & 3));
   },
@@ -204,10 +212,11 @@ var demo = {
       return;
     }
 
-    framebuffer.clear(0x020406);
+    demo.beginFrame(0x020406);
     if (w < 560 || h < 420) {
       framebuffer.text(8, 10, "SCRIPT.JS", 0xf7f9fb, 1);
       framebuffer.text(8, 30, status, 0x12bdf2, 1);
+      demo.endFrame();
       return;
     }
 
@@ -254,6 +263,7 @@ var demo = {
     demo.panel(m, bottomY, w - 2 * m, 64, "CONSOLE", "READY");
     framebuffer.text(m + 14, bottomY + 34, "OPEN HTTP://192.168.1.50/", 0x8ed94f, 1);
     framebuffer.text(m + 14, bottomY + 52, "SCRIPT.JS PREVIEW REFRESHED FROM WEB UI", 0x8fa3b2, 1);
+    demo.endFrame();
     console.log("[preview] " + status + " - script.js shown on framebuffer");
   }
 };
@@ -273,12 +283,13 @@ function frame(t) {
   var maxX = framebuffer.width  > 18 ? framebuffer.width  - 18 : 0;
   var maxY = framebuffer.height > 18 ? framebuffer.height - 18 : 0;
 
-  demo.clear(demo.hue(phase + params.hue));
+  demo.beginFrame(demo.hue(phase + params.hue));
   for (var i = 0; i < params.count; i++) {
     var x = maxX ? (i * 17 + phase * 5) % maxX : 0;
     var y = maxY ? (i * 11 + phase * 3) % maxY : 0;
     framebuffer.fillRect(x, y, 12, 12, demo.hue(phase + i * 3));
   }
+  demo.endFrame();
 
   demo.led(phase >> 3);
 }`;
@@ -298,12 +309,14 @@ function frame(t) {
   demo.controls();
   var phase = (((t - start) * params.speed) / 256) | 0;
 
+  demo.beginFrame(0x020406);
   for (var y = 0; y <= framebuffer.height - 8; y += 8) {
     var c = demo.hue(y + phase + params.hue);
     framebuffer.fillRect(0, y, framebuffer.width, 8, c);
   }
 
   demo.overlay("BARS", t);
+  demo.endFrame();
   demo.led(phase >> 4);
 }`,
 
@@ -330,8 +343,10 @@ function frame(t) {
     }
   }
 
+  demo.beginFrame(0x020406);
   demo.blitIndexed(pixels, palette, w, h, params.scale);
   demo.overlay("PLASMA", t);
+  demo.endFrame();
   demo.led(phase >> 4);
 }`,
 
@@ -389,8 +404,10 @@ function frame(t) {
     }
   }
 
+  demo.beginFrame(0x020406);
   demo.blitIndexed(pixels, palette, w, h, params.scale);
   demo.overlay("TUNNEL", t);
+  demo.endFrame();
   demo.led(phase >> 4);
 }`,
 
@@ -423,8 +440,10 @@ function frame(t) {
     }
   }
 
+  demo.beginFrame(0x020406);
   demo.blitIndexed(heat, palette, w, h, params.scale);
   demo.overlay("FIRE", t);
+  demo.endFrame();
   demo.led(phase >> 4);
 }`,
 
@@ -488,8 +507,10 @@ function frame(t) {
   var tmp = cells;
   cells = nextCells;
   nextCells = tmp;
+  demo.beginFrame(0x020406);
   demo.blitIndexed(cells, palette, w, h, params.scale);
   demo.overlay("LIFE", t);
+  demo.endFrame();
 }`,
 
   vector: `// Vector-scope style lines with framebuffer fading trails.
@@ -531,11 +552,15 @@ var lastY = -1;
 var lastStep = 0;
 var badgeW = 238;
 var badgeH = 78;
+var pageX = [-1, -1];
+var pageY = [-1, -1];
 
 function setup() {
   start = litex.millis();
   lastStep = start;
-  demo.clear(0x020406);
+  drawFrame();
+  lastX = x;
+  lastY = y;
   console.log("[logo] running");
 }
 
@@ -576,6 +601,29 @@ function eraseOldBadge(oldX, oldY, newX, newY) {
   clearRect(ix1, iy0, oldR - ix1, iy1 - iy0);
 }
 
+function drawFrame() {
+  if (framebuffer.doubleBuffered) {
+    var page = framebuffer.begin();
+    if (pageX[page] < 0) {
+      framebuffer.clear(0x020406);
+    } else {
+      clearRect(pageX[page], pageY[page], badgeW, badgeH);
+    }
+    drawBadge(x, y);
+    framebuffer.present();
+    pageX[page] = x;
+    pageY[page] = y;
+    return;
+  }
+
+  if (lastX < 0) {
+    demo.clear(0x020406);
+  } else {
+    eraseOldBadge(lastX, lastY, x, y);
+  }
+  drawBadge(x, y);
+}
+
 function frame(t) {
   demo.controls();
   if (!framebuffer.width || (t - lastStep) < 40) return;
@@ -611,8 +659,7 @@ function frame(t) {
     accent = demo.hue(hue);
   }
 
-  drawBadge(x, y);
-  if (lastX >= 0) eraseOldBadge(lastX, lastY, x, y);
+  drawFrame();
   lastX = x;
   lastY = y;
   demo.led((x + y) >> 5);
@@ -697,7 +744,38 @@ function drawLedBar(mask) {
   }
 }
 
+function drawFullStatus(buttons, switches, leds) {
+  if (!framebuffer.width) return;
+
+  demo.beginFrame(0x020406);
+  demo.panel(36, 54, framebuffer.width - 72, framebuffer.height - 108, "LITEX I/O", "LIVE");
+  framebuffer.text(58, 112, "BUTTONS", 0x8fa3b2, 2);
+  framebuffer.text(58, 154, "SWITCHES", 0x8fa3b2, 2);
+  framebuffer.text(58, 196, "LEDS", 0x8fa3b2, 2);
+  framebuffer.text(58, 260, "BTN0 SCRATCH TEST  BTN1 CLEAR", 0x12bdf2, 1);
+  framebuffer.text(58, 286, "DOUBLE BUFFERED UI, LIVE CSR VALUES", 0x8fa3b2, 1);
+  drawValue(112, hex(buttons), 0xdce8f2);
+  drawValue(154, hex(switches), 0xdce8f2);
+  drawValue(196, hex(leds), 0x8ed94f);
+  drawLedBar(leds);
+  demo.endFrame();
+}
+
 function drawStatus(buttons, switches, leds) {
+  var changed = buttons != lastShownButtons ||
+                switches != lastShownSwitches ||
+                leds != lastShownLeds;
+
+  if (framebuffer.doubleBuffered) {
+    if (changed) {
+      drawFullStatus(buttons, switches, leds);
+      lastShownButtons = buttons;
+      lastShownSwitches = switches;
+      lastShownLeds = leds;
+    }
+    return;
+  }
+
   drawStaticUi();
   if (!uiReady) return;
 
@@ -900,7 +978,8 @@ function applyInfo() {
     boardInfo.identifier + "\n" +
     "CPU " + boardInfo.cpu + " @ " + boardInfo.clock_hz + " Hz, heap " +
     boardInfo.heap_bytes + " bytes\n" +
-    "framebuffer " + (fb.present ? (fb.width + " x " + fb.height + " x " + fb.depth) : "not present") + "\n" +
+    "framebuffer " + (fb.present ? (fb.width + " x " + fb.height + " x " + fb.depth +
+    (fb.double_buffered ? ", double buffered" : "")) : "not present") + "\n" +
     "features: leds=" + f.leds + " switches=" + f.switches +
     " buttons=" + f.buttons + " sdcard=" + f.sdcard + "\n" +
     "live: " + (live.active ? (live.paused ? "paused" : "running") : "idle") +

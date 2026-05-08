@@ -9,6 +9,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <generated/mem.h>
+/* csr.h includes soc.h, which also defines VIDEO_FRAMEBUFFER_BASE. Keep
+ * VIDEO_FRAMEBUFFER_SIZE from mem.h, then let soc.h provide the base. */
+#undef VIDEO_FRAMEBUFFER_BASE
 #include <irq.h>
 #include <libbase/console.h>
 #include <libbase/uart.h>
@@ -513,15 +517,44 @@ static int js_arg_u32(JSContext *ctx, int argc, JSValue *argv, int idx,
     return JS_ToUint32(ctx, value, argv[idx]);
 }
 
+#define FRAMEBUFFER_FRAME_BYTES \
+    (VIDEO_FRAMEBUFFER_HRES * VIDEO_FRAMEBUFFER_VRES * \
+     (VIDEO_FRAMEBUFFER_DEPTH / 8))
+
+#if defined(VIDEO_FRAMEBUFFER_SIZE) && \
+    defined(CSR_VIDEO_FRAMEBUFFER_DMA_BASE_ADDR) && \
+    (VIDEO_FRAMEBUFFER_SIZE >= (2 * FRAMEBUFFER_FRAME_BYTES))
+#define FRAMEBUFFER_BUFFER_COUNT 2
+#else
+#define FRAMEBUFFER_BUFFER_COUNT 1
+#endif
+
+static uint8_t framebuffer_started;
+static uint8_t framebuffer_front_index;
+static uint8_t framebuffer_draw_index;
+
+static uintptr_t framebuffer_buffer_base(uint8_t index)
+{
+    return (uintptr_t)VIDEO_FRAMEBUFFER_BASE +
+        (uintptr_t)index * FRAMEBUFFER_FRAME_BYTES;
+}
+
+static int framebuffer_is_double_buffered(void)
+{
+    return FRAMEBUFFER_BUFFER_COUNT >= 2;
+}
+
 static void framebuffer_start(void)
 {
+    if (framebuffer_started)
+        return;
+
 #if defined(CSR_VIDEO_FRAMEBUFFER_DMA_BASE_ADDR)
-    video_framebuffer_dma_base_write(VIDEO_FRAMEBUFFER_BASE);
+    video_framebuffer_dma_base_write(
+        framebuffer_buffer_base(framebuffer_front_index));
 #endif
 #if defined(CSR_VIDEO_FRAMEBUFFER_DMA_LENGTH_ADDR)
-    video_framebuffer_dma_length_write(
-        VIDEO_FRAMEBUFFER_HRES * VIDEO_FRAMEBUFFER_VRES *
-        (VIDEO_FRAMEBUFFER_DEPTH / 8));
+    video_framebuffer_dma_length_write(FRAMEBUFFER_FRAME_BYTES);
 #endif
 #if defined(CSR_VIDEO_FRAMEBUFFER_DMA_LOOP_ADDR)
     video_framebuffer_dma_loop_write(1);
@@ -531,6 +564,26 @@ static void framebuffer_start(void)
 #endif
 #if defined(CSR_VIDEO_FRAMEBUFFER_VTG_ENABLE_ADDR)
     video_framebuffer_vtg_enable_write(1);
+#endif
+    framebuffer_started = 1;
+}
+
+static void framebuffer_wait_for_wrap(void)
+{
+#if defined(CSR_VIDEO_FRAMEBUFFER_DMA_OFFSET_ADDR)
+    uint32_t last = video_framebuffer_dma_offset_read();
+    int64_t start = now_ms();
+
+    for (uint32_t spins = 0; spins < 3000000; spins++) {
+        uint32_t current = video_framebuffer_dma_offset_read();
+
+        if (current < last)
+            return;
+        last = current;
+
+        if ((spins & 0x3ff) == 0 && start != 0 && (now_ms() - start) >= 25)
+            return;
+    }
 #endif
 }
 
@@ -553,7 +606,7 @@ static framebuffer_pixel_t framebuffer_color(uint32_t rgb)
 
 static framebuffer_pixel_t *framebuffer_pixels(void)
 {
-    return (framebuffer_pixel_t *)(uintptr_t)VIDEO_FRAMEBUFFER_BASE;
+    return (framebuffer_pixel_t *)framebuffer_buffer_base(framebuffer_draw_index);
 }
 
 static void framebuffer_copy_pixels(framebuffer_pixel_t *dst,
@@ -983,6 +1036,66 @@ JSValue js_framebuffer_get_depth(JSContext *ctx, JSValue *this_val, int argc, JS
     return JS_NewUint32(ctx, VIDEO_FRAMEBUFFER_DEPTH);
 #else
     return JS_NewUint32(ctx, 0);
+#endif
+}
+
+JSValue js_framebuffer_get_double_buffered(JSContext *ctx, JSValue *this_val,
+                                           int argc, JSValue *argv)
+{
+    (void)ctx; (void)this_val; (void)argc; (void)argv;
+#if MQJS_HAS_FRAMEBUFFER
+    return JS_NewBool(framebuffer_is_double_buffered());
+#else
+    return JS_FALSE;
+#endif
+}
+
+JSValue js_framebuffer_begin(JSContext *ctx, JSValue *this_val,
+                             int argc, JSValue *argv)
+{
+    (void)this_val; (void)argc; (void)argv;
+#if MQJS_HAS_FRAMEBUFFER
+    framebuffer_start();
+    if (!framebuffer_is_double_buffered())
+        return JS_FALSE;
+
+    framebuffer_draw_index = (framebuffer_front_index + 1) %
+        FRAMEBUFFER_BUFFER_COUNT;
+    return JS_NewUint32(ctx, framebuffer_draw_index);
+#else
+    (void)ctx;
+    return JS_FALSE;
+#endif
+}
+
+JSValue js_framebuffer_present(JSContext *ctx, JSValue *this_val,
+                               int argc, JSValue *argv)
+{
+    (void)this_val;
+#if MQJS_HAS_FRAMEBUFFER
+    uint32_t sync = 1;
+
+    if (argc > 0 && JS_ToUint32(ctx, &sync, argv[0]))
+        return JS_EXCEPTION;
+
+    framebuffer_start();
+    if (!framebuffer_is_double_buffered())
+        return JS_FALSE;
+    if (framebuffer_draw_index == framebuffer_front_index)
+        return JS_TRUE;
+    if (sync)
+        framebuffer_wait_for_wrap();
+
+#if defined(CSR_VIDEO_FRAMEBUFFER_DMA_BASE_ADDR)
+    video_framebuffer_dma_base_write(
+        framebuffer_buffer_base(framebuffer_draw_index));
+#endif
+    framebuffer_front_index = framebuffer_draw_index;
+    framebuffer_draw_index = framebuffer_front_index;
+    return JS_TRUE;
+#else
+    (void)ctx; (void)argc; (void)argv;
+    return JS_FALSE;
 #endif
 }
 
