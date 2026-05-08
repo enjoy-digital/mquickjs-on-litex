@@ -520,29 +520,41 @@ function frame(t) {
 
   logo: `// Bouncing text badge, useful to check text/circle helpers.
 var start = 0;
+var lastX = -1;
+var lastY = -1;
+var badgeW = 238;
+var badgeH = 78;
 
 function setup() {
   start = litex.millis();
-  demo.clear(0);
+  demo.clear(0x020406);
   console.log("[logo] running");
+}
+
+function drawBadge(x, y) {
+  framebuffer.fillRect(x, y, badgeW, badgeH, 0x06080b);
+  framebuffer.line(x, y, x + badgeW - 1, y, 0x30343a);
+  framebuffer.line(x, y + badgeH - 1, x + badgeW - 1, y + badgeH - 1, 0x30343a);
+  framebuffer.line(x, y, x, y + badgeH - 1, 0x30343a);
+  framebuffer.line(x + badgeW - 1, y, x + badgeW - 1, y + badgeH - 1, 0x30343a);
+  framebuffer.line(x + 1, y + 24, x + badgeW - 2, y + 24, 0x10384d);
+  framebuffer.text(x + 10, y + 9, "LIVE JS", 0x12bdf2, 1);
+  framebuffer.text(x + 24, y + 34, "MQUICKJS", 0xf7f9fb, 2);
+  framebuffer.text(x + 132, y + 34, "ON LITEX", 0x12bdf2, 2);
 }
 
 function frame(t) {
   demo.controls();
   var phase = (((t - start) * params.speed) / 180) | 0;
-  var x = (phase * 5) % (framebuffer.width - 240);
-  var y = (phase * 3) % (framebuffer.height - 80);
+  var maxX = framebuffer.width > badgeW ? framebuffer.width - badgeW : 1;
+  var maxY = framebuffer.height > badgeH ? framebuffer.height - badgeH : 1;
+  var x = maxX > 1 ? (phase * 5) % maxX : 0;
+  var y = maxY > 1 ? (phase * 3) % maxY : 0;
 
-  demo.clear(0x020406);
-  framebuffer.fillRect(x, y, 238, 78, 0x06080b);
-  framebuffer.line(x, y, x + 237, y, 0x30343a);
-  framebuffer.line(x, y + 77, x + 237, y + 77, 0x30343a);
-  framebuffer.line(x, y, x, y + 77, 0x30343a);
-  framebuffer.line(x + 237, y, x + 237, y + 77, 0x30343a);
-  framebuffer.line(x + 1, y + 24, x + 236, y + 24, 0x10384d);
-  framebuffer.text(x + 10, y + 9, "LIVE JS", 0x12bdf2, 1);
-  framebuffer.text(x + 24, y + 34, "MQUICKJS", 0xf7f9fb, 2);
-  framebuffer.text(x + 132, y + 34, "ON LITEX", 0x12bdf2, 2);
+  if (lastX >= 0) framebuffer.fillRect(lastX, lastY, badgeW, badgeH, 0x020406);
+  drawBadge(x, y);
+  lastX = x;
+  lastY = y;
   demo.overlay("LOGO", t);
   demo.led(phase >> 3);
 }`
