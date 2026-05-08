@@ -68,50 +68,10 @@ objects.
 
 ## JavaScript APIs
 
-The `litex` object is intentionally generic and degrades when optional
-CSRs are missing:
-
-```js
-litex.getIdentifier()
-litex.clockFrequency()
-litex.millis()
-litex.delay(ms)
-litex.setLeds(mask)
-litex.getSwitches()
-litex.getButtons()
-litex.getScratch()
-litex.setScratch(value)
-litex.csrRead32(addr)
-litex.csrWrite32(addr, value)
-litex.readFile(path)
-litex.writeFile(path, data)
-litex.load(path)
-```
-
-The `framebuffer` object is present when the SoC has a LiteX video
-framebuffer:
-
-```js
-framebuffer.width
-framebuffer.height
-framebuffer.depth
-framebuffer.doubleBuffered
-framebuffer.begin()
-framebuffer.present()
-framebuffer.clear(color)
-framebuffer.fillRect(x, y, width, height, color)
-framebuffer.copyRect(srcX, srcY, width, height, dstX, dstY)
-framebuffer.blit(buffer, width, height, x, y)
-framebuffer.blitScale(buffer, width, height, x, y, scale)
-framebuffer.blitIndexedScale(indexes, palette, width, height, x, y, scale)
-```
-
-When the LiteX framebuffer memory region is large enough for two video
-pages, `framebuffer.doubleBuffered` is true. A script can then call
-`begin()` to draw into the hidden page and `present()` to flip the video
-DMA base at a frame boundary. Simple scripts can ignore this and draw
-directly to the visible page; glitch-sensitive demos use it to avoid
-showing half-drawn frames.
+The project intentionally exposes a small API: `litex.*` for generic
+board/CSR access and `framebuffer.*` for video demos. See
+[js-api.md](js-api.md) for the binding reference, live `setup()` /
+`frame(t)` lifecycle and portability rules.
 
 ## Live Browser Demo
 
