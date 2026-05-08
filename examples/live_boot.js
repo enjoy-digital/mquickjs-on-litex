@@ -45,7 +45,7 @@ if (framebuffer.width !== 0 && framebuffer.height !== 0) {
     if (w < 560 || h < 420) {
         framebuffer.text(8, 10, "MQUICKJS ON LITEX", text, 1);
         framebuffer.text(8, 30, "OPEN " + url, ok, 1);
-        framebuffer.text(8, 50, "BROWSER EDITOR", cyan, 1);
+        framebuffer.text(8, 50, "JAVASCRIPT ON LITEX", cyan, 1);
     } else {
         var m = 24;
         var gap = 16;
@@ -59,7 +59,7 @@ if (framebuffer.width !== 0 && framebuffer.height !== 0) {
         framebuffer.line(m, 70, w - m, 70, cyanDim);
         framebuffer.text(m, 26, "MQUICKJS", text, 3);
         framebuffer.text(m + textWidth("MQUICKJS", 3) + 18, 26, "ON LITEX", cyan, 3);
-        framebuffer.text(m + 2, 62, "BROWSER EDITOR > MQUICKJS > FRAMEBUFFER", cyan, 1);
+        framebuffer.text(m + 2, 62, "JAVASCRIPT > MQUICKJS > LITEX SOC", cyan, 1);
 
         framebuffer.fillRect(w - m - 96, 33, 96, 26, field);
         framebuffer.line(w - m - 96, 33, w - m - 1, 33, cyanDim);
