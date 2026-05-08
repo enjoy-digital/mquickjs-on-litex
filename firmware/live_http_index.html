@@ -16,38 +16,202 @@ Two JavaScript runtimes are involved:
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>mquickjs on LiteX</title>
 <style>
-*{box-sizing:border-box}
-body{margin:0;background:#020406;color:#e8edf2;font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-main{width:min(1180px,calc(100vw - 24px));margin:0 auto;padding:18px 0 20px}
-header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #075b82}
-h1{font:700 24px/1.05 sans-serif;margin:0;color:#f7f9fb}
-h1 b,p{color:#12bdf2}
-p{margin:5px 0 0;text-transform:uppercase}
-.badge{min-width:94px;border:1px solid #0b87bd;color:#12bdf2;text-align:center;padding:6px 9px;border-radius:4px}
-.badge.on{background:#071a10;color:#8ed94f;border-color:#8ed94f}
-.grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:12px}
-.editor,.panel{background:#06080b;border:1px solid #30343a;border-radius:4px;box-shadow:0 0 0 1px #05070a inset}
-.title{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border-bottom:1px solid #10384d;color:#12bdf2;text-transform:uppercase}
-.title span:last-child{color:#8fa3b2}
-textarea{display:block;width:100%;height:560px;background:#020406;color:#dce8f2;border:0;outline:0;padding:14px;font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;resize:vertical}
-aside{display:flex;flex-direction:column;gap:10px}
-.body{padding:10px}
-.bar{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
-.tools{grid-template-columns:repeat(2,1fr)}
-.slots{grid-template-columns:1fr 1fr 1fr}
-button,select,input{border:1px solid #30343a;border-radius:4px;background:#080c10;color:#dce8f2;height:34px;padding:0 10px;font:13px sans-serif}
-button{cursor:pointer;background:#072234;border-color:#0b87bd;color:#e8f8ff}
-button.secondary{background:#0a0d11;border-color:#30343a;color:#c6d2dc}
-button.tool{background:#061923;border-color:#12bdf2;color:#12bdf2}
-button:disabled{opacity:.35;cursor:not-allowed}
-select{max-width:106px}
-pre{white-space:pre-wrap;margin:0;background:#020406;border:0;padding:10px;min-height:58px;overflow:auto;color:#dce8f2}
-#info{min-height:146px}
-#log{min-height:132px;border-top:1px solid #10384d}
-@media(max-width:860px){
-    header{align-items:flex-start;flex-direction:column}
-    .grid{grid-template-columns:1fr}
-    textarea{height:430px}
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: #020406;
+    color: #e8edf2;
+    font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+main {
+    width: min(1180px, calc(100vw - 24px));
+    margin: 0 auto;
+    padding: 18px 0 20px;
+}
+
+header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #075b82;
+}
+
+h1 {
+    margin: 0;
+    color: #f7f9fb;
+    font: 700 24px/1.05 sans-serif;
+}
+
+h1 b,
+p {
+    color: #12bdf2;
+}
+
+p {
+    margin: 5px 0 0;
+    text-transform: uppercase;
+}
+
+aside {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+textarea {
+    display: block;
+    width: 100%;
+    height: 560px;
+    padding: 14px;
+    resize: vertical;
+    background: #020406;
+    border: 0;
+    outline: 0;
+    color: #dce8f2;
+    font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+button,
+select,
+input {
+    height: 34px;
+    padding: 0 10px;
+    background: #080c10;
+    border: 1px solid #30343a;
+    border-radius: 4px;
+    color: #dce8f2;
+    font: 13px sans-serif;
+}
+
+button {
+    background: #072234;
+    border-color: #0b87bd;
+    color: #e8f8ff;
+    cursor: pointer;
+}
+
+button.secondary {
+    background: #0a0d11;
+    border-color: #30343a;
+    color: #c6d2dc;
+}
+
+button.tool {
+    background: #061923;
+    border-color: #12bdf2;
+    color: #12bdf2;
+}
+
+button:disabled {
+    opacity: .35;
+    cursor: not-allowed;
+}
+
+select {
+    max-width: 106px;
+}
+
+pre {
+    min-height: 58px;
+    margin: 0;
+    padding: 10px;
+    overflow: auto;
+    background: #020406;
+    border: 0;
+    color: #dce8f2;
+    white-space: pre-wrap;
+}
+
+.badge {
+    min-width: 94px;
+    padding: 6px 9px;
+    border: 1px solid #0b87bd;
+    border-radius: 4px;
+    color: #12bdf2;
+    text-align: center;
+}
+
+.badge.on {
+    background: #071a10;
+    border-color: #8ed94f;
+    color: #8ed94f;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 12px;
+}
+
+.editor,
+.panel {
+    background: #06080b;
+    border: 1px solid #30343a;
+    border-radius: 4px;
+    box-shadow: 0 0 0 1px #05070a inset;
+}
+
+.title {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    border-bottom: 1px solid #10384d;
+    color: #12bdf2;
+    text-transform: uppercase;
+}
+
+.title span:last-child {
+    color: #8fa3b2;
+}
+
+.body {
+    padding: 10px;
+}
+
+.bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 7px;
+}
+
+.tools {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.slots {
+    grid-template-columns: 1fr 1fr 1fr;
+}
+
+#info {
+    min-height: 146px;
+}
+
+#log {
+    min-height: 132px;
+    border-top: 1px solid #10384d;
+}
+
+@media(max-width: 860px) {
+    header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .grid {
+        grid-template-columns: 1fr;
+    }
+
+    textarea {
+        height: 430px;
+    }
 }
 </style>
 </head>

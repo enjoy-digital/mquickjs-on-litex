@@ -331,7 +331,8 @@ def main():
     parser.add_argument("--expect",       default=None,                    help="Additional required output string.")
     parser.add_argument("--keep-running", action="store_true",            help="Do not stop on DONE marker.")
     parser.add_argument("--heap-size",    type=int, default=None,          help="Override LITEX_MQJS_HEAP_SIZE.")
-    parser.add_argument("--memory-dump",  action="store_true",            help="Print mquickjs heap statistics at exit.")
+    parser.add_argument("--memory-dump",  action="store_true",
+                        help="Print mquickjs heap statistics at exit.")
     parser.add_argument("--with-sdram",   action="store_true",            help="Use simulated SDRAM as main RAM.")
     parser.add_argument("--with-video-framebuffer", action="store_true",
                         help="Enable LiteX video framebuffer.")
