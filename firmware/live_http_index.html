@@ -1,0 +1,814 @@
+<!--
+Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
+SPDX-License-Identifier: BSD-2-Clause
+
+This page is served by the LiteX firmware.
+
+Two JavaScript runtimes are involved:
+- The code in this file runs in the user's browser and drives the web UI.
+- The code in the script editor is sent to /run and executes on the SoC,
+  inside mquickjs running on the LiteX CPU.
+-->
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>mquickjs on LiteX</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#020406;color:#e8edf2;font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+main{width:min(1180px,calc(100vw - 24px));margin:0 auto;padding:18px 0 20px}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #075b82}
+h1{font:700 24px/1.05 sans-serif;margin:0;color:#f7f9fb}
+h1 b,p{color:#12bdf2}
+p{margin:5px 0 0;text-transform:uppercase}
+.badge{min-width:94px;border:1px solid #0b87bd;color:#12bdf2;text-align:center;padding:6px 9px;border-radius:4px}
+.badge.on{background:#071a10;color:#8ed94f;border-color:#8ed94f}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:12px}
+.editor,.panel{background:#06080b;border:1px solid #30343a;border-radius:4px;box-shadow:0 0 0 1px #05070a inset}
+.title{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border-bottom:1px solid #10384d;color:#12bdf2;text-transform:uppercase}
+.title span:last-child{color:#8fa3b2}
+textarea{display:block;width:100%;height:560px;background:#020406;color:#dce8f2;border:0;outline:0;padding:14px;font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;resize:vertical}
+aside{display:flex;flex-direction:column;gap:10px}
+.body{padding:10px}
+.bar{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.tools{grid-template-columns:repeat(2,1fr)}
+.slots{grid-template-columns:1fr 1fr 1fr}
+button,select,input{border:1px solid #30343a;border-radius:4px;background:#080c10;color:#dce8f2;height:34px;padding:0 10px;font:13px sans-serif}
+button{cursor:pointer;background:#072234;border-color:#0b87bd;color:#e8f8ff}
+button.secondary{background:#0a0d11;border-color:#30343a;color:#c6d2dc}
+button.tool{background:#061923;border-color:#12bdf2;color:#12bdf2}
+button:disabled{opacity:.35;cursor:not-allowed}
+select{max-width:106px}
+pre{white-space:pre-wrap;margin:0;background:#020406;border:0;padding:10px;min-height:58px;overflow:auto;color:#dce8f2}
+#info{min-height:146px}
+#log{min-height:132px;border-top:1px solid #10384d}
+@media(max-width:860px){
+    header{align-items:flex-start;flex-direction:column}
+    .grid{grid-template-columns:1fr}
+    textarea{height:430px}
+}
+</style>
+</head>
+<body>
+<main>
+<header>
+<div>
+<h1>mquickjs <b>on LiteX</b></h1>
+<p>browser editor &gt; mquickjs &gt; LiteX framebuffer</p>
+</div>
+<div class="badge" id="state">offline</div>
+</header>
+
+<section class="grid">
+<div class="editor">
+<div class="title"><span>script.js</span><span>mquickjs</span></div>
+<textarea id="code" spellcheck="false"></textarea>
+<div class="title"><span>console</span><span>log</span></div>
+<pre id="log">ready</pre>
+</div>
+
+<aside>
+<div class="panel">
+<div class="title"><span>board</span><span>status</span></div>
+<pre id="info">detecting board...</pre>
+</div>
+
+<div class="panel">
+<div class="title"><span>runtime</span><span>control</span></div>
+<div class="body bar">
+<button onclick="run()">Run</button>
+<button class="secondary" onclick="control('stop')">Stop</button>
+<button class="secondary" onclick="control('pause')">Pause</button>
+<button class="secondary" onclick="control('resume')">Resume</button>
+<button class="secondary" onclick="control('reset')">Reset</button>
+</div>
+</div>
+
+<div class="panel">
+<div class="title"><span>presets</span><span>scene</span></div>
+<div class="body bar">
+<button class="secondary" onclick="preset('bars')">Bars</button>
+<button class="secondary" onclick="preset('plasma')">Plasma</button>
+<button class="secondary" onclick="preset('spark')">Spark</button>
+<button class="secondary" onclick="preset('tunnel')">Tunnel</button>
+<button class="secondary" onclick="preset('fire')">Fire</button>
+<button class="secondary" onclick="preset('stars')">Stars</button>
+<button class="secondary" onclick="preset('life')">Life</button>
+<button class="secondary" onclick="preset('vector')">Vector</button>
+<button class="secondary" onclick="preset('logo')">Logo</button>
+</div>
+</div>
+
+<div class="panel">
+<div class="title"><span>peripherals</span><span>litex</span></div>
+<div class="body bar tools">
+<button class="tool" onclick="action('info')">Identify</button>
+<button class="tool" data-feature="scratch" onclick="action('scratch')">Scratch</button>
+<button class="tool" data-feature="peripherals" onclick="action('interactive')">I/O Demo</button>
+<button class="tool" data-feature="framebuffer" onclick="preview('SCRIPT.JS')">Preview</button>
+</div>
+</div>
+
+<div class="panel">
+<div class="title"><span>sdcard</span><span>slots</span></div>
+<div class="body bar slots">
+<select id="slot" data-feature="sdcard">
+<option>main.js</option>
+<option>demo1.js</option>
+<option>demo2.js</option>
+<option>demo3.js</option>
+</select>
+<button class="secondary" data-feature="sdcard" onclick="saveSlot()">Save</button>
+<button class="secondary" data-feature="sdcard" onclick="loadSlot()">Load</button>
+</div>
+</div>
+</aside>
+</section>
+</main>
+
+<script>
+"use strict";
+
+// Browser-side handles. The browser owns the editor and uses HTTP to
+// send scripts to the board.
+const code = document.getElementById("code");
+const log = document.getElementById("log");
+const infoEl = document.getElementById("info");
+const stateEl = document.getElementById("state");
+const slot = document.getElementById("slot");
+
+let boardInfo = null;
+
+// This helper is prepended to every script sent to mquickjs. It runs on
+// the LiteX CPU, not in the browser, and provides a small demo toolkit.
+const helper = `
+var params = {speed:32, scale:6, count:96, hue:0, overlay:1};
+var demo = {
+  rgb: function(r, g, b) {
+    return ((r & 255) << 16) | ((g & 255) << 8) | (b & 255);
+  },
+  hue: function(h) {
+    h &= 255;
+    return demo.rgb((h * 5) & 255, (255 - h) & 255, (h * 3) & 255);
+  },
+  clear: function(c) {
+    if (framebuffer.width) framebuffer.clear(c);
+  },
+  led: function(n) {
+    litex.setLeds(1 << (n & 3));
+  },
+  centerX: function(w) {
+    return ((framebuffer.width - w) / 2) | 0;
+  },
+  centerY: function(h) {
+    return ((framebuffer.height - h) / 2) | 0;
+  },
+  blitIndexed: function(idx, pal, w, h, s) {
+    framebuffer.blitIndexedScale(idx, pal, w, h, demo.centerX(w * s), demo.centerY(h * s), s);
+  },
+  controls: function() {
+    var sw = litex.getSwitches();
+    var btn = litex.getButtons();
+    if (sw) params.hue = (sw * 17) & 255;
+    if (btn & 1) params.speed = 64;
+    if (btn & 2) params.count = 192;
+  },
+  overlay: function(name, t) {
+    if (!params.overlay || !framebuffer.width) return;
+    var ww = framebuffer.width;
+    framebuffer.fillRect(0, 0, ww, 26, 0x020406);
+    if (ww > 16) framebuffer.fillRect(8, 5, ww - 16, 16, 0x06080b);
+    framebuffer.line(0, 25, ww - 1, 25, 0x10384d);
+    framebuffer.text(16, 9, name + " " + ((t / 1000) | 0) + "S", 0x12bdf2, 1);
+    if (ww > 220) {
+      framebuffer.text(ww - 210, 9, "SPD " + params.speed + " SW " + litex.getSwitches(), 0x8fa3b2, 1);
+    }
+  },
+  panel: function(x, y, pw, ph, title, tag) {
+    framebuffer.fillRect(x, y, pw, ph, 0x06080b);
+    framebuffer.line(x, y, x + pw - 1, y, 0x30343a);
+    framebuffer.line(x, y + ph - 1, x + pw - 1, y + ph - 1, 0x30343a);
+    framebuffer.line(x, y, x, y + ph - 1, 0x30343a);
+    framebuffer.line(x + pw - 1, y, x + pw - 1, y + ph - 1, 0x30343a);
+    framebuffer.line(x + 1, y + 28, x + pw - 2, y + 28, 0x10384d);
+    framebuffer.text(x + 10, y + 10, title, 0x12bdf2, 1);
+    if (tag) framebuffer.text(x + pw - tag.length * 6 - 10, y + 10, tag, 0x8fa3b2, 1);
+  },
+  scriptPreview: function(status, lines) {
+    var w = framebuffer.width;
+    var h = framebuffer.height;
+    if (!w || !h) {
+      console.log("[preview] no framebuffer");
+      return;
+    }
+
+    framebuffer.clear(0x020406);
+    if (w < 560 || h < 420) {
+      framebuffer.text(8, 10, "SCRIPT.JS", 0xf7f9fb, 1);
+      framebuffer.text(8, 30, status, 0x12bdf2, 1);
+      return;
+    }
+
+    var m = 24;
+    var gap = 16;
+    var leftW = (((w - 2 * m - gap) * 3) / 5) | 0;
+    var rightX = m + leftW + gap;
+    var rightW = w - rightX - m;
+    var topY = 92;
+    var panelH = h - 228;
+    var bottomY = h - 88;
+
+    framebuffer.line(m, 70, w - m, 70, 0x0b87bd);
+    framebuffer.text(m, 26, "MQUICKJS", 0xf7f9fb, 3);
+    framebuffer.text(m + 162, 26, "ON LITEX", 0x12bdf2, 3);
+    framebuffer.text(m + 2, 62, "BROWSER EDITOR > MQUICKJS > FRAMEBUFFER", 0x12bdf2, 1);
+
+    framebuffer.fillRect(w - m - 96, 33, 96, 26, 0x080c10);
+    framebuffer.line(w - m - 96, 33, w - m - 1, 33, 0x0b87bd);
+    framebuffer.line(w - m - 96, 58, w - m - 1, 58, 0x0b87bd);
+    framebuffer.line(w - m - 96, 33, w - m - 96, 58, 0x0b87bd);
+    framebuffer.line(w - m - 1, 33, w - m - 1, 58, 0x0b87bd);
+    framebuffer.text(w - m - 76, 42, status, 0x8ed94f, 1);
+
+    demo.panel(m, topY, leftW, panelH, "SCRIPT.JS", "LOADED");
+    framebuffer.fillRect(m + 12, topY + 42, leftW - 24, panelH - 54, 0x020406);
+    for (var i = 0; i < lines.length && i < 7; i++) {
+      var y = topY + 54 + i * 22;
+      var n = i + 1;
+      framebuffer.text(m + 28, y, n < 10 ? "0" + n : "" + n, 0x8fa3b2, 1);
+      framebuffer.text(m + 58, y, lines[i], 0xdce8f2, 1);
+    }
+
+    demo.panel(rightX, topY, rightW, 112, "BOARD", "STATUS");
+    framebuffer.text(rightX + 12, topY + 44, litex.getIdentifier(), 0xdce8f2, 1);
+    framebuffer.text(rightX + 12, topY + 66, "FB " + w + "X" + h + "X" + framebuffer.depth, 0x8fa3b2, 1);
+    framebuffer.text(rightX + 12, topY + 88, "ETH 192.168.1.50", 0x8ed94f, 1);
+
+    demo.panel(rightX, topY + 128, rightW, panelH - 128, "RUNTIME", "IDLE");
+    framebuffer.text(rightX + 12, topY + 172, "BROWSER EDITOR", 0xdce8f2, 1);
+    framebuffer.text(rightX + 12, topY + 194, "RUN TO EXECUTE", 0x8fa3b2, 1);
+    framebuffer.text(rightX + 12, topY + 216, "JS EXECUTES HERE", 0x12bdf2, 1);
+
+    demo.panel(m, bottomY, w - 2 * m, 64, "CONSOLE", "READY");
+    framebuffer.text(m + 14, bottomY + 34, "OPEN HTTP://192.168.1.50/", 0x8ed94f, 1);
+    framebuffer.text(m + 14, bottomY + 52, "SCRIPT.JS PREVIEW REFRESHED FROM WEB UI", 0x8fa3b2, 1);
+    console.log("[preview] " + status + " - script.js shown on framebuffer");
+  }
+};
+`;
+
+const defaultScript = `// Browser edited JavaScript, executed by mquickjs on LiteX.
+var t0 = 0;
+
+function setup() {
+  t0 = litex.millis();
+  demo.clear(0x020406);
+  console.log("[live] setup done");
+}
+
+function frame(t) {
+  var phase = (((t - t0) * params.speed) / 256) | 0;
+  var maxX = framebuffer.width  > 18 ? framebuffer.width  - 18 : 0;
+  var maxY = framebuffer.height > 18 ? framebuffer.height - 18 : 0;
+
+  demo.clear(demo.hue(phase + params.hue));
+  for (var i = 0; i < params.count; i++) {
+    var x = maxX ? (i * 17 + phase * 5) % maxX : 0;
+    var y = maxY ? (i * 11 + phase * 3) % maxY : 0;
+    framebuffer.fillRect(x, y, 12, 12, demo.hue(phase + i * 3));
+  }
+
+  demo.led(phase >> 3);
+}`;
+
+// Presets are scripts sent to mquickjs. Keep them readable: users will
+// edit these directly in the script.js textarea.
+const presets = {
+  bars: `// Fast sanity pattern: one 8-pixel color stripe per row.
+var start = 0;
+
+function setup() {
+  start = litex.millis();
+  console.log("[bars] running");
+}
+
+function frame(t) {
+  demo.controls();
+  var phase = (((t - start) * params.speed) / 256) | 0;
+
+  for (var y = 0; y <= framebuffer.height - 8; y += 8) {
+    var c = demo.hue(y + phase + params.hue);
+    framebuffer.fillRect(0, y, framebuffer.width, 8, c);
+  }
+
+  demo.overlay("BARS", t);
+  demo.led(phase >> 4);
+}`,
+
+  plasma: `// Low-resolution indexed plasma, scaled by the C framebuffer helper.
+var w = 80;
+var h = 60;
+var pixels, palette, start;
+
+function setup() {
+  start = litex.millis();
+  pixels = new Uint8Array(w * h);
+  palette = new Uint32Array(256);
+  for (var i = 0; i < 256; i++) palette[i] = demo.hue(i);
+  console.log("[plasma] low-res indexed plasma");
+}
+
+function frame(t) {
+  demo.controls();
+  var phase = (((t - start) * params.speed) / 128) | 0;
+
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      pixels[y * w + x] = ((x * x + y * y + x * phase + y * (phase >> 1)) >> 5) & 255;
+    }
+  }
+
+  demo.blitIndexed(pixels, palette, w, h, params.scale);
+  demo.overlay("PLASMA", t);
+  demo.led(phase >> 4);
+}`,
+
+  spark: `// Cheap particle field using deterministic integer motion.
+var start = 0;
+
+function setup() {
+  start = litex.millis();
+  demo.clear(0);
+  console.log("[spark] particles");
+}
+
+function frame(t) {
+  demo.controls();
+  var phase = (((t - start) * params.speed) / 192) | 0;
+  var maxX = framebuffer.width  > 6 ? framebuffer.width  - 6 : 0;
+  var maxY = framebuffer.height > 6 ? framebuffer.height - 6 : 0;
+
+  demo.clear(0);
+  for (var i = 0; i < params.count; i++) {
+    var x = maxX ? (i * 23 + phase * 9) % maxX : 0;
+    var y = maxY ? (i * i  + phase * 13) % maxY : 0;
+    framebuffer.fillRect(x, y, 6, 6, demo.hue(params.hue + phase + i));
+  }
+
+  demo.overlay("SPARK", t);
+  demo.led(phase >> 3);
+}`,
+
+  tunnel: `// Classic tunnel effect using distance from the center.
+var w = 80;
+var h = 60;
+var pixels, palette, start;
+
+function setup() {
+  start = litex.millis();
+  pixels = new Uint8Array(w * h);
+  palette = new Uint32Array(256);
+  for (var i = 0; i < 256; i++) palette[i] = demo.hue(i + params.hue);
+  console.log("[tunnel] integer tunnel");
+}
+
+function frame(t) {
+  demo.controls();
+  var phase = (((t - start) * params.speed) / 160) | 0;
+  var cx = w >> 1;
+  var cy = h >> 1;
+
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      var dx = x - cx;
+      var dy = y - cy;
+      var d = dx * dx + dy * dy + 1;
+      pixels[y * w + x] = ((4096 / d) + x * 3 + y * 5 + phase) & 255;
+    }
+  }
+
+  demo.blitIndexed(pixels, palette, w, h, params.scale);
+  demo.overlay("TUNNEL", t);
+  demo.led(phase >> 4);
+}`,
+
+  fire: `// Very small fire simulation: seed the bottom row, blur upward.
+var w = 80;
+var h = 60;
+var heat, palette, start;
+
+function setup() {
+  start = litex.millis();
+  heat = new Uint8Array(w * h);
+  palette = new Uint32Array(256);
+  for (var i = 0; i < 256; i++) {
+    palette[i] = demo.rgb(i, i > 96 ? 255 : i * 2, i > 180 ? (i - 180) * 3 : 0);
+  }
+  console.log("[fire] running");
+}
+
+function frame(t) {
+  demo.controls();
+  var phase = (((t - start) * params.speed) / 256) | 0;
+
+  for (var x = 0; x < w; x++) heat[(h - 1) * w + x] = (x * 17 + phase * 13) & 255;
+  for (var y = 0; y < h - 1; y++) {
+    for (var x = 1; x < w - 1; x++) {
+      var below = y + 2 < h ? y + 2 : h - 1;
+      var value = (heat[(y + 1) * w + x - 1] + heat[(y + 1) * w + x] +
+                   heat[(y + 1) * w + x + 1] + heat[below * w + x]) >> 2;
+      heat[y * w + x] = value > 2 ? value - 2 : 0;
+    }
+  }
+
+  demo.blitIndexed(heat, palette, w, h, params.scale);
+  demo.overlay("FIRE", t);
+  demo.led(phase >> 4);
+}`,
+
+  stars: `// Simple star field. Lower z means closer to the viewer.
+var starX = [], starY = [], starZ = [];
+
+function setup() {
+  for (var i = 0; i < 256; i++) {
+    starX[i] = (i * 37) % 640 - 320;
+    starY[i] = (i * 71) % 480 - 240;
+    starZ[i] = (i % 64) + 1;
+  }
+  demo.clear(0);
+  console.log("[stars] running");
+}
+
+function frame(t) {
+  demo.controls();
+  framebuffer.fade(36);
+
+  for (var i = 0; i < params.count; i++) {
+    starZ[i] -= params.speed / 24;
+    if (starZ[i] < 1) starZ[i] = 64;
+
+    var x = (framebuffer.width  / 2 + (starX[i] * 48) / starZ[i]) | 0;
+    var y = (framebuffer.height / 2 + (starY[i] * 48) / starZ[i]) | 0;
+    framebuffer.fillRect(x, y, 2, 2, demo.hue(params.hue + starZ[i] * 4));
+  }
+
+  demo.overlay("STARS", t);
+}`,
+
+  life: `// Conway-style cellular automaton rendered through an indexed buffer.
+var w = 96;
+var h = 64;
+var cells, nextCells, palette;
+
+function setup() {
+  cells = new Uint8Array(w * h);
+  nextCells = new Uint8Array(w * h);
+  palette = new Uint32Array(256);
+  palette[0] = 0x020406;
+  palette[1] = 0x12bdf2;
+
+  for (var i = 0; i < w * h; i++) cells[i] = ((i * i + i * 7) & 13) == 0;
+  console.log("[life] running");
+}
+
+function frame(t) {
+  demo.controls();
+  for (var y = 1; y < h - 1; y++) {
+    for (var x = 1; x < w - 1; x++) {
+      var n = cells[(y - 1) * w + x - 1] + cells[(y - 1) * w + x] + cells[(y - 1) * w + x + 1] +
+              cells[y * w + x - 1]                         + cells[y * w + x + 1] +
+              cells[(y + 1) * w + x - 1] + cells[(y + 1) * w + x] + cells[(y + 1) * w + x + 1];
+      var alive = cells[y * w + x];
+      nextCells[y * w + x] = (n == 3) || (alive && n == 2);
+    }
+  }
+
+  var tmp = cells;
+  cells = nextCells;
+  nextCells = tmp;
+  demo.blitIndexed(cells, palette, w, h, params.scale);
+  demo.overlay("LIFE", t);
+}`,
+
+  vector: `// Vector-scope style lines with framebuffer fading trails.
+var start = 0;
+
+function setup() {
+  start = litex.millis();
+  demo.clear(0);
+  console.log("[vector] running");
+}
+
+function frame(t) {
+  demo.controls();
+  var phase = (((t - start) * params.speed) / 128) | 0;
+  var cx = framebuffer.width >> 1;
+  var cy = framebuffer.height >> 1;
+
+  framebuffer.fade(28);
+  for (var i = 0; i < 16; i++) {
+    var x = (i * 43 + phase * 7) % framebuffer.width;
+    var y = (i * 29 + phase * 5) % framebuffer.height;
+    framebuffer.line(cx, cy, x, y, demo.hue(params.hue + phase + i * 16));
+  }
+
+  framebuffer.circle(cx, cy, (phase % 90) + 20, demo.hue(params.hue + phase), 0);
+  demo.overlay("VECTOR", t);
+}`,
+
+  logo: `// Bouncing text badge, useful to check text/circle helpers.
+var start = 0;
+
+function setup() {
+  start = litex.millis();
+  demo.clear(0);
+  console.log("[logo] running");
+}
+
+function frame(t) {
+  demo.controls();
+  var phase = (((t - start) * params.speed) / 180) | 0;
+  var x = (phase * 5) % (framebuffer.width - 240);
+  var y = (phase * 3) % (framebuffer.height - 80);
+
+  demo.clear(0x020406);
+  framebuffer.fillRect(x, y, 238, 78, 0x06080b);
+  framebuffer.line(x, y, x + 237, y, 0x30343a);
+  framebuffer.line(x, y + 77, x + 237, y + 77, 0x30343a);
+  framebuffer.line(x, y, x, y + 77, 0x30343a);
+  framebuffer.line(x + 237, y, x + 237, y + 77, 0x30343a);
+  framebuffer.line(x + 1, y + 24, x + 236, y + 24, 0x10384d);
+  framebuffer.text(x + 10, y + 9, "LIVE JS", 0x12bdf2, 1);
+  framebuffer.text(x + 24, y + 34, "MQUICKJS", 0xf7f9fb, 2);
+  framebuffer.text(x + 132, y + 34, "ON LITEX", 0x12bdf2, 2);
+  demo.overlay("LOGO", t);
+  demo.led(phase >> 3);
+}`
+};
+
+// These scripts exercise LiteX peripherals through the mquickjs bindings.
+const actions = {
+  info: {
+    preview: true,
+    source: `console.log("[board] identifier =", litex.getIdentifier());
+console.log("[board] clock =", litex.clockFrequency(), "Hz");
+console.log("[board] framebuffer =", framebuffer.width, "x", framebuffer.height, "x", framebuffer.depth);
+`
+  },
+
+  scratch: {
+    preview: true,
+    source: `var before = litex.getScratch();
+litex.setScratch(0x51c0ffee);
+var after = litex.getScratch();
+litex.setScratch(before);
+console.log("[board] scratch before = 0x" + before.toString(16));
+console.log("[board] scratch test = 0x" + after.toString(16));
+`
+  },
+
+  interactive: {
+    preview: false,
+    source: `// Interactive LiteX peripheral demo.
+// Switches select the LED pattern when present.
+// BTN0 forces all LEDs on and tests the scratch register.
+// BTN1 clears the LEDs. Without buttons, LEDs run as a scanner.
+var start = 0;
+var lastButtons = -1;
+var lastSwitches = -1;
+var lastScratchMs = 0;
+var lastDraw = -1;
+
+function setup() {
+  start = litex.millis();
+  console.log("[io] interactive peripheral demo");
+  console.log("[io] switches/buttons drive LEDs when available");
+}
+
+function drawStatus(t, buttons, switches, leds) {
+  var bucket = (t / 200) | 0;
+  if (!framebuffer.width || bucket == lastDraw) return;
+  lastDraw = bucket;
+
+  framebuffer.clear(0x020406);
+  demo.panel(36, 54, framebuffer.width - 72, framebuffer.height - 108, "LITEX I/O", "LIVE");
+  framebuffer.text(58, 112, "BUTTONS 0X" + buttons.toString(16), 0xdce8f2, 2);
+  framebuffer.text(58, 154, "SWITCHES 0X" + switches.toString(16), 0xdce8f2, 2);
+  framebuffer.text(58, 196, "LEDS 0X" + leds.toString(16), 0x8ed94f, 2);
+  framebuffer.text(58, 260, "BTN0 SCRATCH TEST  BTN1 CLEAR", 0x12bdf2, 1);
+  framebuffer.text(58, 286, "NO BUTTONS? LED SCANNER KEEPS RUNNING", 0x8fa3b2, 1);
+}
+
+function frame(t) {
+  var buttons = litex.getButtons();
+  var switches = litex.getSwitches();
+  var tick = (((t - start) / 160) | 0) & 3;
+  var leds = switches ? switches : (1 << tick);
+
+  if (buttons & 1) {
+    leds = 0xf;
+    if ((t - lastScratchMs) > 400) {
+      var before = litex.getScratch();
+      litex.setScratch(0x51c0ffee);
+      var after = litex.getScratch();
+      litex.setScratch(before);
+      console.log("[io] BTN0 scratch = 0x" + after.toString(16));
+      lastScratchMs = t;
+    }
+  }
+  if (buttons & 2) leds = 0;
+
+  litex.setLeds(leds);
+  if (buttons != lastButtons || switches != lastSwitches) {
+    console.log("[io] buttons=0x" + buttons.toString(16) +
+                " switches=0x" + switches.toString(16) +
+                " leds=0x" + leds.toString(16));
+    lastButtons = buttons;
+    lastSwitches = switches;
+  }
+  drawStatus(t, buttons, switches, leds);
+}`
+  }
+};
+
+function setLog(text) {
+  log.textContent = text;
+}
+
+async function postText(path, body) {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: {"Content-Type": "text/plain"},
+    body: body
+  });
+  return {ok: response.ok, text: await response.text()};
+}
+
+async function sendScript(src) {
+  setLog("running...");
+  try {
+    const result = await postText("/run", src);
+    setLog(result.text);
+    await refreshInfo();
+    return result;
+  } catch (e) {
+    setLog("ERR " + e);
+    return null;
+  }
+}
+
+function cleanLine(line) {
+  const allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .:/-><=_+*()[]{};,!?&|";
+  let out = "";
+
+  line = line.toUpperCase();
+  for (let i = 0; i < line.length && out.length < 44; i++) {
+    const c = line[i];
+    out += allowed.indexOf(c) >= 0 ? c : " ";
+  }
+  return out.replace(/  +/g, " ");
+}
+
+function previewScript(status) {
+  const lines = [];
+
+  for (const raw of code.value.split(/\r?\n/)) {
+    const line = cleanLine(raw);
+    if (line) lines.push(line);
+    if (lines.length === 7) break;
+  }
+  if (!lines.length) lines.push("EMPTY SCRIPT");
+  if (status.length > 12) status = status.slice(0, 12);
+
+  return helper + "demo.scriptPreview(" +
+         JSON.stringify(status) + "," + JSON.stringify(lines) + ");\n";
+}
+
+async function preview(status, prefix) {
+  setLog("refreshing framebuffer...");
+  try {
+    const result = await postText("/run", previewScript(status));
+    setLog((prefix || "") + result.text);
+    await refreshInfo();
+    return result;
+  } catch (e) {
+    setLog("ERR " + e);
+    return null;
+  }
+}
+
+function run() {
+  sendScript(helper + code.value);
+}
+
+function preset(name) {
+  code.value = presets[name];
+  preview("LOADED " + name.toUpperCase());
+}
+
+async function action(name) {
+  const item = actions[name];
+
+  code.value = item.source;
+  const result = await sendScript(helper + code.value);
+  if (result && result.ok && item.preview) {
+    await preview("ACTION " + name.toUpperCase(), result.text);
+  }
+}
+
+async function control(cmd) {
+  setLog(cmd + "...");
+  try {
+    const response = await fetch("/control", {
+      method: "POST",
+      headers: {"Content-Type": "text/plain"},
+      body: cmd
+    });
+    const text = await response.text();
+    if (response.ok && (cmd === "stop" || cmd === "reset")) {
+      await preview(cmd.toUpperCase(), text);
+    } else {
+      setLog(text);
+      await refreshInfo();
+    }
+  } catch (e) {
+    setLog("ERR " + e);
+  }
+}
+
+async function saveSlot() {
+  setLog("saving " + slot.value + "...");
+  try {
+    const result = await postText("/save?name=" + encodeURIComponent(slot.value), helper + code.value);
+    setLog(result.text);
+    await refreshInfo();
+  } catch (e) {
+    setLog("ERR " + e);
+  }
+}
+
+async function loadSlot() {
+  setLog("loading " + slot.value + "...");
+  try {
+    const response = await fetch("/load?name=" + encodeURIComponent(slot.value));
+    if (!response.ok) throw await response.text();
+    code.value = await response.text();
+    await preview("LOADED " + slot.value, "OK loaded " + slot.value + "\n");
+  } catch (e) {
+    setLog("ERR " + e);
+  }
+}
+
+function featureOK(name) {
+  if (!boardInfo) return true;
+
+  const f = boardInfo.features;
+  if (name === "io") return f.switches || f.buttons;
+  if (name === "peripherals") {
+    return f.leds || f.switches || f.buttons || f.scratch || f.framebuffer;
+  }
+  return !!f[name];
+}
+
+function applyInfo() {
+  const f = boardInfo.features;
+  const fb = boardInfo.framebuffer;
+  const live = boardInfo.live;
+  const fps = (live.fps_x100 / 100).toFixed(2);
+  const avg = (live.avg_frame_ms_x100 / 100).toFixed(2);
+
+  stateEl.textContent = live.active ? (live.paused ? "paused" : "running") : "idle";
+  stateEl.className = "badge " + (live.active ? "on" : "");
+  infoEl.textContent =
+    boardInfo.identifier + "\n" +
+    "CPU " + boardInfo.cpu + " @ " + boardInfo.clock_hz + " Hz, heap " +
+    boardInfo.heap_bytes + " bytes\n" +
+    "framebuffer " + (fb.present ? (fb.width + " x " + fb.height + " x " + fb.depth) : "not present") + "\n" +
+    "features: leds=" + f.leds + " switches=" + f.switches +
+    " buttons=" + f.buttons + " sdcard=" + f.sdcard + "\n" +
+    "live: " + (live.active ? (live.paused ? "paused" : "running") : "idle") +
+    ", frames=" + live.frames + ", last=" + live.last_frame_ms +
+    " ms, avg=" + avg + " ms, fps=" + fps;
+
+  document.querySelectorAll("[data-feature]").forEach(function(el) {
+    el.disabled = !featureOK(el.dataset.feature);
+  });
+}
+
+async function refreshInfo() {
+  try {
+    boardInfo = await (await fetch("/info")).json();
+    applyInfo();
+  } catch (e) {
+    infoEl.textContent = "board info unavailable: " + e;
+  }
+}
+
+code.value = defaultScript;
+refreshInfo();
+setInterval(refreshInfo, 1000);
+</script>
+</body>
+</html>

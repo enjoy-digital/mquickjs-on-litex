@@ -96,14 +96,15 @@ For hardware, use the showcase firmware:
 The live-editing path is intentionally small:
 
 ```text
-Browser editor -> HTTP POST -> LiteX board -> mquickjs frame(t) -> framebuffer
+Browser UI JS -> HTTP POST -> LiteX board -> mquickjs script.js -> framebuffer
 ```
 
-The JavaScript runs on the board. The browser page is served by a tiny
-lwIP HTTP endpoint in the firmware. `Run` replaces the current script,
-`setup()` runs once and `frame(t)` keeps animating from the firmware
-poll loop. Sliders update `params.*` through `/eval`, so a running effect
-can be tuned without restarting it.
+The board serves the browser page from a tiny lwIP HTTP endpoint in the
+firmware. The browser JavaScript only manages the UI and HTTP requests.
+The script in the editor is sent to `/run`, executes in mquickjs on the
+LiteX CPU, and draws through the framebuffer bindings. `Run` replaces
+the current script, `setup()` runs once and `frame(t)` keeps animating
+from the firmware poll loop.
 
 Build an Ethernet + video target, then build live firmware:
 
@@ -116,7 +117,9 @@ Build an Ethernet + video target, then build live firmware:
 
 Open `http://192.168.1.50/`, choose a preset, edit the JavaScript and
 press `Run`. Scripts are bounded to 16 KiB in the firmware, so keep live
-experiments compact.
+experiments compact. The peripheral panel posts the same kind of script:
+the interactive I/O demo reads switches/buttons, drives LEDs and redraws
+the framebuffer without any LED-specific browser magic.
 
 For longer editing sessions, use `tools/live_editor.html` from the host.
 It keeps the firmware page small but adds a richer preset list, slot

@@ -108,15 +108,18 @@ xdg-open http://192.168.1.50/
 ```
 
 Open `http://192.168.1.50/` if `xdg-open` is not available. The page
-sends compact JavaScript demos to the board over HTTP. Scripts can
-define `setup()` and `frame(t)` for live animation; the board keeps the
-frame loop running in mquickjs and draws through the same framebuffer API
-as the standalone examples.
+sends compact JavaScript demos to the board over HTTP. The browser runs
+only the editor UI; the script in the `script.js` textarea runs in
+mquickjs on the LiteX CPU. Scripts can define `setup()` and `frame(t)`
+for live animation; the board keeps the frame loop running in mquickjs
+and draws through the same framebuffer API as the standalone examples.
 
 The page also exposes portable board utilities through the same JS API:
-identifier, switches/buttons, scratch register, LEDs, frame timing and
-FPS. On SDCard-capable SoCs, `Save main.js` and `Load main.js` let the
-browser turn the current live script into the standalone boot script.
+identifier, scratch register and an interactive I/O demo that mirrors
+switches/buttons to LEDs when those CSRs are present. It also reports
+frame timing and FPS. On SDCard-capable SoCs, `Save main.js` and
+`Load main.js` let the browser turn the current live script into the
+standalone boot script.
 
 For a richer laptop-side editor, open `tools/live_editor.html` in a
 browser. It talks directly to the board HTTP server, can save/load the
