@@ -117,6 +117,7 @@ docs/      details
 
 Useful docs:
 
+- [docs/quickstart.md](docs/quickstart.md): shortest path to the live browser demo.
 - [docs/simulation.md](docs/simulation.md): dependencies and sim flow.
 - [docs/hardware.md](docs/hardware.md): board and SDCard flow.
 - [docs/architecture.md](docs/architecture.md): firmware and live HTTP architecture.
