@@ -539,41 +539,70 @@ function frame(t) {
   demo.overlay("VECTOR", t);
 }`,
 
-  logo: `// DVD-style bouncing badge: slow, diagonal and color-shifting.
+  logo: `// DVD-style bouncing badge with color changes on wall hits.
 var start = 0;
-var x = 48;
-var y = 72;
-var dx = 2;
-var dy = 1;
+var x = 42;
+var y = 58;
+var dx = 3;
+var dy = 2;
 var hue = 48;
 var accent = 0x12bdf2;
+var accent2 = 0x8ed94f;
+var phase = 0;
 var lastX = -1;
 var lastY = -1;
 var lastStep = 0;
-var badgeW = 238;
-var badgeH = 78;
+var badgeW = 318;
+var badgeH = 104;
 var pageX = [-1, -1];
 var pageY = [-1, -1];
 
 function setup() {
   start = litex.millis();
   lastStep = start;
+  updateAccent();
   drawFrame();
   lastX = x;
   lastY = y;
   console.log("[logo] running");
 }
 
+function updateAccent() {
+  accent = demo.hue(hue);
+  accent2 = demo.hue(hue + 96);
+}
+
+function outline(x, y, w, h, color) {
+  framebuffer.line(x, y, x + w - 1, y, color);
+  framebuffer.line(x, y + h - 1, x + w - 1, y + h - 1, color);
+  framebuffer.line(x, y, x, y + h - 1, color);
+  framebuffer.line(x + w - 1, y, x + w - 1, y + h - 1, color);
+}
+
 function drawBadge(x, y) {
-  framebuffer.fillRect(x, y, badgeW, badgeH, 0x06080b);
-  framebuffer.line(x, y, x + badgeW - 1, y, 0x30343a);
-  framebuffer.line(x, y + badgeH - 1, x + badgeW - 1, y + badgeH - 1, 0x30343a);
-  framebuffer.line(x, y, x, y + badgeH - 1, 0x30343a);
-  framebuffer.line(x + badgeW - 1, y, x + badgeW - 1, y + badgeH - 1, 0x30343a);
-  framebuffer.line(x + 1, y + 24, x + badgeW - 2, y + 24, 0x10384d);
-  framebuffer.text(x + 10, y + 9, "LIVE JS", accent, 1);
-  framebuffer.text(x + 24, y + 34, "MQUICKJS", 0xf7f9fb, 2);
-  framebuffer.text(x + 132, y + 34, "ON LITEX", accent, 2);
+  var ix = x + 8;
+  var iy = y + 8;
+  var iw = badgeW - 16;
+  var ih = badgeH - 16;
+  var tick = phase % 7;
+
+  framebuffer.fillRect(x + 6, y + 7, badgeW - 12, badgeH - 12, 0x010203);
+  framebuffer.fillRect(ix, iy, iw, ih, 0x06080b);
+  outline(ix, iy, iw, ih, accent);
+
+  framebuffer.fillRect(ix + 12, iy + 12, 6, 6, accent2);
+  framebuffer.fillRect(ix + 24, iy + 12, 6, 6, tick & 1 ? accent : 0x10384d);
+  framebuffer.fillRect(ix + 36, iy + 12, 6, 6, tick & 2 ? accent : 0x10384d);
+  framebuffer.text(ix + 54, iy + 11, "LIVE JAVASCRIPT", accent, 1);
+
+  framebuffer.text(ix + 18, iy + 36, "MQUICKJS", 0xf7f9fb, 3);
+  framebuffer.text(ix + 176, iy + 42, "ON LITEX", accent, 2);
+  framebuffer.text(ix + 19, iy + 74, "BROWSER JS > MQUICKJS > LITEX SOC", 0x8fa3b2, 1);
+
+  for (var i = 0; i < 7; i++) {
+    var c = i == tick ? accent2 : 0x10384d;
+    framebuffer.fillRect(ix + iw - 76 + i * 10, iy + ih - 15, 6, 6, c);
+  }
 }
 
 function clearRect(x, y, w, h) {
@@ -628,6 +657,7 @@ function frame(t) {
   demo.controls();
   if (!framebuffer.width || (t - lastStep) < 40) return;
   lastStep = t;
+  phase = (((t - start) * params.speed) / 256) | 0;
 
   var maxX = framebuffer.width > badgeW ? framebuffer.width - badgeW : 1;
   var maxY = framebuffer.height > badgeH ? framebuffer.height - badgeH : 1;
@@ -638,25 +668,25 @@ function frame(t) {
 
   if (x <= 0) {
     x = 0;
-    dx = 2;
+    dx = 3;
     hit = 1;
   } else if (x >= maxX) {
     x = maxX;
-    dx = -2;
+    dx = -3;
     hit = 1;
   }
   if (y <= 0) {
     y = 0;
-    dy = 1;
+    dy = 2;
     hit = 1;
   } else if (y >= maxY) {
     y = maxY;
-    dy = -1;
+    dy = -2;
     hit = 1;
   }
   if (hit) {
     hue = (hue + 53) & 255;
-    accent = demo.hue(hue);
+    updateAccent();
   }
 
   drawFrame();

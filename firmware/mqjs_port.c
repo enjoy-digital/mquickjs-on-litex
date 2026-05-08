@@ -532,6 +532,7 @@ static int js_arg_u32(JSContext *ctx, int argc, JSValue *argv, int idx,
 static uint8_t framebuffer_started;
 static uint8_t framebuffer_front_index;
 static uint8_t framebuffer_draw_index;
+static uint32_t framebuffer_dma_max_offset;
 
 static uintptr_t framebuffer_buffer_base(uint8_t index)
 {
@@ -574,9 +575,14 @@ static void framebuffer_wait_for_wrap(void)
     uint32_t last = video_framebuffer_dma_offset_read();
     int64_t start = now_ms();
 
+    if (last > framebuffer_dma_max_offset)
+        framebuffer_dma_max_offset = last;
+
     for (uint32_t spins = 0; spins < 3000000; spins++) {
         uint32_t current = video_framebuffer_dma_offset_read();
 
+        if (current > framebuffer_dma_max_offset)
+            framebuffer_dma_max_offset = current;
         if (current < last)
             return;
         last = current;
@@ -585,6 +591,46 @@ static void framebuffer_wait_for_wrap(void)
             return;
     }
 #endif
+}
+
+static void framebuffer_wait_for_switch_window(void)
+{
+#if defined(CSR_VIDEO_FRAMEBUFFER_DMA_OFFSET_ADDR)
+    uint32_t threshold;
+    int64_t start;
+
+    if (framebuffer_dma_max_offset == 0)
+        framebuffer_wait_for_wrap();
+
+    threshold = framebuffer_dma_max_offset -
+        (framebuffer_dma_max_offset >> 4);
+    if (threshold == 0)
+        return;
+
+    start = now_ms();
+    for (uint32_t spins = 0; spins < 3000000; spins++) {
+        uint32_t current = video_framebuffer_dma_offset_read();
+
+        if (current > framebuffer_dma_max_offset) {
+            framebuffer_dma_max_offset = current;
+            threshold = framebuffer_dma_max_offset -
+                (framebuffer_dma_max_offset >> 4);
+        }
+        if (current >= threshold)
+            return;
+
+        if ((spins & 0x3ff) == 0 && start != 0 && (now_ms() - start) >= 40)
+            return;
+    }
+#endif
+}
+
+static void framebuffer_commit_draw_buffer(void)
+{
+    void *base = (void *)framebuffer_buffer_base(framebuffer_draw_index);
+
+    clean_cpu_dcache_range(base, FRAMEBUFFER_FRAME_BYTES);
+    flush_l2_cache();
 }
 
 static framebuffer_pixel_t framebuffer_color(uint32_t rgb)
@@ -1083,13 +1129,16 @@ JSValue js_framebuffer_present(JSContext *ctx, JSValue *this_val,
         return JS_FALSE;
     if (framebuffer_draw_index == framebuffer_front_index)
         return JS_TRUE;
+    framebuffer_commit_draw_buffer();
     if (sync)
-        framebuffer_wait_for_wrap();
+        framebuffer_wait_for_switch_window();
 
 #if defined(CSR_VIDEO_FRAMEBUFFER_DMA_BASE_ADDR)
     video_framebuffer_dma_base_write(
         framebuffer_buffer_base(framebuffer_draw_index));
 #endif
+    if (sync)
+        framebuffer_wait_for_wrap();
     framebuffer_front_index = framebuffer_draw_index;
     framebuffer_draw_index = framebuffer_front_index;
     return JS_TRUE;
