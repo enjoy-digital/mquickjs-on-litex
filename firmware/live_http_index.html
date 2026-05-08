@@ -578,8 +578,11 @@ console.log("[board] scratch test = 0x" + after.toString(16));
 var start = 0;
 var lastButtons = -1;
 var lastSwitches = -1;
+var lastShownButtons = -1;
+var lastShownSwitches = -1;
+var lastShownLeds = -1;
 var lastScratchMs = 0;
-var lastDraw = -1;
+var uiReady = 0;
 
 function setup() {
   start = litex.millis();
@@ -587,18 +590,59 @@ function setup() {
   console.log("[io] switches/buttons drive LEDs when available");
 }
 
-function drawStatus(t, buttons, switches, leds) {
-  var bucket = (t / 200) | 0;
-  if (!framebuffer.width || bucket == lastDraw) return;
-  lastDraw = bucket;
+function hex(value) {
+  return "0x" + (value >>> 0).toString(16);
+}
 
+function drawStaticUi() {
+  if (!framebuffer.width || uiReady) return;
+  uiReady = 1;
   framebuffer.clear(0x020406);
   demo.panel(36, 54, framebuffer.width - 72, framebuffer.height - 108, "LITEX I/O", "LIVE");
-  framebuffer.text(58, 112, "BUTTONS 0X" + buttons.toString(16), 0xdce8f2, 2);
-  framebuffer.text(58, 154, "SWITCHES 0X" + switches.toString(16), 0xdce8f2, 2);
-  framebuffer.text(58, 196, "LEDS 0X" + leds.toString(16), 0x8ed94f, 2);
+  framebuffer.text(58, 112, "BUTTONS", 0x8fa3b2, 2);
+  framebuffer.text(58, 154, "SWITCHES", 0x8fa3b2, 2);
+  framebuffer.text(58, 196, "LEDS", 0x8fa3b2, 2);
   framebuffer.text(58, 260, "BTN0 SCRATCH TEST  BTN1 CLEAR", 0x12bdf2, 1);
-  framebuffer.text(58, 286, "NO BUTTONS? LED SCANNER KEEPS RUNNING", 0x8fa3b2, 1);
+  framebuffer.text(58, 286, "STATIC FRAMEBUFFER UI, LIVE CSR VALUES", 0x8fa3b2, 1);
+}
+
+function drawValue(y, text, color) {
+  framebuffer.fillRect(230, y - 2, 210, 22, 0x06080b);
+  framebuffer.text(230, y, text, color, 2);
+}
+
+function drawLedBar(mask) {
+  var x0 = 230;
+  var y0 = 226;
+  framebuffer.fillRect(x0, y0, 152, 24, 0x06080b);
+  for (var i = 0; i < 4; i++) {
+    var x = x0 + i * 36;
+    var on = (mask >> i) & 1;
+    framebuffer.fillRect(x, y0, 24, 18, on ? 0x8ed94f : 0x080c10);
+    framebuffer.line(x, y0, x + 23, y0, 0x30343a);
+    framebuffer.line(x, y0 + 17, x + 23, y0 + 17, 0x30343a);
+    framebuffer.line(x, y0, x, y0 + 17, 0x30343a);
+    framebuffer.line(x + 23, y0, x + 23, y0 + 17, 0x30343a);
+  }
+}
+
+function drawStatus(buttons, switches, leds) {
+  drawStaticUi();
+  if (!uiReady) return;
+
+  if (buttons != lastShownButtons) {
+    drawValue(112, hex(buttons), 0xdce8f2);
+    lastShownButtons = buttons;
+  }
+  if (switches != lastShownSwitches) {
+    drawValue(154, hex(switches), 0xdce8f2);
+    lastShownSwitches = switches;
+  }
+  if (leds != lastShownLeds) {
+    drawValue(196, hex(leds), 0x8ed94f);
+    drawLedBar(leds);
+    lastShownLeds = leds;
+  }
 }
 
 function frame(t) {
@@ -628,7 +672,7 @@ function frame(t) {
     lastButtons = buttons;
     lastSwitches = switches;
   }
-  drawStatus(t, buttons, switches, leds);
+  drawStatus(buttons, switches, leds);
 }`
   }
 };
