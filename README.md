@@ -100,9 +100,11 @@ The live-editing step serves the browser UI directly from the board:
 ```
 
 Then open `http://192.168.1.50/`, edit JavaScript in the browser, and
-press `Run`. For debugging, the older host bridge is still available
-with `./make.py live --live-mode udp --build-dir build/ecpix5-live` and
-`./tools/live_bridge.py --board 192.168.1.50`.
+press `Run`. The page HTML and its UI JavaScript are served by the
+board; the script in the editor is sent back to `/run` and executed by
+mquickjs on the LiteX CPU. For debugging, the older host bridge is still
+available with `./make.py live --live-mode udp --build-dir
+build/ecpix5-live` and `./tools/live_bridge.py --board 192.168.1.50`.
 
 ## [> Files
 

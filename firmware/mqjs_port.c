@@ -9,6 +9,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <generated/mem.h>
+/* csr.h includes soc.h, which also defines VIDEO_FRAMEBUFFER_BASE. Keep
+ * VIDEO_FRAMEBUFFER_SIZE from mem.h, then let soc.h provide the base. */
+#undef VIDEO_FRAMEBUFFER_BASE
 #include <irq.h>
 #include <libbase/console.h>
 #include <libbase/uart.h>
@@ -513,15 +517,45 @@ static int js_arg_u32(JSContext *ctx, int argc, JSValue *argv, int idx,
     return JS_ToUint32(ctx, value, argv[idx]);
 }
 
+#define FRAMEBUFFER_FRAME_BYTES \
+    (VIDEO_FRAMEBUFFER_HRES * VIDEO_FRAMEBUFFER_VRES * \
+     (VIDEO_FRAMEBUFFER_DEPTH / 8))
+
+#if defined(VIDEO_FRAMEBUFFER_SIZE) && \
+    defined(CSR_VIDEO_FRAMEBUFFER_DMA_BASE_ADDR) && \
+    (VIDEO_FRAMEBUFFER_SIZE >= (2 * FRAMEBUFFER_FRAME_BYTES))
+#define FRAMEBUFFER_BUFFER_COUNT 2
+#else
+#define FRAMEBUFFER_BUFFER_COUNT 1
+#endif
+
+static uint8_t framebuffer_started;
+static uint8_t framebuffer_front_index;
+static uint8_t framebuffer_draw_index;
+static uint32_t framebuffer_dma_max_offset;
+
+static uintptr_t framebuffer_buffer_base(uint8_t index)
+{
+    return (uintptr_t)VIDEO_FRAMEBUFFER_BASE +
+        (uintptr_t)index * FRAMEBUFFER_FRAME_BYTES;
+}
+
+static int framebuffer_is_double_buffered(void)
+{
+    return FRAMEBUFFER_BUFFER_COUNT >= 2;
+}
+
 static void framebuffer_start(void)
 {
+    if (framebuffer_started)
+        return;
+
 #if defined(CSR_VIDEO_FRAMEBUFFER_DMA_BASE_ADDR)
-    video_framebuffer_dma_base_write(VIDEO_FRAMEBUFFER_BASE);
+    video_framebuffer_dma_base_write(
+        framebuffer_buffer_base(framebuffer_front_index));
 #endif
 #if defined(CSR_VIDEO_FRAMEBUFFER_DMA_LENGTH_ADDR)
-    video_framebuffer_dma_length_write(
-        VIDEO_FRAMEBUFFER_HRES * VIDEO_FRAMEBUFFER_VRES *
-        (VIDEO_FRAMEBUFFER_DEPTH / 8));
+    video_framebuffer_dma_length_write(FRAMEBUFFER_FRAME_BYTES);
 #endif
 #if defined(CSR_VIDEO_FRAMEBUFFER_DMA_LOOP_ADDR)
     video_framebuffer_dma_loop_write(1);
@@ -532,6 +566,71 @@ static void framebuffer_start(void)
 #if defined(CSR_VIDEO_FRAMEBUFFER_VTG_ENABLE_ADDR)
     video_framebuffer_vtg_enable_write(1);
 #endif
+    framebuffer_started = 1;
+}
+
+static void framebuffer_wait_for_wrap(void)
+{
+#if defined(CSR_VIDEO_FRAMEBUFFER_DMA_OFFSET_ADDR)
+    uint32_t last = video_framebuffer_dma_offset_read();
+    int64_t start = now_ms();
+
+    if (last > framebuffer_dma_max_offset)
+        framebuffer_dma_max_offset = last;
+
+    for (uint32_t spins = 0; spins < 3000000; spins++) {
+        uint32_t current = video_framebuffer_dma_offset_read();
+
+        if (current > framebuffer_dma_max_offset)
+            framebuffer_dma_max_offset = current;
+        if (current < last)
+            return;
+        last = current;
+
+        if ((spins & 0x3ff) == 0 && start != 0 && (now_ms() - start) >= 25)
+            return;
+    }
+#endif
+}
+
+static void framebuffer_wait_for_switch_window(void)
+{
+#if defined(CSR_VIDEO_FRAMEBUFFER_DMA_OFFSET_ADDR)
+    uint32_t threshold;
+    int64_t start;
+
+    if (framebuffer_dma_max_offset == 0)
+        framebuffer_wait_for_wrap();
+
+    threshold = framebuffer_dma_max_offset -
+        (framebuffer_dma_max_offset >> 4);
+    if (threshold == 0)
+        return;
+
+    start = now_ms();
+    for (uint32_t spins = 0; spins < 3000000; spins++) {
+        uint32_t current = video_framebuffer_dma_offset_read();
+
+        if (current > framebuffer_dma_max_offset) {
+            framebuffer_dma_max_offset = current;
+            threshold = framebuffer_dma_max_offset -
+                (framebuffer_dma_max_offset >> 4);
+        }
+        if (current >= threshold)
+            return;
+
+        if ((spins & 0x3ff) == 0 && start != 0 && (now_ms() - start) >= 40)
+            return;
+    }
+#endif
+}
+
+static void framebuffer_commit_draw_buffer(void)
+{
+    void *base = (void *)framebuffer_buffer_base(framebuffer_draw_index);
+
+    clean_cpu_dcache_range(base, FRAMEBUFFER_FRAME_BYTES);
+    flush_l2_cache();
 }
 
 static framebuffer_pixel_t framebuffer_color(uint32_t rgb)
@@ -553,7 +652,7 @@ static framebuffer_pixel_t framebuffer_color(uint32_t rgb)
 
 static framebuffer_pixel_t *framebuffer_pixels(void)
 {
-    return (framebuffer_pixel_t *)(uintptr_t)VIDEO_FRAMEBUFFER_BASE;
+    return (framebuffer_pixel_t *)framebuffer_buffer_base(framebuffer_draw_index);
 }
 
 static void framebuffer_copy_pixels(framebuffer_pixel_t *dst,
@@ -562,6 +661,190 @@ static void framebuffer_copy_pixels(framebuffer_pixel_t *dst,
 {
     for (uint32_t i = 0; i < count; i++)
         dst[i] = src[i];
+}
+
+static void framebuffer_put_pixel(int32_t x, int32_t y,
+                                  framebuffer_pixel_t pixel)
+{
+    if (x < 0 || y < 0 ||
+        x >= (int32_t)VIDEO_FRAMEBUFFER_HRES ||
+        y >= (int32_t)VIDEO_FRAMEBUFFER_VRES) {
+        return;
+    }
+
+    framebuffer_pixels()[y * VIDEO_FRAMEBUFFER_HRES + x] = pixel;
+}
+
+static void framebuffer_hline(int32_t x0, int32_t x1, int32_t y,
+                              framebuffer_pixel_t pixel)
+{
+    if (y < 0 || y >= (int32_t)VIDEO_FRAMEBUFFER_VRES)
+        return;
+    if (x0 > x1) {
+        int32_t tmp = x0;
+        x0 = x1;
+        x1 = tmp;
+    }
+    if (x1 < 0 || x0 >= (int32_t)VIDEO_FRAMEBUFFER_HRES)
+        return;
+    if (x0 < 0)
+        x0 = 0;
+    if (x1 >= (int32_t)VIDEO_FRAMEBUFFER_HRES)
+        x1 = VIDEO_FRAMEBUFFER_HRES - 1;
+
+    framebuffer_pixel_t *dst = framebuffer_pixels() +
+        y * VIDEO_FRAMEBUFFER_HRES + x0;
+    for (int32_t x = x0; x <= x1; x++)
+        *dst++ = pixel;
+}
+
+static framebuffer_pixel_t framebuffer_fade_pixel(framebuffer_pixel_t pixel,
+                                                  uint32_t amount)
+{
+    uint32_t factor;
+
+    if (amount > 255)
+        amount = 255;
+    factor = 255 - amount;
+
+#if VIDEO_FRAMEBUFFER_DEPTH == 16
+    uint32_t r = (pixel >> 11) & 0x1f;
+    uint32_t g = (pixel >>  5) & 0x3f;
+    uint32_t b = (pixel >>  0) & 0x1f;
+
+    r = (r * factor) / 255;
+    g = (g * factor) / 255;
+    b = (b * factor) / 255;
+
+    return (framebuffer_pixel_t)((r << 11) | (g << 5) | b);
+#else
+    uint32_t b = (pixel >> 16) & 0xff;
+    uint32_t g = (pixel >>  8) & 0xff;
+    uint32_t r = (pixel >>  0) & 0xff;
+
+    r = (r * factor) / 255;
+    g = (g * factor) / 255;
+    b = (b * factor) / 255;
+
+    return (framebuffer_pixel_t)((b << 16) | (g << 8) | r);
+#endif
+}
+
+static const uint8_t *framebuffer_font_rows(char c)
+{
+    static const uint8_t blank[7] = {0, 0, 0, 0, 0, 0, 0};
+    static const uint8_t chars[][7] = {
+        {0x0e, 0x11, 0x13, 0x15, 0x19, 0x11, 0x0e}, /* 0 */
+        {0x04, 0x0c, 0x04, 0x04, 0x04, 0x04, 0x0e}, /* 1 */
+        {0x0e, 0x11, 0x01, 0x02, 0x04, 0x08, 0x1f}, /* 2 */
+        {0x1e, 0x01, 0x01, 0x0e, 0x01, 0x01, 0x1e}, /* 3 */
+        {0x02, 0x06, 0x0a, 0x12, 0x1f, 0x02, 0x02}, /* 4 */
+        {0x1f, 0x10, 0x10, 0x1e, 0x01, 0x01, 0x1e}, /* 5 */
+        {0x0e, 0x10, 0x10, 0x1e, 0x11, 0x11, 0x0e}, /* 6 */
+        {0x1f, 0x01, 0x02, 0x04, 0x08, 0x08, 0x08}, /* 7 */
+        {0x0e, 0x11, 0x11, 0x0e, 0x11, 0x11, 0x0e}, /* 8 */
+        {0x0e, 0x11, 0x11, 0x0f, 0x01, 0x01, 0x0e}, /* 9 */
+        {0x0e, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11}, /* A */
+        {0x1e, 0x11, 0x11, 0x1e, 0x11, 0x11, 0x1e}, /* B */
+        {0x0e, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0e}, /* C */
+        {0x1e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1e}, /* D */
+        {0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x1f}, /* E */
+        {0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x10}, /* F */
+        {0x0e, 0x11, 0x10, 0x17, 0x11, 0x11, 0x0f}, /* G */
+        {0x11, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11}, /* H */
+        {0x0e, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0e}, /* I */
+        {0x07, 0x02, 0x02, 0x02, 0x12, 0x12, 0x0c}, /* J */
+        {0x11, 0x12, 0x14, 0x18, 0x14, 0x12, 0x11}, /* K */
+        {0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1f}, /* L */
+        {0x11, 0x1b, 0x15, 0x15, 0x11, 0x11, 0x11}, /* M */
+        {0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11}, /* N */
+        {0x0e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e}, /* O */
+        {0x1e, 0x11, 0x11, 0x1e, 0x10, 0x10, 0x10}, /* P */
+        {0x0e, 0x11, 0x11, 0x11, 0x15, 0x12, 0x0d}, /* Q */
+        {0x1e, 0x11, 0x11, 0x1e, 0x14, 0x12, 0x11}, /* R */
+        {0x0f, 0x10, 0x10, 0x0e, 0x01, 0x01, 0x1e}, /* S */
+        {0x1f, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04}, /* T */
+        {0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e}, /* U */
+        {0x11, 0x11, 0x11, 0x11, 0x0a, 0x0a, 0x04}, /* V */
+        {0x11, 0x11, 0x11, 0x15, 0x15, 0x1b, 0x11}, /* W */
+        {0x11, 0x11, 0x0a, 0x04, 0x0a, 0x11, 0x11}, /* X */
+        {0x11, 0x11, 0x0a, 0x04, 0x04, 0x04, 0x04}, /* Y */
+        {0x1f, 0x01, 0x02, 0x04, 0x08, 0x10, 0x1f}, /* Z */
+    };
+    static const uint8_t dash[7]  = {0, 0, 0, 0x1f, 0, 0, 0};
+    static const uint8_t dot[7]   = {0, 0, 0, 0, 0, 0x0c, 0x0c};
+    static const uint8_t colon[7] = {0, 0x0c, 0x0c, 0, 0x0c, 0x0c, 0};
+    static const uint8_t slash[7] = {0x01, 0x02, 0x02, 0x04, 0x08, 0x08, 0x10};
+    static const uint8_t under[7] = {0, 0, 0, 0, 0, 0, 0x1f};
+    static const uint8_t equal[7] = {0, 0, 0x1f, 0, 0x1f, 0, 0};
+    static const uint8_t plus[7]  = {0, 0x04, 0x04, 0x1f, 0x04, 0x04, 0};
+    static const uint8_t star[7]  = {0, 0x15, 0x0e, 0x1f, 0x0e, 0x15, 0};
+    static const uint8_t lpar[7]  = {0x02, 0x04, 0x08, 0x08, 0x08, 0x04, 0x02};
+    static const uint8_t rpar[7]  = {0x08, 0x04, 0x02, 0x02, 0x02, 0x04, 0x08};
+    static const uint8_t lbra[7]  = {0x0e, 0x08, 0x08, 0x08, 0x08, 0x08, 0x0e};
+    static const uint8_t rbra[7]  = {0x0e, 0x02, 0x02, 0x02, 0x02, 0x02, 0x0e};
+    static const uint8_t lcur[7]  = {0x03, 0x04, 0x04, 0x18, 0x04, 0x04, 0x03};
+    static const uint8_t rcur[7]  = {0x18, 0x04, 0x04, 0x03, 0x04, 0x04, 0x18};
+    static const uint8_t comma[7] = {0, 0, 0, 0, 0, 0x04, 0x08};
+    static const uint8_t semi[7]  = {0, 0x04, 0x04, 0, 0, 0x04, 0x08};
+    static const uint8_t lt[7]    = {0x02, 0x04, 0x08, 0x10, 0x08, 0x04, 0x02};
+    static const uint8_t gt[7]    = {0x10, 0x08, 0x04, 0x02, 0x04, 0x08, 0x10};
+    static const uint8_t bang[7]  = {0x04, 0x04, 0x04, 0x04, 0, 0x04, 0};
+    static const uint8_t ques[7]  = {0x0e, 0x11, 0x01, 0x02, 0x04, 0, 0x04};
+    static const uint8_t amp[7]   = {0x0c, 0x12, 0x14, 0x08, 0x15, 0x12, 0x0d};
+    static const uint8_t pipe[7]  = {0x04, 0x04, 0x04, 0, 0x04, 0x04, 0x04};
+
+    if (c >= 'a' && c <= 'z')
+        c -= 'a' - 'A';
+    if (c >= '0' && c <= '9')
+        return chars[c - '0'];
+    if (c >= 'A' && c <= 'Z')
+        return chars[10 + c - 'A'];
+    if (c == '-')
+        return dash;
+    if (c == '.')
+        return dot;
+    if (c == ':')
+        return colon;
+    if (c == '/')
+        return slash;
+    if (c == '_')
+        return under;
+    if (c == '=')
+        return equal;
+    if (c == '+')
+        return plus;
+    if (c == '*')
+        return star;
+    if (c == '(')
+        return lpar;
+    if (c == ')')
+        return rpar;
+    if (c == '[')
+        return lbra;
+    if (c == ']')
+        return rbra;
+    if (c == '{')
+        return lcur;
+    if (c == '}')
+        return rcur;
+    if (c == ',')
+        return comma;
+    if (c == ';')
+        return semi;
+    if (c == '<')
+        return lt;
+    if (c == '>')
+        return gt;
+    if (c == '!')
+        return bang;
+    if (c == '?')
+        return ques;
+    if (c == '&')
+        return amp;
+    if (c == '|')
+        return pipe;
+    return blank;
 }
 
 static int framebuffer_get_typed_array(JSContext *ctx, JSValue obj,
@@ -802,6 +1085,69 @@ JSValue js_framebuffer_get_depth(JSContext *ctx, JSValue *this_val, int argc, JS
 #endif
 }
 
+JSValue js_framebuffer_get_double_buffered(JSContext *ctx, JSValue *this_val,
+                                           int argc, JSValue *argv)
+{
+    (void)ctx; (void)this_val; (void)argc; (void)argv;
+#if MQJS_HAS_FRAMEBUFFER
+    return JS_NewBool(framebuffer_is_double_buffered());
+#else
+    return JS_FALSE;
+#endif
+}
+
+JSValue js_framebuffer_begin(JSContext *ctx, JSValue *this_val,
+                             int argc, JSValue *argv)
+{
+    (void)this_val; (void)argc; (void)argv;
+#if MQJS_HAS_FRAMEBUFFER
+    framebuffer_start();
+    if (!framebuffer_is_double_buffered())
+        return JS_FALSE;
+
+    framebuffer_draw_index = (framebuffer_front_index + 1) %
+        FRAMEBUFFER_BUFFER_COUNT;
+    return JS_NewUint32(ctx, framebuffer_draw_index);
+#else
+    (void)ctx;
+    return JS_FALSE;
+#endif
+}
+
+JSValue js_framebuffer_present(JSContext *ctx, JSValue *this_val,
+                               int argc, JSValue *argv)
+{
+    (void)this_val;
+#if MQJS_HAS_FRAMEBUFFER
+    uint32_t sync = 1;
+
+    if (argc > 0 && JS_ToUint32(ctx, &sync, argv[0]))
+        return JS_EXCEPTION;
+
+    framebuffer_start();
+    if (!framebuffer_is_double_buffered())
+        return JS_FALSE;
+    if (framebuffer_draw_index == framebuffer_front_index)
+        return JS_TRUE;
+    framebuffer_commit_draw_buffer();
+    if (sync)
+        framebuffer_wait_for_switch_window();
+
+#if defined(CSR_VIDEO_FRAMEBUFFER_DMA_BASE_ADDR)
+    video_framebuffer_dma_base_write(
+        framebuffer_buffer_base(framebuffer_draw_index));
+#endif
+    if (sync)
+        framebuffer_wait_for_wrap();
+    framebuffer_front_index = framebuffer_draw_index;
+    framebuffer_draw_index = framebuffer_front_index;
+    return JS_TRUE;
+#else
+    (void)ctx; (void)argc; (void)argv;
+    return JS_FALSE;
+#endif
+}
+
 JSValue js_framebuffer_clear(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv)
 {
     (void)this_val;
@@ -917,6 +1263,284 @@ JSValue js_framebuffer_copy_rect(JSContext *ctx, JSValue *this_val,
                 fb + (src_y + row) * VIDEO_FRAMEBUFFER_HRES + src_x,
                 size);
         }
+    }
+    return JS_UNDEFINED;
+#else
+    (void)argc; (void)argv;
+    return framebuffer_unavailable(ctx);
+#endif
+}
+
+JSValue js_framebuffer_line(JSContext *ctx, JSValue *this_val,
+                            int argc, JSValue *argv)
+{
+    (void)this_val;
+#if MQJS_HAS_FRAMEBUFFER
+    if (argc < 5)
+        return JS_ThrowTypeError(ctx, "line(x0, y0, x1, y1, color)");
+
+    int x0, y0, x1, y1;
+    uint32_t color;
+    if (JS_ToInt32(ctx, &x0, argv[0]))
+        return JS_EXCEPTION;
+    if (JS_ToInt32(ctx, &y0, argv[1]))
+        return JS_EXCEPTION;
+    if (JS_ToInt32(ctx, &x1, argv[2]))
+        return JS_EXCEPTION;
+    if (JS_ToInt32(ctx, &y1, argv[3]))
+        return JS_EXCEPTION;
+    if (JS_ToUint32(ctx, &color, argv[4]))
+        return JS_EXCEPTION;
+
+    framebuffer_start();
+    framebuffer_pixel_t pixel = framebuffer_color(color);
+    int dx = x1 > x0 ? x1 - x0 : x0 - x1;
+    int sx = x0 < x1 ? 1 : -1;
+    int dy = y1 > y0 ? y0 - y1 : y1 - y0;
+    int sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy;
+
+    for (;;) {
+        framebuffer_put_pixel(x0, y0, pixel);
+        if (x0 == x1 && y0 == y1)
+            break;
+        int e2 = 2 * err;
+        if (e2 >= dy) {
+            err += dy;
+            x0  += sx;
+        }
+        if (e2 <= dx) {
+            err += dx;
+            y0  += sy;
+        }
+    }
+    return JS_UNDEFINED;
+#else
+    (void)argc; (void)argv;
+    return framebuffer_unavailable(ctx);
+#endif
+}
+
+JSValue js_framebuffer_circle(JSContext *ctx, JSValue *this_val,
+                              int argc, JSValue *argv)
+{
+    (void)this_val;
+#if MQJS_HAS_FRAMEBUFFER
+    if (argc < 4)
+        return JS_ThrowTypeError(ctx, "circle(x, y, radius, color[, fill])");
+
+    int cx, cy, radius;
+    uint32_t color;
+    uint32_t fill = 0;
+    if (JS_ToInt32(ctx, &cx, argv[0]))
+        return JS_EXCEPTION;
+    if (JS_ToInt32(ctx, &cy, argv[1]))
+        return JS_EXCEPTION;
+    if (JS_ToInt32(ctx, &radius, argv[2]))
+        return JS_EXCEPTION;
+    if (JS_ToUint32(ctx, &color, argv[3]))
+        return JS_EXCEPTION;
+    if (argc > 4 && JS_ToUint32(ctx, &fill, argv[4]))
+        return JS_EXCEPTION;
+    if (radius < 0)
+        return JS_ThrowRangeError(ctx, "circle radius must be positive");
+
+    framebuffer_start();
+    framebuffer_pixel_t pixel = framebuffer_color(color);
+    int x = radius;
+    int y = 0;
+    int err = 1 - x;
+
+    while (x >= y) {
+        if (fill) {
+            framebuffer_hline(cx - x, cx + x, cy + y, pixel);
+            framebuffer_hline(cx - x, cx + x, cy - y, pixel);
+            framebuffer_hline(cx - y, cx + y, cy + x, pixel);
+            framebuffer_hline(cx - y, cx + y, cy - x, pixel);
+        } else {
+            framebuffer_put_pixel(cx + x, cy + y, pixel);
+            framebuffer_put_pixel(cx + y, cy + x, pixel);
+            framebuffer_put_pixel(cx - y, cy + x, pixel);
+            framebuffer_put_pixel(cx - x, cy + y, pixel);
+            framebuffer_put_pixel(cx - x, cy - y, pixel);
+            framebuffer_put_pixel(cx - y, cy - x, pixel);
+            framebuffer_put_pixel(cx + y, cy - x, pixel);
+            framebuffer_put_pixel(cx + x, cy - y, pixel);
+        }
+
+        y++;
+        if (err < 0) {
+            err += 2 * y + 1;
+        } else {
+            x--;
+            err += 2 * (y - x) + 1;
+        }
+    }
+    return JS_UNDEFINED;
+#else
+    (void)argc; (void)argv;
+    return framebuffer_unavailable(ctx);
+#endif
+}
+
+JSValue js_framebuffer_text(JSContext *ctx, JSValue *this_val,
+                            int argc, JSValue *argv)
+{
+    (void)this_val;
+#if MQJS_HAS_FRAMEBUFFER
+    if (argc < 4)
+        return JS_ThrowTypeError(ctx, "text(x, y, string, color[, scale])");
+
+    int x, y;
+    uint32_t color;
+    uint32_t scale = 1;
+    JSCStringBuf sb;
+    size_t len;
+    const char *str;
+
+    if (JS_ToInt32(ctx, &x, argv[0]))
+        return JS_EXCEPTION;
+    if (JS_ToInt32(ctx, &y, argv[1]))
+        return JS_EXCEPTION;
+    str = JS_ToCStringLen(ctx, &len, argv[2], &sb);
+    if (str == NULL)
+        return JS_EXCEPTION;
+    if (JS_ToUint32(ctx, &color, argv[3]))
+        return JS_EXCEPTION;
+    if (argc > 4 && JS_ToUint32(ctx, &scale, argv[4]))
+        return JS_EXCEPTION;
+    if (scale == 0)
+        return JS_UNDEFINED;
+
+    framebuffer_start();
+    framebuffer_pixel_t pixel = framebuffer_color(color);
+    int cursor_x = x;
+    int cursor_y = y;
+
+    for (size_t i = 0; i < len; i++) {
+        if (str[i] == '\n') {
+            cursor_x = x;
+            cursor_y += 8 * scale;
+            continue;
+        }
+
+        const uint8_t *rows = framebuffer_font_rows(str[i]);
+        for (uint32_t row = 0; row < 7; row++) {
+            for (uint32_t col = 0; col < 5; col++) {
+                if (!(rows[row] & (0x10 >> col)))
+                    continue;
+                for (uint32_t sy = 0; sy < scale; sy++) {
+                    for (uint32_t sx = 0; sx < scale; sx++) {
+                        framebuffer_put_pixel(
+                            cursor_x + col * scale + sx,
+                            cursor_y + row * scale + sy,
+                            pixel);
+                    }
+                }
+            }
+        }
+        cursor_x += 6 * scale;
+    }
+
+    return JS_UNDEFINED;
+#else
+    (void)argc; (void)argv;
+    return framebuffer_unavailable(ctx);
+#endif
+}
+
+JSValue js_framebuffer_fade(JSContext *ctx, JSValue *this_val,
+                            int argc, JSValue *argv)
+{
+    (void)this_val;
+#if MQJS_HAS_FRAMEBUFFER
+    if (argc < 1)
+        return JS_ThrowTypeError(ctx, "fade(amount)");
+
+    uint32_t amount;
+    if (JS_ToUint32(ctx, &amount, argv[0]))
+        return JS_EXCEPTION;
+
+    framebuffer_start();
+    framebuffer_pixel_t *fb = framebuffer_pixels();
+    uint32_t count = VIDEO_FRAMEBUFFER_HRES * VIDEO_FRAMEBUFFER_VRES;
+    for (uint32_t i = 0; i < count; i++)
+        fb[i] = framebuffer_fade_pixel(fb[i], amount);
+    return JS_UNDEFINED;
+#else
+    (void)argc; (void)argv;
+    return framebuffer_unavailable(ctx);
+#endif
+}
+
+JSValue js_framebuffer_scroll(JSContext *ctx, JSValue *this_val,
+                              int argc, JSValue *argv)
+{
+    (void)this_val;
+#if MQJS_HAS_FRAMEBUFFER
+    if (argc < 2)
+        return JS_ThrowTypeError(ctx, "scroll(dx, dy[, fill])");
+
+    int dx, dy;
+    uint32_t fill = 0;
+    if (JS_ToInt32(ctx, &dx, argv[0]))
+        return JS_EXCEPTION;
+    if (JS_ToInt32(ctx, &dy, argv[1]))
+        return JS_EXCEPTION;
+    if (argc > 2 && JS_ToUint32(ctx, &fill, argv[2]))
+        return JS_EXCEPTION;
+
+    framebuffer_start();
+    int abs_dx = dx < 0 ? -dx : dx;
+    int abs_dy = dy < 0 ? -dy : dy;
+    framebuffer_pixel_t fill_pixel = framebuffer_color(fill);
+    framebuffer_pixel_t *fb = framebuffer_pixels();
+
+    if (abs_dx >= (int)VIDEO_FRAMEBUFFER_HRES ||
+        abs_dy >= (int)VIDEO_FRAMEBUFFER_VRES) {
+        for (uint32_t i = 0;
+             i < VIDEO_FRAMEBUFFER_HRES * VIDEO_FRAMEBUFFER_VRES; i++) {
+            fb[i] = fill_pixel;
+        }
+        return JS_UNDEFINED;
+    }
+
+    int src_x = dx > 0 ? 0 : -dx;
+    int dst_x = dx > 0 ? dx : 0;
+    int src_y = dy > 0 ? 0 : -dy;
+    int dst_y = dy > 0 ? dy : 0;
+    int width = VIDEO_FRAMEBUFFER_HRES - abs_dx;
+    int height = VIDEO_FRAMEBUFFER_VRES - abs_dy;
+    size_t size = width * sizeof(framebuffer_pixel_t);
+
+    if (dy > 0) {
+        for (int row = height - 1; row >= 0; row--) {
+            memmove(fb + (dst_y + row) * VIDEO_FRAMEBUFFER_HRES + dst_x,
+                    fb + (src_y + row) * VIDEO_FRAMEBUFFER_HRES + src_x,
+                    size);
+        }
+    } else {
+        for (int row = 0; row < height; row++) {
+            memmove(fb + (dst_y + row) * VIDEO_FRAMEBUFFER_HRES + dst_x,
+                    fb + (src_y + row) * VIDEO_FRAMEBUFFER_HRES + src_x,
+                    size);
+        }
+    }
+
+    for (int row = 0; dy > 0 && row < dy; row++)
+        framebuffer_hline(0, VIDEO_FRAMEBUFFER_HRES - 1, row, fill_pixel);
+    for (int row = (int)VIDEO_FRAMEBUFFER_VRES + dy; dy < 0 &&
+         row < (int)VIDEO_FRAMEBUFFER_VRES; row++) {
+        framebuffer_hline(0, VIDEO_FRAMEBUFFER_HRES - 1, row, fill_pixel);
+    }
+    for (int row = 0; row < (int)VIDEO_FRAMEBUFFER_VRES; row++) {
+        if (dx > 0)
+            framebuffer_hline(0, dx - 1, row, fill_pixel);
+        else if (dx < 0)
+            framebuffer_hline((int)VIDEO_FRAMEBUFFER_HRES + dx,
+                              VIDEO_FRAMEBUFFER_HRES - 1,
+                              row,
+                              fill_pixel);
     }
     return JS_UNDEFINED;
 #else

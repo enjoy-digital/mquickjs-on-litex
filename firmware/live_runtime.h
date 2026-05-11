@@ -9,6 +9,7 @@
 #include "mquickjs.h"
 
 JSContext *new_mqjs_context(void);
+JSContext *new_mqjs_context_with_heap(void *heap, size_t heap_size);
 int run_source(JSContext *ctx, const char *src, size_t src_len,
                const char *filename, int eval_flags);
 

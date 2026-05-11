@@ -35,6 +35,9 @@ The JavaScript API is intentionally small:
 framebuffer.width
 framebuffer.height
 framebuffer.depth
+framebuffer.doubleBuffered
+framebuffer.begin()
+framebuffer.present()
 framebuffer.clear(color)
 framebuffer.fillRect(x, y, width, height, color)
 framebuffer.copyRect(srcX, srcY, width, height, dstX, dstY)
@@ -50,6 +53,21 @@ dirty rectangle lets scripts update only part of the source tile.
 `blitScale` expands each source pixel to a square block in C, so the
 simulator demo stays fast while still producing a visible HDMI image on
 hardware.
+
+On hardware, avoid drawing multi-step animations directly into the
+visible scanout buffer when `framebuffer.doubleBuffered` is true:
+
+```js
+var page = framebuffer.begin();
+framebuffer.clear(0x020406);
+framebuffer.fillRect(40, 40, 120, 60, 0x12bdf2);
+framebuffer.present();
+```
+
+`begin()` returns the hidden page index, which lets sparse animations
+remember what was last drawn on each page and update only dirty regions
+before `present()`. The Logo preset uses this to get clean HDMI output
+without clearing the full 640 x 480 frame every tick.
 
 `blitIndexedScale` is the hardware-friendly variant for retro effects:
 JavaScript fills a `Uint8Array` tile and a 256-entry `Uint32Array`
@@ -96,14 +114,15 @@ For hardware, use the showcase firmware:
 The live-editing path is intentionally small:
 
 ```text
-Browser editor -> HTTP POST -> LiteX board -> mquickjs frame(t) -> framebuffer
+Browser UI JS -> HTTP POST -> LiteX board -> mquickjs script.js -> framebuffer
 ```
 
-The JavaScript runs on the board. The browser page is served by a tiny
-lwIP HTTP endpoint in the firmware. `Run` replaces the current script,
-`setup()` runs once and `frame(t)` keeps animating from the firmware
-poll loop. Sliders update `params.*` through `/eval`, so a running effect
-can be tuned without restarting it.
+The board serves the browser page from a tiny lwIP HTTP endpoint in the
+firmware. The browser JavaScript only manages the UI and HTTP requests.
+The script in the editor is sent to `/run`, executes in mquickjs on the
+LiteX CPU, and draws through the framebuffer bindings. `Run` replaces
+the current script, `setup()` runs once and `frame(t)` keeps animating
+from the firmware poll loop.
 
 Build an Ethernet + video target, then build live firmware:
 
@@ -116,7 +135,13 @@ Build an Ethernet + video target, then build live firmware:
 
 Open `http://192.168.1.50/`, choose a preset, edit the JavaScript and
 press `Run`. Scripts are bounded to 16 KiB in the firmware, so keep live
-experiments compact.
+experiments compact. The peripheral panel posts the same kind of script:
+the interactive I/O demo reads switches/buttons, drives LEDs and redraws
+the framebuffer without any LED-specific browser magic.
+
+For longer editing sessions, use `tools/live_editor.html` from the host.
+It keeps the firmware page small but adds a richer preset list, slot
+save/load controls and shareable URL hashes.
 
 The older UDP host bridge is still present as a fallback:
 
