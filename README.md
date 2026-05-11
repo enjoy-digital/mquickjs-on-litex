@@ -36,7 +36,8 @@ JavaScript file -> firmware.bin -> VexRiscv -> mquickjs -> LiteX CSRs
 ```
 
 It runs in `litex_sim`, is meant to be portable to LiteX boards with
-enough `main_ram`, and has been validated on a Digilent Arty A7.
+enough `main_ram`, and has been validated on Digilent Arty A7 and
+LambdaConcept ECPIX-5 hardware.
 
 ## [> Simulation
 
@@ -46,6 +47,7 @@ cd mquickjs-on-litex
 
 ./make.py sim
 ./make.py sim examples/demo.js
+./make.py sim-video examples/plasma.js
 ```
 
 The first run builds the LiteX simulator. Later runs reuse it and only
@@ -63,17 +65,8 @@ hello from mquickjs on LiteX!
 ## [> Hardware
 
 Use any upstream LiteX-Boards target that provides enough `main_ram`.
-The Arty A7 commands below are just an example:
-
-```sh
-./make.py board-build --target litex_boards.targets.digilent_arty --build-dir build/arty
-./make.py firmware examples/demo.js --build-dir build/arty
-./make.py board-load --target litex_boards.targets.digilent_arty --build-dir build/arty
-./make.py board-run --serial /dev/ttyUSB2
-```
-
-For the SDCard flow, LiteX BIOS loads `boot.bin`, then mquickjs loads
-`main.js` from the card:
+The SDCard flow is the easiest standalone demo: LiteX BIOS loads
+`boot.bin`, then mquickjs loads `main.js` from the card.
 
 ```sh
 ./make.py board-build --target litex_boards.targets.digilent_arty --build-dir build/arty-sd -- --with-sdcard
@@ -84,16 +77,23 @@ For the SDCard flow, LiteX BIOS loads `boot.bin`, then mquickjs loads
 Edit `main.js` on the SDCard, reset the board, and the FPGA runs the
 new JavaScript.
 
+For video-capable boards, enable the target framebuffer and run the
+plasma demo:
+
+```sh
+./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video -- --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
+./make.py firmware examples/plasma.js --build-dir build/ecpix5-video
+./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video
+./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
+```
+
 ## [> Files
 
 ```
-make.py       friendly build/run entry point
-firmware/     mquickjs port and LiteX bindings
-examples/     hello, demo, SDCard main.js
-sim/          litex_sim runner
-tools/        firmware build helpers
-docs/         simulation, hardware and porting notes
-test/         end-to-end simulation smoke tests
+make.py    build/run demos
+examples/  JavaScript demos
+firmware/  mquickjs LiteX firmware
+docs/      details
 ```
 
 Useful docs:
@@ -101,6 +101,7 @@ Useful docs:
 - [docs/simulation.md](docs/simulation.md): dependencies and sim flow.
 - [docs/hardware.md](docs/hardware.md): board and SDCard flow.
 - [docs/porting.md](docs/porting.md): firmware integration notes.
+- [docs/demoscene.md](docs/demoscene.md): framebuffer demo plan.
 
 ## [> License
 

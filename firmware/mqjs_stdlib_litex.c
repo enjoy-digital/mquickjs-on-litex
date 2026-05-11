@@ -398,6 +398,25 @@ static const JSPropDef js_litex[] = {
 static const JSClassDef js_litex_obj = JS_OBJECT_DEF("litex", js_litex);
 
 /* ------------------------------------------------------------------ */
+/* framebuffer — optional video framebuffer bindings                   */
+/* ------------------------------------------------------------------ */
+
+static const JSPropDef js_framebuffer[] = {
+    JS_CGETSET_DEF("width",  js_framebuffer_get_width,  NULL),
+    JS_CGETSET_DEF("height", js_framebuffer_get_height, NULL),
+    JS_CGETSET_DEF("depth",  js_framebuffer_get_depth,  NULL),
+
+    JS_CFUNC_DEF("clear",     1, js_framebuffer_clear),
+    JS_CFUNC_DEF("blit",      1, js_framebuffer_blit),
+    JS_CFUNC_DEF("blitScale", 6, js_framebuffer_blit_scale),
+
+    JS_PROP_END,
+};
+
+static const JSClassDef js_framebuffer_obj =
+    JS_OBJECT_DEF("framebuffer", js_framebuffer);
+
+/* ------------------------------------------------------------------ */
 /* Global object                                                      */
 /* ------------------------------------------------------------------ */
 
@@ -447,6 +466,7 @@ static const JSPropDef js_global_object[] = {
     JS_PROP_CLASS_DEF("console",     &js_console_obj),
     JS_PROP_CLASS_DEF("performance", &js_performance_obj),
     JS_PROP_CLASS_DEF("litex",       &js_litex_obj),
+    JS_PROP_CLASS_DEF("framebuffer", &js_framebuffer_obj),
 
     JS_CFUNC_DEF("print", 1, js_print),
     JS_CFUNC_DEF("gc",    0, js_gc),

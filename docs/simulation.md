@@ -15,6 +15,7 @@ sudo apt-get install -y \
     gcc-riscv64-unknown-elf \
     libevent-dev \
     libjson-c-dev \
+    libsdl2-dev \
     picolibc-riscv64-unknown-elf \
     verilator \
     meson ninja-build \
@@ -55,16 +56,15 @@ interactive serial session:
 ./make.py sim-repl
 ```
 
-## Firmware Only
-
-To build the firmware without running simulation, point it at a LiteX
-build directory containing `software/include/generated/variables.mak`:
+For framebuffer experiments:
 
 ```sh
-./make.py firmware examples/hello.js --build-dir build/sim
+./make.py sim-video examples/plasma.js
 ```
 
-Outputs are `firmware/firmware.elf` and `firmware/firmware.bin`.
+This uses a separate `build/sim-video` directory and enables simulated
+SDRAM plus the LiteX video framebuffer. See
+[demoscene.md](demoscene.md) for the staged live-graphics plan.
 
 ## Tests
 

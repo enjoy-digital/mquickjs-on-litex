@@ -8,9 +8,10 @@ SPDX-License-Identifier: BSD-2-Clause
 The simulator is the CI path. Hardware uses the same firmware, built
 against an upstream LiteX-Boards target.
 
-The examples below use a Digilent Arty A7, but the flow is intentionally
-generic: pick a LiteX-Boards target, build it with enough `main_ram`,
-build the firmware against that output directory, then load/run.
+The flow is intentionally generic: pick an upstream LiteX-Boards target,
+build it with enough `main_ram`, then choose SDCard boot or serial boot.
+The same firmware was validated on Digilent Arty A7 and LambdaConcept
+ECPIX-5 hardware.
 
 ## Options
 
@@ -19,23 +20,69 @@ build the firmware against that output directory, then load/run.
 | `--target` | LiteX-Boards target module, for example `litex_boards.targets.digilent_arty` |
 | `--build-dir` | Board build directory used by LiteX and the firmware |
 | `--serial` | Serial device used by `litex_term` |
+| `--baudrate` | Serial baudrate used by `board-run` |
 | `--mount` | Mounted FAT SDCard root |
 | `-- <args>` | Extra arguments passed to the board target |
 
 ## Serial Boot
 
+Serial boot is useful while iterating on a script without touching the
+SDCard:
+
 ```sh
-./make.py board-build --target litex_boards.targets.digilent_arty --build-dir build/arty
-./make.py firmware examples/demo.js --build-dir build/arty
-./make.py board-load --target litex_boards.targets.digilent_arty --build-dir build/arty
-./make.py board-run --serial /dev/ttyUSB2
+./make.py board-build --target litex_boards.targets.<target_module> --build-dir build/<board> -- <target-specific options>
+./make.py firmware examples/demo.js --build-dir build/<board>
+./make.py board-load --target litex_boards.targets.<target_module> --build-dir build/<board>
+./make.py board-run --serial /dev/ttyUSBn
 ```
 
 `board-load` delegates to the board target `--load` option, so the
 target keeps ownership of the right cable/programmer details.
 
-On the Arty FT2232, interface 1 is normally the UART; on the validated
-setup it appeared as `/dev/ttyUSB2`.
+Start with `examples/hello.js`, then try `examples/demo.js`. LED writes
+are no-ops when no LED CSR is present; switch/button reads return zero
+when those CSRs are absent.
+
+For a high-speed UART, build the SoC UART and run `litex_term` at the
+same speed:
+
+```sh
+./make.py board-build --target litex_boards.targets.<target_module> --build-dir build/<board> -- --uart-baudrate=1000000 --uart-fifo-depth=512 <target-specific options>
+./make.py board-run --serial /dev/ttyUSBn --baudrate 1000000
+```
+
+## ECPIX-5
+
+The LambdaConcept ECPIX-5 uses the upstream
+`litex_boards.targets.lambdaconcept_ecpix5` target. A basic LED demo:
+
+```sh
+./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5 -- --uart-baudrate=1000000 --uart-fifo-depth=512
+./make.py firmware examples/demo.js --build-dir build/ecpix5
+./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5
+./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
+```
+
+The validated setup used the FT2232 UART on `/dev/ttyUSB2`.
+
+For HDMI output, enable the target framebuffer and use the plasma demo:
+
+```sh
+./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video -- --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
+./make.py firmware examples/plasma.js --build-dir build/ecpix5-video
+./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video
+./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
+```
+
+Validated output:
+
+```text
+[plasma] framebuffer = 640 x 480 x 32
+[plasma] rendering 32 x 24 tile x 8
+[plasma] frame checksum = 0x83cb42c0
+[plasma] done
+[mqjs] done
+```
 
 ## SDCard Boot
 
@@ -84,8 +131,9 @@ Start with the smallest script:
 ```
 
 Then try `examples/demo.js`. LED writes are no-ops when no LED CSR is
-present; switch/button reads return zero when those CSRs are absent. The
-same JavaScript can therefore run on small and large LiteX SoCs.
+present; switch/button reads return zero when those CSRs are absent. If
+the target has video, pass its framebuffer option after `--` and run
+`examples/plasma.js`.
 
 For custom peripherals, add C bindings in `firmware/mqjs_port.c` and
 register the JavaScript entry points in `firmware/mqjs_stdlib_litex.c`.

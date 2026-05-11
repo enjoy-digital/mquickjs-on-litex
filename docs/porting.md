@@ -35,7 +35,7 @@ Add `--memory-dump` when you want the mquickjs memory summary.
 
 ## Embedded Script
 
-`tools/embed_script.py` converts a `.js` file into `build/user_script.h`.
+`firmware/embed_script.py` converts a `.js` file into `build/user_script.h`.
 The generated buffer has one extra `0x00` byte after the script. Keep
 that sentinel: the mquickjs parser does one byte of lookahead past the
 explicit source length.

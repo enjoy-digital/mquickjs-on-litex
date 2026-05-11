@@ -16,9 +16,14 @@ from pathlib import Path
 
 DEFAULT_SCRIPT  = Path("examples/hello.js")
 SIM_BUILD_DIR   = Path("build/sim")
+VIDEO_BUILD_DIR = Path("build/sim-video")
 BOARD_BUILD_DIR = Path("build/board")
+SIM_RUNNER      = Path("sim/run_sim.py")
+FIRMWARE_DIR    = Path("firmware")
+FIRMWARE_BIN    = FIRMWARE_DIR / "firmware.bin"
 SDCARD_LOADER   = Path("examples/sdcard/loader.js")
 SDCARD_MAIN     = Path("examples/sdcard/main.js")
+UART_BAUDRATE   = 115200
 
 
 # Helpers ------------------------------------------------------------------------------------------
@@ -43,7 +48,7 @@ def firmware_cmd(args, script=None):
     build_dir = args.build_dir.resolve()
     js        = script if script is not None else getattr(args, "script", None)
     cmd       = [
-        "make", "-C", str(root / "firmware"),
+        "make", "-C", str(root / FIRMWARE_DIR),
         f"BUILD_DIRECTORY={build_dir}",
         "-j",
     ]
@@ -128,7 +133,7 @@ def prepare_sdcard(mount, boot, main_js):
 def cmd_sim(args):
     root = repo_root()
     cmd  = [
-        root / "sim" / "run_sim.py",
+        root / SIM_RUNNER,
         "--output-dir", args.output_dir,
         "--script",     args.script,
         "--timeout",    args.timeout,
@@ -143,10 +148,29 @@ def cmd_sim(args):
 def cmd_sim_repl(args):
     root = repo_root()
     cmd  = [
-        root / "sim" / "run_sim.py",
+        root / SIM_RUNNER,
         "--output-dir", args.output_dir,
         "--keep-running",
     ]
+    return run(cmd)
+
+
+def cmd_sim_video(args):
+    root = repo_root()
+    cmd  = [
+        root / SIM_RUNNER,
+        "--output-dir", args.output_dir,
+        "--script",     args.script,
+        "--timeout",    args.timeout,
+        "--with-sdram",
+        "--with-video-framebuffer",
+    ]
+    if args.with_ethernet:
+        cmd += ["--with-ethernet"]
+    if args.heap_size is not None:
+        cmd += ["--heap-size", args.heap_size]
+    if args.memory_dump:
+        cmd += ["--memory-dump"]
     return run(cmd)
 
 
@@ -179,7 +203,8 @@ def cmd_board_run(args):
     root = repo_root()
     return run([
         "litex_term", args.serial,
-        f"--kernel={root / 'firmware' / 'firmware.bin'}",
+        f"--speed={args.baudrate}",
+        f"--kernel={root / FIRMWARE_BIN}",
     ])
 
 
@@ -192,14 +217,14 @@ def cmd_sdcard(args):
 
     return prepare_sdcard(
         mount   = args.mount,
-        boot    = root / "firmware" / "firmware.bin",
+        boot    = root / FIRMWARE_BIN,
         main_js = root / SDCARD_MAIN,
     )
 
 
 def cmd_clean(args):
     root = repo_root()
-    return run(["make", "-C", str(root / "firmware"), "clean"])
+    return run(["make", "-C", str(root / FIRMWARE_DIR), "clean"])
 
 
 # Parser -------------------------------------------------------------------------------------------
@@ -235,6 +260,24 @@ def main():
                           help="LiteX simulator output directory.")
     sim_repl.set_defaults(func=cmd_sim_repl)
 
+    sim_video = subparsers.add_parser(
+        "sim-video",
+        help="Run a JavaScript framebuffer demo in litex_sim.")
+    sim_video.add_argument("script",        nargs="?",  type=Path,
+                           default=Path("examples/plasma.js"),
+                           help="JavaScript source.")
+    sim_video.add_argument("--output-dir",  type=Path,  default=VIDEO_BUILD_DIR,
+                           help="Simulator output directory.")
+    sim_video.add_argument("--timeout",     type=float, default=240.0,
+                           help="Seconds to wait for DONE marker.")
+    sim_video.add_argument("--heap-size",   type=int,   default=None,
+                           help="Override mquickjs heap size.")
+    sim_video.add_argument("--memory-dump", action="store_true",
+                           help="Print mquickjs heap stats.")
+    sim_video.add_argument("--with-ethernet", action="store_true",
+                           help="Also enable simulated Ethernet.")
+    sim_video.set_defaults(func=cmd_sim_video)
+
     firmware = subparsers.add_parser("firmware", help="Build firmware for an existing LiteX build directory.")
     firmware.add_argument("script", nargs="?", type=Path, default=DEFAULT_SCRIPT,
                           help="JavaScript source.")
@@ -256,7 +299,9 @@ def main():
     board_load.set_defaults(func=cmd_board_load)
 
     board_run = subparsers.add_parser("board-run", help="Upload firmware with litex_term.")
-    board_run.add_argument("--serial", required=True, help="Serial port used by litex_term.")
+    board_run.add_argument("--serial",   required=True, help="Serial port used by litex_term.")
+    board_run.add_argument("--baudrate", type=int, default=UART_BAUDRATE,
+                           help="Serial baudrate. Must match the SoC UART baudrate.")
     board_run.set_defaults(func=cmd_board_run)
 
     sdcard = subparsers.add_parser("sdcard", help="Prepare a FAT SDCard for standalone boot.")

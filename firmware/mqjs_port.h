@@ -28,4 +28,11 @@ JSValue js_litex_read_file   (JSContext *ctx, JSValue *this_val, int argc, JSVal
 JSValue js_litex_load        (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 JSValue js_litex_reboot      (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 
+JSValue js_framebuffer_get_width (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
+JSValue js_framebuffer_get_height(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
+JSValue js_framebuffer_get_depth (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
+JSValue js_framebuffer_clear     (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
+JSValue js_framebuffer_blit      (JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
+JSValue js_framebuffer_blit_scale(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
+
 #endif
