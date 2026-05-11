@@ -60,12 +60,10 @@ jobs:
           git clone https://github.com/litex-hub/pythondata-software-compiler_rt.git
           git clone --recursive https://github.com/litex-hub/pythondata-software-picolibc.git
 
-          {
-            echo "PYTHONPATH<<EOF"
-            find "$HOME/litex" -mindepth 1 -maxdepth 1 -type d | sort
-            if [ -n "${PYTHONPATH:-}" ]; then echo "$PYTHONPATH"; fi
-            echo "EOF"
-          } >> "$GITHUB_ENV"
+          LITEX_PYTHONPATH="$(find "$HOME/litex" -mindepth 1 -maxdepth 1 -type d | sort | paste -sd: -)"
+          export PYTHONPATH="${LITEX_PYTHONPATH}${PYTHONPATH:+:$PYTHONPATH}"
+          python3 -c "import litex, migen, pythondata_cpu_vexriscv, pythondata_software_picolibc"
+          echo "PYTHONPATH=$PYTHONPATH" >> "$GITHUB_ENV"
 
       - name: Cache litex_sim verilator build
         uses: actions/cache@v4
