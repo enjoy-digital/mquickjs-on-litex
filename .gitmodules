@@ -1,0 +1,3 @@
+[submodule "firmware/third_party/mquickjs"]
+	path = firmware/third_party/mquickjs
+	url = https://github.com/bellard/mquickjs.git
