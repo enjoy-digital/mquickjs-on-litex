@@ -12,9 +12,9 @@ SPDX-License-Identifier: BSD-2-Clause
                                               Powered by LiteX
 ```
 
-[![](https://github.com/enjoy-digital/litex_mquickjs/workflows/sim/badge.svg)](https://github.com/enjoy-digital/litex_mquickjs/actions)
+[![](https://github.com/enjoy-digital/mquickjs-on-litex/workflows/sim/badge.svg)](https://github.com/enjoy-digital/mquickjs-on-litex/actions)
 ![License](https://img.shields.io/badge/License-BSD%202--Clause-orange.svg)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/enjoy-digital/litex_mquickjs)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/enjoy-digital/mquickjs-on-litex)
 
 ## [> Intro
 
@@ -38,6 +38,10 @@ JavaScript file -> firmware.bin -> VexRiscv -> mquickjs -> LiteX CSRs
 It runs in `litex_sim`, is meant to be portable to LiteX boards with
 enough `main_ram`, and has been validated on Digilent Arty A7 and
 LambdaConcept ECPIX-5 hardware.
+
+<p align="center">
+  <img src="docs/ecpix5-live-demo.jpg" alt="mquickjs on LiteX live demo on ECPIX-5" width="640">
+</p>
 
 ## [> Simulation
 
@@ -84,19 +88,23 @@ For video-capable boards, enable the target framebuffer and run the
 showcase playlist. It runs plasma, fire and tunnel from one firmware:
 
 ```sh
+SERIAL=/dev/ttyUSBn
+
 ./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video -- --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
 ./make.py firmware examples/showcase.js --build-dir build/ecpix5-video
 ./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video
-./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
+./make.py board-run --serial $SERIAL --baudrate 1000000
 ```
 
 The live-editing step serves the browser UI directly from the board:
 
 ```sh
+SERIAL=/dev/ttyUSBn
+
 ./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-live -- --with-ethernet --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
 ./make.py live --build-dir build/ecpix5-live
 ./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-live
-./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
+./make.py board-run --serial $SERIAL --baudrate 1000000
 ```
 
 Then open `http://192.168.1.50/`, edit JavaScript in the browser, and
