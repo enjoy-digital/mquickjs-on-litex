@@ -394,10 +394,10 @@ if (location.hash.length > 1) {
     try {
         code.value = decodeURIComponent(escape(atob(location.hash.slice(1))));
     } catch (e) {
-        code.value = presets.plasma;
+        code.value = defaultScript;
     }
 } else {
-    code.value = presets.plasma;
+    code.value = defaultScript;
 }
 </script>
 </body>
