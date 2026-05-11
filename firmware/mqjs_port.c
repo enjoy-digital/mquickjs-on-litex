@@ -1383,6 +1383,46 @@ JSValue js_framebuffer_circle(JSContext *ctx, JSValue *this_val,
 #endif
 }
 
+static void framebuffer_draw_text(int x, int y, const char *str, size_t len,
+                                  uint32_t color, uint32_t scale)
+{
+#if MQJS_HAS_FRAMEBUFFER
+    framebuffer_pixel_t pixel = framebuffer_color(color);
+    int cursor_x = x;
+    int cursor_y = y;
+
+    if (scale == 0)
+        return;
+
+    for (size_t i = 0; i < len; i++) {
+        if (str[i] == '\n') {
+            cursor_x = x;
+            cursor_y += 8 * scale;
+            continue;
+        }
+
+        const uint8_t *rows = framebuffer_font_rows(str[i]);
+        for (uint32_t row = 0; row < 7; row++) {
+            for (uint32_t col = 0; col < 5; col++) {
+                if (!(rows[row] & (0x10 >> col)))
+                    continue;
+                for (uint32_t sy = 0; sy < scale; sy++) {
+                    for (uint32_t sx = 0; sx < scale; sx++) {
+                        framebuffer_put_pixel(
+                            cursor_x + col * scale + sx,
+                            cursor_y + row * scale + sy,
+                            pixel);
+                    }
+                }
+            }
+        }
+        cursor_x += 6 * scale;
+    }
+#else
+    (void)x; (void)y; (void)str; (void)len; (void)color; (void)scale;
+#endif
+}
+
 JSValue js_framebuffer_text(JSContext *ctx, JSValue *this_val,
                             int argc, JSValue *argv)
 {
@@ -1409,43 +1449,40 @@ JSValue js_framebuffer_text(JSContext *ctx, JSValue *this_val,
         return JS_EXCEPTION;
     if (argc > 4 && JS_ToUint32(ctx, &scale, argv[4]))
         return JS_EXCEPTION;
-    if (scale == 0)
-        return JS_UNDEFINED;
 
     framebuffer_start();
-    framebuffer_pixel_t pixel = framebuffer_color(color);
-    int cursor_x = x;
-    int cursor_y = y;
-
-    for (size_t i = 0; i < len; i++) {
-        if (str[i] == '\n') {
-            cursor_x = x;
-            cursor_y += 8 * scale;
-            continue;
-        }
-
-        const uint8_t *rows = framebuffer_font_rows(str[i]);
-        for (uint32_t row = 0; row < 7; row++) {
-            for (uint32_t col = 0; col < 5; col++) {
-                if (!(rows[row] & (0x10 >> col)))
-                    continue;
-                for (uint32_t sy = 0; sy < scale; sy++) {
-                    for (uint32_t sx = 0; sx < scale; sx++) {
-                        framebuffer_put_pixel(
-                            cursor_x + col * scale + sx,
-                            cursor_y + row * scale + sy,
-                            pixel);
-                    }
-                }
-            }
-        }
-        cursor_x += 6 * scale;
-    }
+    framebuffer_draw_text(x, y, str, len, color, scale);
 
     return JS_UNDEFINED;
 #else
     (void)argc; (void)argv;
     return framebuffer_unavailable(ctx);
+#endif
+}
+
+void mqjs_framebuffer_error_banner(const char *message)
+{
+#if MQJS_HAS_FRAMEBUFFER
+    uint32_t y = VIDEO_FRAMEBUFFER_VRES > 54 ? VIDEO_FRAMEBUFFER_VRES - 54 : 0;
+    uint32_t h = VIDEO_FRAMEBUFFER_VRES > 54 ? 40 : VIDEO_FRAMEBUFFER_VRES;
+    framebuffer_pixel_t bg = framebuffer_color(0x12060a);
+    framebuffer_pixel_t border = framebuffer_color(0xff3b5c);
+
+    framebuffer_start();
+    framebuffer_draw_index = framebuffer_front_index;
+
+    for (uint32_t row = 0; row < h; row++)
+        framebuffer_hline(0, VIDEO_FRAMEBUFFER_HRES - 1, y + row, bg);
+    framebuffer_hline(0, VIDEO_FRAMEBUFFER_HRES - 1, y, border);
+    framebuffer_hline(0, VIDEO_FRAMEBUFFER_HRES - 1, y + h - 1, border);
+
+    framebuffer_draw_text(12, y + 10, "JS FRAME STOPPED", 16, 0xff3b5c, 1);
+    if (message != NULL)
+        framebuffer_draw_text(156, y + 10, message, strlen(message),
+                              0xdce8f2, 1);
+    framebuffer_commit_draw_buffer();
+#else
+    (void)message;
 #endif
 }
 

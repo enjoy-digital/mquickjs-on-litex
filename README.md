@@ -120,6 +120,7 @@ Useful docs:
 - [docs/simulation.md](docs/simulation.md): dependencies and sim flow.
 - [docs/hardware.md](docs/hardware.md): board and SDCard flow.
 - [docs/architecture.md](docs/architecture.md): firmware and live HTTP architecture.
+- [docs/js-api.md](docs/js-api.md): JavaScript bindings and live script lifecycle.
 - [docs/porting.md](docs/porting.md): firmware integration notes.
 - [docs/demoscene.md](docs/demoscene.md): framebuffer demo plan.
 

@@ -11,6 +11,7 @@
 #if defined(CSR_ETHMAC_BASE) && LITEX_MQJS_LIVE_HTTP
 
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -32,6 +33,7 @@
 #define LIVE_HTTP_REQ_MAX       32768
 #define LIVE_HTTP_SCRIPT_MAX    16384
 #define LIVE_HTTP_LOG_MAX       2048
+#define LIVE_HTTP_RESP_MAX      4096
 #define LIVE_HTTP_SLOT_COUNT    4
 
 #if defined(CSR_LEDS_BASE)
@@ -110,11 +112,12 @@ static const char *live_http_slots[LIVE_HTTP_SLOT_COUNT] = {
 };
 
 #include "live_http_index.h"
+#include "live_assets.h"
 
 struct live_http_conn {
     struct tcp_pcb *pcb;
     char request[LIVE_HTTP_REQ_MAX + 1];
-    char response_body[LIVE_HTTP_LOG_MAX + 64];
+    char response_body[LIVE_HTTP_RESP_MAX];
     size_t request_len;
     const char *response;
     size_t response_len;
@@ -140,6 +143,8 @@ static uint32_t live_http_avg_frame_ms_x100;
 static uint32_t live_http_stats_start_ms;
 static uint32_t live_http_stats_frames;
 static uint32_t live_http_stats_time_ms;
+static char live_http_script_name[48] = "none";
+static char live_http_last_error[96];
 static char live_http_state[32] = "idle";
 
 static uint32_t live_http_millis(void)
@@ -322,6 +327,16 @@ static void live_http_set_state(const char *state)
     snprintf(live_http_state, sizeof(live_http_state), "%s", state);
 }
 
+static void live_http_set_script_name(const char *name)
+{
+    snprintf(live_http_script_name, sizeof(live_http_script_name), "%s", name);
+}
+
+static void live_http_set_error(const char *error)
+{
+    snprintf(live_http_last_error, sizeof(live_http_last_error), "%s", error);
+}
+
 static void live_http_stop_script(const char *state)
 {
     live_http_active = 0;
@@ -395,14 +410,73 @@ static const char *live_http_identifier(void)
 #endif
 }
 
+static char *live_http_json_string(char *dst, char *end, const char *s)
+{
+    if (dst >= end)
+        return dst;
+
+    *dst++ = '"';
+    while (*s && dst < end - 2) {
+        char c = *s++;
+
+        if (c == '"' || c == '\\') {
+            if (dst >= end - 3)
+                break;
+            *dst++ = '\\';
+            *dst++ = c;
+        } else if (c == '\n') {
+            if (dst >= end - 3)
+                break;
+            *dst++ = '\\';
+            *dst++ = 'n';
+        } else if (c == '\r') {
+            if (dst >= end - 3)
+                break;
+            *dst++ = '\\';
+            *dst++ = 'r';
+        } else if ((unsigned char)c < 0x20) {
+            *dst++ = ' ';
+        } else {
+            *dst++ = c;
+        }
+    }
+    if (dst < end)
+        *dst++ = '"';
+    if (dst < end)
+        *dst = 0;
+    return dst;
+}
+
+static char *live_http_json_append(char *dst, char *end,
+                                   const char *fmt, ...)
+{
+    va_list args;
+    size_t avail;
+    int len;
+
+    if (dst >= end)
+        return dst;
+
+    avail = end - dst;
+    va_start(args, fmt);
+    len = vsnprintf(dst, avail, fmt, args);
+    va_end(args);
+    if (len < 0)
+        return dst;
+    if ((size_t)len >= avail)
+        return end;
+    return dst + len;
+}
+
 static void live_http_info(struct live_http_conn *conn)
 {
-    int response_len;
+    char *p = conn->response_body;
+    char *end = conn->response_body + sizeof(conn->response_body);
 
-    response_len = snprintf(conn->response_body, sizeof(conn->response_body),
-        "{"
-        "\"identifier\":\"%s\","
-        "\"cpu\":\"%s\","
+    p = live_http_json_append(p, end, "{\"identifier\":");
+    p = live_http_json_string(p, end, live_http_identifier());
+    p = live_http_json_append(p, end,
+        ",\"cpu\":\"%s\","
         "\"clock_hz\":%u,"
         "\"heap_bytes\":%u,"
         "\"features\":{"
@@ -423,14 +497,7 @@ static void live_http_info(struct live_http_conn *conn)
         "\"live\":{"
         "\"active\":%s,"
         "\"paused\":%s,"
-        "\"state\":\"%s\","
-        "\"frames\":%u,"
-        "\"last_frame_ms\":%u,"
-        "\"fps_x100\":%u,"
-        "\"avg_frame_ms_x100\":%u"
-        "}"
-        "}\n",
-        live_http_identifier(),
+        "\"state\":",
         CONFIG_CPU_HUMAN_NAME,
         (unsigned)CONFIG_CLOCK_FREQUENCY,
         (unsigned)LITEX_MQJS_HEAP_SIZE,
@@ -446,19 +513,32 @@ static void live_http_info(struct live_http_conn *conn)
         (unsigned)LIVE_HTTP_FB_DEPTH,
         LIVE_HTTP_JSON_BOOL(LIVE_HTTP_FB_DOUBLE_BUFFERED),
         LIVE_HTTP_JSON_BOOL(live_http_active),
-        LIVE_HTTP_JSON_BOOL(live_http_paused),
-        live_http_state,
+        LIVE_HTTP_JSON_BOOL(live_http_paused));
+    p = live_http_json_string(p, end, live_http_state);
+    p = live_http_json_append(p, end,
+        ",\"script\":");
+    p = live_http_json_string(p, end, live_http_script_name);
+    p = live_http_json_append(p, end,
+        ",\"last_error\":");
+    p = live_http_json_string(p, end, live_http_last_error);
+    p = live_http_json_append(p, end,
+        ",\"last_log\":");
+    p = live_http_json_string(p, end, live_http_log);
+    p = live_http_json_append(p, end,
+        ",\"frames\":%u,"
+        "\"last_frame_ms\":%u,"
+        "\"fps_x100\":%u,"
+        "\"avg_frame_ms_x100\":%u"
+        "}"
+        "}\n",
         (unsigned)live_http_frame_count,
         (unsigned)live_http_last_frame_ms,
         (unsigned)live_http_fps_x100,
         (unsigned)live_http_avg_frame_ms_x100);
-    if (response_len < 0)
-        response_len = 0;
-    if (response_len >= (int)sizeof(conn->response_body))
-        response_len = sizeof(conn->response_body) - 1;
 
     live_http_reply_len(conn, "200 OK", "application/json",
-                        conn->response_body, response_len);
+                        conn->response_body,
+                        strlen(conn->response_body));
 }
 
 static void live_http_run(struct live_http_conn *conn, const char *body, size_t len)
@@ -478,8 +558,10 @@ static void live_http_run(struct live_http_conn *conn, const char *body, size_t 
 
     printf("[live] HTTP script: %u bytes\n", (unsigned)len);
     live_http_log_reset();
+    live_http_set_script_name("browser script");
     candidate = live_http_new_candidate_context(&candidate_heap);
     if (candidate == NULL) {
+        live_http_set_error("JS_NewContext failed");
         live_http_reply(conn, "500 Internal Server Error", "text/plain",
                         "ERR JS_NewContext failed\n");
         return;
@@ -492,6 +574,9 @@ static void live_http_run(struct live_http_conn *conn, const char *body, size_t 
             mqjs_set_print_func(NULL);
             JS_FreeContext(candidate);
             puts("[live] setup failed");
+            live_http_set_error("setup failed");
+            if (!live_http_active)
+                live_http_set_script_name("none");
             reload_note = live_http_active ? "previous script kept" :
                            "live script unchanged";
             response_len = snprintf(conn->response_body,
@@ -528,6 +613,7 @@ static void live_http_run(struct live_http_conn *conn, const char *body, size_t 
         } else {
             live_http_stop_script("idle");
         }
+        live_http_set_error("");
         mqjs_set_print_func(NULL);
         puts("[live] script ok");
         response_len = snprintf(conn->response_body, sizeof(conn->response_body),
@@ -544,6 +630,9 @@ static void live_http_run(struct live_http_conn *conn, const char *body, size_t 
         mqjs_set_print_func(NULL);
         JS_FreeContext(candidate);
         puts("[live] script failed");
+        live_http_set_error("script failed");
+        if (!live_http_active)
+            live_http_set_script_name("none");
         reload_note = live_http_active ? "previous script kept" :
                        "live script unchanged";
         response_len = snprintf(conn->response_body, sizeof(conn->response_body),
@@ -581,6 +670,7 @@ static void live_http_eval(struct live_http_conn *conn, const char *body, size_t
     if (run_source(*live_http_ctxp, body, len, "live_eval.js", JS_EVAL_REPL) == 0) {
         mqjs_set_print_func(NULL);
         puts("[live] eval ok");
+        live_http_set_error("");
         response_len = snprintf(conn->response_body, sizeof(conn->response_body),
                                 "OK\n%s", live_http_log);
         if (response_len < 0)
@@ -592,6 +682,7 @@ static void live_http_eval(struct live_http_conn *conn, const char *body, size_t
     } else {
         mqjs_set_print_func(NULL);
         puts("[live] eval failed");
+        live_http_set_error("eval failed");
         response_len = snprintf(conn->response_body, sizeof(conn->response_body),
                                 "ERR eval failed\n%s", live_http_log);
         if (response_len < 0)
@@ -635,6 +726,8 @@ static void live_http_reset_context(void)
     JS_FreeContext(*live_http_ctxp);
     *live_http_ctxp = new_mqjs_context();
     live_http_active_heap = -1;
+    live_http_set_script_name("none");
+    live_http_set_error("");
     live_http_stop_script(*live_http_ctxp == NULL ? "reset failed" : "idle");
 }
 
@@ -643,6 +736,7 @@ static void live_http_control(struct live_http_conn *conn,
 {
     if (live_http_body_is(body, len, "stop")) {
         live_http_stop_script("stopped");
+        live_http_set_script_name("none");
         live_http_reply(conn, "200 OK", "text/plain", "OK stopped\n");
     } else if (live_http_body_is(body, len, "pause")) {
         if (live_http_active) {
@@ -775,6 +869,12 @@ static int live_http_parse(struct live_http_conn *conn)
         return 1;
     }
 
+    if (live_http_request_is(conn->request, "GET", "/live_assets.js")) {
+        live_http_reply_len(conn, "200 OK", "application/javascript",
+                            live_assets, live_assets_len);
+        return 1;
+    }
+
     if (live_http_request_is(conn->request, "GET", "/info")) {
         live_http_info(conn);
         return 1;
@@ -828,6 +928,8 @@ static void live_http_service_frame(void)
     mqjs_set_print_func(NULL);
     if (live_http_call_function(*live_http_ctxp, "frame", now, 1) < 0) {
         live_http_stop_script("frame failed");
+        live_http_set_error("frame failed");
+        mqjs_framebuffer_error_banner("see browser status");
         puts("[live] frame failed");
         return;
     }
