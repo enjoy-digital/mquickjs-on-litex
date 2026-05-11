@@ -103,10 +103,12 @@ The individual demos are useful while tuning one effect:
 For hardware, use the showcase firmware:
 
 ```sh
+SERIAL=/dev/ttyUSBn
+
 ./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video -- --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
 ./make.py firmware examples/showcase.js --build-dir build/ecpix5-video
 ./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video
-./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
+./make.py board-run --serial $SERIAL --baudrate 1000000
 ```
 
 ## Live Editing
@@ -127,10 +129,12 @@ from the firmware poll loop.
 Build an Ethernet + video target, then build live firmware:
 
 ```sh
+SERIAL=/dev/ttyUSBn
+
 ./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-live -- --with-ethernet --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
 ./make.py live --build-dir build/ecpix5-live
 ./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-live
-./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
+./make.py board-run --serial $SERIAL --baudrate 1000000
 ```
 
 Open `http://192.168.1.50/`, choose a preset, edit the JavaScript and

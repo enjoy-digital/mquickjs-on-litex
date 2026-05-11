@@ -57,23 +57,29 @@ The LambdaConcept ECPIX-5 uses the upstream
 `litex_boards.targets.lambdaconcept_ecpix5` target. A basic LED demo:
 
 ```sh
+SERIAL=/dev/ttyUSBn
+
 ./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5 -- --uart-baudrate=1000000 --uart-fifo-depth=512
 ./make.py firmware examples/demo.js --build-dir build/ecpix5
 ./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5
-./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
+./make.py board-run --serial $SERIAL --baudrate 1000000
 ```
 
-The validated setup used the FT2232 UART on `/dev/ttyUSB2`.
+Set `SERIAL` to the LiteX UART device. On ECPIX-5, the FT2232 usually
+creates two `/dev/ttyUSB*` ports; use the UART channel exposed by the
+target.
 
 For HDMI output, enable the target framebuffer and use the showcase
 playlist. This is the default hardware video demo and runs plasma, fire
 and tunnel from one firmware:
 
 ```sh
+SERIAL=/dev/ttyUSBn
+
 ./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video -- --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
 ./make.py firmware examples/showcase.js --build-dir build/ecpix5-video
 ./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video
-./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
+./make.py board-run --serial $SERIAL --baudrate 1000000
 ```
 
 Expected output starts with:
@@ -95,10 +101,12 @@ For the interactive demoscene workflow, add Ethernet to the video build.
 The live firmware serves a small browser editor from the board itself:
 
 ```sh
+SERIAL=/dev/ttyUSBn
+
 ./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-live -- --with-ethernet --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
 ./make.py live --build-dir build/ecpix5-live
 ./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-live
-./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
+./make.py board-run --serial $SERIAL --baudrate 1000000
 ```
 
 Keep `board-run` open for the UART log, then open the board page:

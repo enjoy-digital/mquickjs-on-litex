@@ -33,11 +33,13 @@ Build the live firmware:
 Load the bitstream and upload the firmware:
 
 ```sh
+SERIAL=/dev/ttyUSBn
+
 ./make.py board-load \
     --target litex_boards.targets.lambdaconcept_ecpix5 \
     --build-dir build/ecpix5-live
 
-./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
+./make.py board-run --serial $SERIAL --baudrate 1000000
 ```
 
 At the LiteX BIOS prompt, run:
