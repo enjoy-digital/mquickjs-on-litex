@@ -42,17 +42,30 @@ jobs:
 
       - name: Install Python test dependencies
         run: |
-          # LiteX's setup helper installs the checked-out repositories with
-          # legacy editable installs (`pip install -e . --user`). Keep pip on
-          # a version that still supports this flow for setup.py-only repos.
-          python3 -m pip install --upgrade "pip<25.3" setuptools wheel pytest
+          python3 -m pip install --upgrade \
+            pip setuptools wheel \
+            pytest packaging pyserial requests
 
       - name: Install LiteX
         run: |
           mkdir -p $HOME/litex && cd $HOME/litex
-          wget -q https://raw.githubusercontent.com/enjoy-digital/litex/master/litex_setup.py
-          chmod +x litex_setup.py
-          ./litex_setup.py --init --install --user --config=standard
+
+          git clone --recursive https://git.m-labs.hk/M-Labs/migen.git
+          git -C migen checkout 4c2ae8dfeea37f235b52acb8166f12acaaae4f7c
+          git -C migen submodule update --init --recursive
+
+          git clone https://github.com/enjoy-digital/litex.git
+          git clone https://github.com/litex-hub/pythondata-cpu-vexriscv.git
+          git clone https://github.com/litex-hub/pythondata-misc-tapcfg.git
+          git clone https://github.com/litex-hub/pythondata-software-compiler_rt.git
+          git clone --recursive https://github.com/litex-hub/pythondata-software-picolibc.git
+
+          {
+            echo "PYTHONPATH<<EOF"
+            find "$HOME/litex" -mindepth 1 -maxdepth 1 -type d | sort
+            if [ -n "${PYTHONPATH:-}" ]; then echo "$PYTHONPATH"; fi
+            echo "EOF"
+          } >> "$GITHUB_ENV"
 
       - name: Cache litex_sim verilator build
         uses: actions/cache@v4
