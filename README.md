@@ -39,6 +39,10 @@ It runs in `litex_sim`, is meant to be portable to LiteX boards with
 enough `main_ram`, and has been validated on Digilent Arty A7 and
 LambdaConcept ECPIX-5 hardware.
 
+<p align="center">
+  <img src="docs/ecpix5-live-demo.jpg" alt="mquickjs on LiteX live demo on ECPIX-5" width="640">
+</p>
+
 ## [> Simulation
 
 ```sh

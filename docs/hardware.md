@@ -100,6 +100,10 @@ Expected output starts with:
 For the interactive demoscene workflow, add Ethernet to the video build.
 The live firmware serves a small browser editor from the board itself:
 
+<p align="center">
+  <img src="ecpix5-live-demo.jpg" alt="mquickjs on LiteX live demo on ECPIX-5" width="640">
+</p>
+
 ```sh
 SERIAL=/dev/ttyUSBn
 
