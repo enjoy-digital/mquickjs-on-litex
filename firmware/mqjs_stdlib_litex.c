@@ -1,6 +1,9 @@
 /*
  * mquickjs standard library generator — LiteX embedded build.
  *
+ * Copyright (c) 2017-2025 Fabrice Bellard
+ * Copyright (c) 2017-2025 Charlie Gordon
+ *
  * Host-compiled tool. Produces two generated headers at build time:
  *   - mquickjs_atom.h     (included by mquickjs.c)
  *   - mqjs_stdlib.h       (included by the firmware's port glue)

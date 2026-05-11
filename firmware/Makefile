@@ -19,8 +19,8 @@ NO_BUILDDIR_TARGETS := clean help
 ifeq ($(filter $(NO_BUILDDIR_TARGETS),$(MAKECMDGOALS)),)
 ifeq ($(BUILD_DIRECTORY),)
 $(error BUILD_DIRECTORY is not set. Point it at a litex_sim output directory \
-(e.g. make BUILD_DIRECTORY=/path/to/sim-build). Run sim/gen_soc.py to \
-create one.)
+(e.g. make BUILD_DIRECTORY=/path/to/sim-build). ./sim/run_sim.py creates \
+one automatically for simulation.)
 endif
 
 BUILD_DIR := $(abspath $(BUILD_DIRECTORY))
@@ -37,8 +37,8 @@ GEN_DIR  := $(abspath build)
 
 # --- User script --------------------------------------------------------
 
-# SCRIPT may point to a .js source *or* a pre-compiled .bin bytecode blob.
-# When unset, the firmware is built in interactive REPL mode.
+# SCRIPT points to a JavaScript source file to embed. When unset, the
+# firmware is built in interactive REPL mode.
 SCRIPT ?=
 
 ifeq ($(SCRIPT),)
@@ -53,6 +53,9 @@ endif
 # define straight into CFLAGS; the header's #ifndef guard lets us win.
 ifneq ($(HEAP_SIZE),)
 EMBED_CFLAGS += -DLITEX_MQJS_HEAP_SIZE=$(HEAP_SIZE)
+endif
+ifeq ($(MEMORY_DUMP),1)
+EMBED_CFLAGS += -DLITEX_MQJS_DUMP_MEMORY=1
 endif
 
 # --- Sources ------------------------------------------------------------
@@ -92,12 +95,14 @@ CFLAGS   += $(MQJS_INC) $(EMBED_CFLAGS)
 TARGET_LIBGCC := $(shell $(TARGET_PREFIX)gcc -march=rv32im -mabi=ilp32 \
                      -print-libgcc-file-name)
 
-# Silence warnings that aren't relevant on an embedded 32-bit target
-# (unused callback parameters, signed/unsigned comparisons inside large
-# static tables, etc.). Keep -Wall elsewhere.
+# Silence warnings that aren't relevant for the vendored mquickjs C
+# files on this rv32 target (format typedef differences, intentionally
+# unprototyped internals, unused debug helpers, large static tables).
+# Keep -Wall elsewhere.
 MQJS_EXTRA_CFLAGS := -Wno-unused-parameter -Wno-sign-compare \
                      -Wno-unused-function -Wno-unused-variable \
-                     -Wno-unused-but-set-variable
+                     -Wno-unused-but-set-variable -Wno-format \
+                     -Wno-missing-prototypes
 
 # --- Host-side stdlib generator (runs on the build machine) ------------
 
@@ -122,11 +127,11 @@ help:
 	@echo "Usage:"
 	@echo "  make BUILD_DIRECTORY=<litex_sim output dir>               # REPL firmware"
 	@echo "  make BUILD_DIRECTORY=<...> SCRIPT=../examples/hello.js    # embed script"
-	@echo "  make BUILD_DIRECTORY=<...> SCRIPT=hello.bin               # embed bytecode"
 	@echo "  make clean                                                # no BUILD_DIRECTORY needed"
 	@echo ""
 	@echo "Variables:"
-	@echo "  SCRIPT   path to .js source or .bin bytecode to embed (default: REPL)"
+	@echo "  SCRIPT   path to .js source to embed (default: REPL)"
+	@echo "  MEMORY_DUMP=1 print mquickjs heap statistics at exit"
 	@echo "  V=1      verbose compile lines"
 
 firmware.elf: $(OBJECTS) linker.ld

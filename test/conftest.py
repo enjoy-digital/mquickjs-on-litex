@@ -1,9 +1,9 @@
 # Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
 # SPDX-License-Identifier: BSD-2-Clause
 #
-# Pytest fixtures shared by the simulation tests. Each test invokes
-# sim/run_sim.py via run_script() with a specific example JS file and
-# asserts on the captured UART output.
+# Pytest fixtures shared by the simulation tests. Each test invokes the
+# public make.py sim command with a specific example JS file and asserts
+# on the captured UART output.
 
 import os
 import subprocess
@@ -24,8 +24,8 @@ def run_script(script: Path, timeout: float = 240.0, extra_args=None):
     """Build the firmware with `script` embedded and run it in litex_sim.
     Returns (returncode, captured_output)."""
     cmd = [
-        str(REPO_ROOT / "sim" / "run_sim.py"),
-        "--script", str(script),
+        str(REPO_ROOT / "make.py"),
+        "sim", str(script),
         "--timeout", str(timeout),
     ]
     if extra_args:

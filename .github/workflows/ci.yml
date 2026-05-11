@@ -1,3 +1,6 @@
+# Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
+# SPDX-License-Identifier: BSD-2-Clause
+
 name: sim
 
 on:
@@ -53,36 +56,10 @@ jobs:
           path: |
             build/sim/gateware/obj_dir
             build/sim/gateware/modules
-          key: vsim-v2-${{ runner.os }}-${{ hashFiles('firmware/linker.ld', 'sim/gen_soc.py') }}
+          key: vsim-v3-${{ runner.os }}-${{ hashFiles('firmware/linker.ld', 'sim/run_sim.py') }}
 
-      - name: Generate SoC (one-time, ~minutes)
-        run: ./sim/gen_soc.py
-
-      # First test run bakes the Vsim simulator if the cache miss.
-      # Subsequent runs within the job reuse it.
-      - name: Run hello test
-        run: python3 -m pytest -v -s test/test_hello.py
-
-      - name: Run unicode regression test
-        run: python3 -m pytest -v -s test/test_unicode.py
-
-      - name: Run JSON + typed-arrays test
-        run: python3 -m pytest -v -s test/test_json.py
-
-      - name: Run leds test
-        run: python3 -m pytest -v -s test/test_leds.py
-
-      - name: Run SDCard loader parse test
-        run: python3 -m pytest -v -s test/test_sdcard_loader.py
-
-      - name: Run fib test
-        run: python3 -m pytest -v -s test/test_fib.py
-
-      - name: Run bytecode test
-        run: python3 -m pytest -v -s test/test_bytecode.py
-
-      - name: Run mandelbrot test
-        run: python3 -m pytest -v -s test/test_mandelbrot.py
+      - name: Run demo tests
+        run: python3 -m pytest -v -s test/
 
       - name: Upload firmware artefacts on failure
         if: failure()

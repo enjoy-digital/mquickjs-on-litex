@@ -145,33 +145,16 @@ int main(void)
     JS_SetLogFunc(ctx, mqjs_log_func);
 
 #if defined(MQJS_SCRIPT_EMBEDDED)
-    int rc;
-    if (JS_IsBytecode(user_script, user_script_len)) {
-        puts("running embedded bytecode...");
-        if (JS_RelocateBytecode(ctx, (uint8_t *)user_script, user_script_len)) {
-            puts(LITEX_MQJS_FAIL_MARKER ": bytecode relocation failed");
-            while (1) { }
-        }
-        JSValue val = JS_LoadBytecode(ctx, user_script);
-        if (JS_IsException(val)) {
-            dump_exception(ctx);
-            puts(LITEX_MQJS_FAIL_MARKER);
-            while (1) { }
-        }
-        val = JS_Run(ctx, val);
-        rc = JS_IsException(val) ? -1 : 0;
-        if (rc != 0)
-            dump_exception(ctx);
-    } else {
-        puts("running embedded script...");
-        rc = run_source(ctx, (const char *)user_script, user_script_len,
+    puts("running embedded script...");
+    int rc = run_source(ctx, (const char *)user_script, user_script_len,
                         "user_script.js", JS_EVAL_REPL);
-    }
+#if LITEX_MQJS_DUMP_MEMORY
     /* Run GC before dumping so the numbers reflect live state rather
      * than the watermark at program exit. */
     JS_GC(ctx);
     fputs("mqjs memory: ", stdout);
     JS_DumpMemory(ctx, 0);
+#endif
     puts(rc == 0 ? LITEX_MQJS_DONE_MARKER : LITEX_MQJS_FAIL_MARKER);
 #else
     repl(ctx);

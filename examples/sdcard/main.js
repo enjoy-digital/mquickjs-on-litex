@@ -1,5 +1,9 @@
+// Copyright (c) 2026 EnjoyDigital <florent@enjoy-digital.fr>
+// SPDX-License-Identifier: BSD-2-Clause
+//
 // Copy this file to the root of a FAT-formatted SDCard as main.js.
-// The SDCard loader auto-runs it at boot and BTN0 reloads it live.
+// The SDCard loader auto-runs it at boot. Edit this file on the card,
+// then reset the board to run the new version.
 
 function hex32(value) {
     var s = (value >>> 0).toString(16);
@@ -22,14 +26,6 @@ function scanner(rounds) {
     }
 }
 
-function mirrorInputs(ms) {
-    var end = litex.millis() + ms;
-    while (litex.millis() < end) {
-        litex.setLeds((litex.getSwitches() | (litex.getButtons() << 4)) & 0xf);
-        litex.delay(20);
-    }
-}
-
 var original = litex.getScratch();
 var magic = 0x51c0ffee;
 
@@ -41,12 +37,10 @@ litex.setScratch(magic);
 var readback = litex.getScratch();
 console.log("[main.js] scratch test =", hex32(readback), readback === magic ? "OK" : "FAIL");
 
-console.log("[main.js] switches =", litex.getSwitches(), "buttons =", litex.getButtons());
-console.log("[main.js] LED scanner, then live switch/button mirror");
+console.log("[main.js] LED scanner");
 
 scanner(3);
-mirrorInputs(2500);
 
-litex.setLeds(litex.getSwitches() & 0xf);
+litex.setLeds(0);
 litex.setScratch(original);
 console.log("[main.js] restored scratch =", hex32(litex.getScratch()));
