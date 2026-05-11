@@ -1,4 +1,4 @@
-# Firmware build for litex_mquickjs.
+# Firmware build for mquickjs on LiteX.
 #
 # Invocation:
 #   make BUILD_DIRECTORY=<litex_sim output dir>               # REPL mode
@@ -60,6 +60,11 @@ endif
 MQJS_OBJS := mquickjs.o cutils.o dtoa.o libm.o
 FW_OBJS   := main.o mqjs_port.o crt0.o
 OBJECTS   := $(FW_OBJS) $(MQJS_OBJS)
+GENERATED_SOC_HEADERS := \
+	$(BUILD_DIR)/software/include/generated/csr.h \
+	$(BUILD_DIR)/software/include/generated/soc.h \
+	$(BUILD_DIR)/software/include/generated/variables.mak
+BUILD_CONTEXT := $(GEN_DIR)/build_context.mk
 
 # Tell make where to find .c / .S sources without also declaring .o
 # search paths. A plain VPATH= would also match .o files, and the
@@ -99,6 +104,7 @@ MQJS_EXTRA_CFLAGS := -Wno-unused-parameter -Wno-sign-compare \
 HOST_CC     ?= gcc
 HOST_CFLAGS ?= -Wall -O2 -g -D_GNU_SOURCE
 STDLIB_GEN  := $(GEN_DIR)/mqjs_stdlib_litex
+STDLIB_BUILD_C := $(GEN_DIR)/mquickjs_build_litex.c
 STDLIB_H    := $(GEN_DIR)/mqjs_stdlib.h
 ATOM_H      := $(GEN_DIR)/mquickjs_atom.h
 
@@ -108,7 +114,7 @@ STDLIB_GEN_FLAGS := -m32
 
 # --- Top-level targets --------------------------------------------------
 
-.PHONY: all clean help
+.PHONY: all clean help FORCE
 
 all: firmware.bin
 
@@ -137,6 +143,21 @@ ifneq ($(OS),Windows_NT)
 	chmod -x $@
 endif
 
+$(BUILD_CONTEXT): FORCE | $(GEN_DIR)
+	@{ \
+	    echo "BUILD_DIRECTORY=$(BUILD_DIR)"; \
+	    echo "PACKAGES=$(PACKAGES)"; \
+	    echo "LIBS=$(LIBS)"; \
+	} | cmp -s - $@ || { \
+	    { \
+	        echo "BUILD_DIRECTORY=$(BUILD_DIR)"; \
+	        echo "PACKAGES=$(PACKAGES)"; \
+	        echo "LIBS=$(LIBS)"; \
+	    } > $@; \
+	}
+
+main.o mqjs_port.o: $(GENERATED_SOC_HEADERS) $(BUILD_CONTEXT)
+
 %.bin: %.elf
 	$(OBJCOPY) -O binary $< $@
 ifneq ($(OS),Windows_NT)
@@ -148,10 +169,13 @@ endif
 $(GEN_DIR):
 	mkdir -p $@
 
-$(STDLIB_GEN): $(FW_DIR)/mqjs_stdlib_litex.c $(MQJS_DIR)/mquickjs_build.c | $(GEN_DIR)
+$(STDLIB_BUILD_C): $(MQJS_DIR)/mquickjs_build.c | $(GEN_DIR)
+	@sed 's/#define ATOM_ALIGN 64/#define ATOM_ALIGN 128/' $< > $@
+
+$(STDLIB_GEN): $(FW_DIR)/mqjs_stdlib_litex.c $(STDLIB_BUILD_C) | $(GEN_DIR)
 	$(HOST_CC) $(HOST_CFLAGS) -I$(MQJS_DIR) -o $@ \
 	    $(FW_DIR)/mqjs_stdlib_litex.c \
-	    $(MQJS_DIR)/mquickjs_build.c
+	    $(STDLIB_BUILD_C)
 
 $(STDLIB_H): $(STDLIB_GEN)
 	$< $(STDLIB_GEN_FLAGS) > $@
@@ -165,7 +189,6 @@ ifneq ($(SCRIPT),)
 # script when the user passes a different SCRIPT= on the command line.
 # .PHONY would fight the "pre-req for main.o" relationship; an empty
 # FORCE target is the idiomatic workaround.
-.PHONY: FORCE
 FORCE:
 
 $(USER_SCRIPT_H): $(SCRIPT) FORCE | $(GEN_DIR)
@@ -176,9 +199,13 @@ endif
 # Header dependencies.
 main.o:      $(STDLIB_H) $(ATOM_H) $(USER_SCRIPT_H)
 mqjs_port.o: $(STDLIB_H) $(ATOM_H)
-mquickjs.o:  $(ATOM_H)
+mquickjs.o:  $(ATOM_H) clean-mqjs-generated-headers
 
 # --- Compile rules ------------------------------------------------------
+
+.PHONY: clean-mqjs-generated-headers
+clean-mqjs-generated-headers:
+	$(RM) $(MQJS_DIR)/mquickjs_atom.h
 
 mquickjs.o: CFLAGS += $(MQJS_EXTRA_CFLAGS)
 dtoa.o    : CFLAGS += $(MQJS_EXTRA_CFLAGS)

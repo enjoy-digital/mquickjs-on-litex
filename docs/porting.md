@@ -28,8 +28,9 @@ Two consequences for the port:
 ## Host-side stdlib generation
 
 `firmware/mqjs_stdlib_litex.c` is a trimmed copy of upstream
-`mqjs_stdlib.c`: no `load()`, no `setTimeout`/`clearTimeout`, plus a
-small `litex` object with LED/switch/CSR helpers.
+`mqjs_stdlib.c`: no `setTimeout`/`clearTimeout`, plus a small `litex`
+object with LED/switch/button, identifier, scratch-register, raw CSR,
+and optional SDCard file-loading helpers.
 
 At build time it is compiled **natively** as a host tool — see the
 `$(STDLIB_GEN)` rule in the Makefile — and then executed twice to
@@ -42,6 +43,20 @@ produce two C headers:
 
 We pass the `-m32` flag at runtime so the table layout matches the
 rv32 target regardless of the host word size.
+
+Two build details are important when extending the stdlib:
+
+- `mquickjs_build.c` uses `ATOM_ALIGN` for the ROM atom table. If you
+  add enough global properties to the stdlib generator, the old
+  alignment can corrupt keyword atom offsets and embedded source will
+  fail with errors such as `[mtag]: unexpected character in
+  expression`. The pinned submodule uses a larger alignment for this
+  LiteX stdlib.
+- A host-side `make mqjs` in the submodule also generates
+  `third_party/mquickjs/mquickjs_atom.h`. The firmware Makefile removes
+  that stale host header before compiling `mquickjs.o`, so the target
+  always uses `firmware/build/mquickjs_atom.h` generated for the
+  embedded stdlib.
 
 ## Firmware entry and UART plumbing
 
@@ -98,11 +113,17 @@ extra `0x00` byte after the last source byte; `user_script_len` is
 still the original source size. Upstream does the same implicitly by
 allocating `malloc(len + 1)` and setting `buf[len] = '\0'`.
 
+## Optional filesystem bindings
+
+`litex.readFile(path)` and `litex.load(path)` are available when the
+SoC exposes `CSR_SDCARD_BASE` or `CSR_SPISDCARD_BASE`. The binding
+mounts the FAT volume on first use, reads files up to 64 KiB into a
+static buffer, and evaluates source with `JS_Eval`. On a simulation or
+minimal board build without SDCard support, the functions throw a
+JavaScript exception instead of failing at link time.
+
 ## Things intentionally not ported
 
-- `load(filename)` — no filesystem in the simulated target. Adding
-  support requires wiring a filesystem (fatfs on an SD card, LittleFS
-  over SPI flash) and exposing it as a mquickjs binding.
 - `setTimeout` / `clearTimeout` — no event loop. If you add a cooperative
   scheduler you can lift the upstream implementation verbatim; it's
   ~50 lines and uses the same `performance.now()` clock we already

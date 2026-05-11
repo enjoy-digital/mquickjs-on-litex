@@ -13,6 +13,16 @@
 #include <libbase/uart.h>
 #include <generated/csr.h>
 
+#if defined(CSR_SDCARD_BASE) || defined(CSR_SPISDCARD_BASE)
+#include <libfatfs/ff.h>
+#endif
+#if defined(CSR_SDCARD_BASE)
+#include <liblitesdcard/sdcard.h>
+#endif
+#if defined(CSR_SPISDCARD_BASE)
+#include <liblitesdcard/spisdcard.h>
+#endif
+
 #include "mquickjs.h"
 #include "mqjs_port.h"
 
@@ -125,6 +135,52 @@ JSValue js_litex_get_switches(JSContext *ctx, JSValue *this_val, int argc, JSVal
 #endif
 }
 
+JSValue js_litex_get_buttons(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv)
+{
+    (void)this_val; (void)argc; (void)argv;
+#if defined(CSR_BUTTONS_BASE)
+    return JS_NewUint32(ctx, (uint32_t)buttons_in_read());
+#else
+    return JS_NewUint32(ctx, 0);
+#endif
+}
+
+JSValue js_litex_get_identifier(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv)
+{
+    (void)this_val; (void)argc; (void)argv;
+#if defined(CONFIG_IDENTIFIER)
+    return JS_NewString(ctx, config_identifier_read());
+#else
+    return JS_NewString(ctx, "LiteX SoC");
+#endif
+}
+
+JSValue js_litex_get_scratch(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv)
+{
+    (void)this_val; (void)argc; (void)argv;
+#if defined(CSR_CTRL_SCRATCH_ADDR)
+    return JS_NewUint32(ctx, ctrl_scratch_read());
+#else
+    return JS_NewUint32(ctx, 0);
+#endif
+}
+
+JSValue js_litex_set_scratch(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv)
+{
+    (void)this_val;
+    if (argc < 1)
+        return JS_ThrowTypeError(ctx, "setScratch(value)");
+    uint32_t value;
+    if (JS_ToUint32(ctx, &value, argv[0]))
+        return JS_EXCEPTION;
+#if defined(CSR_CTRL_SCRATCH_ADDR)
+    ctrl_scratch_write(value);
+#else
+    (void)value;
+#endif
+    return JS_UNDEFINED;
+}
+
 JSValue js_litex_millis(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv)
 {
     (void)this_val; (void)argc; (void)argv;
@@ -169,6 +225,116 @@ JSValue js_litex_csr_write32(JSContext *ctx, JSValue *this_val, int argc, JSValu
     volatile uint32_t *p = (volatile uint32_t *)(uintptr_t)addr;
     *p = val;
     return JS_UNDEFINED;
+}
+
+/* ------------------------------------------------------------------ */
+/* SDCard / FatFS                                                     */
+/* ------------------------------------------------------------------ */
+
+#if defined(CSR_SDCARD_BASE) || defined(CSR_SPISDCARD_BASE)
+static int fatfs_ready;
+static FATFS fatfs;
+static char file_buf[64 * 1024 + 1];
+
+static FRESULT ensure_fatfs(void)
+{
+    FRESULT fr;
+    if (fatfs_ready)
+        return FR_OK;
+#if defined(CSR_SPISDCARD_BASE)
+    fatfs_set_ops_spisdcard();
+#elif defined(CSR_SDCARD_BASE)
+    fatfs_set_ops_sdcard();
+#endif
+    fr = f_mount(&fatfs, "", 1);
+    if (fr == FR_OK)
+        fatfs_ready = 1;
+    return fr;
+}
+
+static JSValue read_file_to_string(JSContext *ctx, const char *path)
+{
+    FRESULT fr;
+    FIL file;
+    UINT br;
+    FSIZE_t size;
+
+    fr = ensure_fatfs();
+    if (fr != FR_OK)
+        return JS_ThrowError(ctx, JS_CLASS_ERROR, "FatFS mount failed (%d)", fr);
+
+    fr = f_open(&file, path, FA_READ);
+    if (fr != FR_OK)
+        return JS_ThrowError(ctx, JS_CLASS_ERROR, "cannot open %s (%d)", path, fr);
+
+    size = f_size(&file);
+    if (size > sizeof(file_buf) - 1) {
+        f_close(&file);
+        return JS_ThrowRangeError(ctx, "%s is too large (%lu bytes)",
+                                  path, (unsigned long)size);
+    }
+
+    fr = f_read(&file, file_buf, (UINT)size, &br);
+    f_close(&file);
+    if (fr != FR_OK)
+        return JS_ThrowError(ctx, JS_CLASS_ERROR, "read failed for %s (%d)", path, fr);
+    if (br != (UINT)size)
+        return JS_ThrowError(ctx, JS_CLASS_ERROR, "short read for %s", path);
+    file_buf[size] = 0;
+
+    return JS_NewStringLen(ctx, file_buf, (size_t)size);
+}
+#endif
+
+JSValue js_litex_read_file(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv)
+{
+    (void)this_val;
+    if (argc < 1)
+        return JS_ThrowTypeError(ctx, "readFile(path)");
+
+#if defined(CSR_SDCARD_BASE) || defined(CSR_SPISDCARD_BASE)
+    JSCStringBuf sb;
+    size_t len;
+    const char *path = JS_ToCStringLen(ctx, &len, argv[0], &sb);
+    if (!path)
+        return JS_EXCEPTION;
+    (void)len;
+    return read_file_to_string(ctx, path);
+#else
+    (void)argv;
+    return JS_ThrowError(ctx, JS_CLASS_ERROR, "SDCard support is not present in this SoC");
+#endif
+}
+
+JSValue js_litex_load(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv)
+{
+    (void)this_val;
+    if (argc < 1)
+        return JS_ThrowTypeError(ctx, "load(path)");
+
+#if defined(CSR_SDCARD_BASE) || defined(CSR_SPISDCARD_BASE)
+    JSCStringBuf sb;
+    size_t path_len;
+    const char *path = JS_ToCStringLen(ctx, &path_len, argv[0], &sb);
+    if (!path)
+        return JS_EXCEPTION;
+    (void)path_len;
+
+    JSValue src_val = read_file_to_string(ctx, path);
+    if (JS_IsException(src_val))
+        return src_val;
+
+    JSCStringBuf src_sb;
+    size_t src_len;
+    const char *src = JS_ToCStringLen(ctx, &src_len, src_val, &src_sb);
+    if (!src)
+        return JS_EXCEPTION;
+
+    return JS_Eval(ctx, src, src_len, path, 0);
+#else
+    (void)argv;
+    return JS_ThrowError(ctx, JS_CLASS_ERROR, "SDCard support is not present in this SoC");
+#endif
 }
 
 JSValue js_litex_reboot(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv)

@@ -112,7 +112,7 @@ def first_time_sim_build(repo_root: Path, build_dir: Path, fw_bin: Path,
             if line:
                 sys.stdout.write(line)
                 sys.stdout.flush()
-            if vsim.exists() and time.time() - start > 5:
+            if simulator_ready(build_dir) and time.time() - start > 5:
                 # Give litex_sim a beat to finish writing the init files,
                 # then tear it down — we drive Vsim ourselves from here.
                 time.sleep(1.0)
@@ -134,6 +134,13 @@ def first_time_sim_build(repo_root: Path, build_dir: Path, fw_bin: Path,
     return vsim
 
 
+def simulator_ready(build_dir: Path) -> bool:
+    gateware_dir = build_dir / "gateware"
+    vsim = gateware_dir / "obj_dir" / "Vsim"
+    modules_dir = gateware_dir / "modules"
+    return vsim.exists() and modules_dir.is_dir() and any(modules_dir.glob("*.so"))
+
+
 def watch(proc, timeout: float, expect: str | None, keep_running: bool) -> int:
     start = time.time()
     expect_seen = expect is None
@@ -147,6 +154,9 @@ def watch(proc, timeout: float, expect: str | None, keep_running: bool) -> int:
             if not line:
                 if proc.poll() is not None:
                     break
+                if time.time() - start > timeout:
+                    print(f"\n[run_sim] timeout after {timeout:.1f}s", file=sys.stderr)
+                    return 2
                 time.sleep(0.01)
                 continue
             sys.stdout.write(line)
@@ -219,7 +229,7 @@ def main():
 
     # 3. Ensure Vsim exists. First time is slow; subsequent runs skip it.
     vsim = build_dir / "gateware" / "obj_dir" / "Vsim"
-    if not vsim.exists():
+    if not simulator_ready(build_dir):
         vsim = first_time_sim_build(repo_root, build_dir, fw_bin, args.ram_size)
 
     # 4. Refresh the main_ram memory image with the current firmware.

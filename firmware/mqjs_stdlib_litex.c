@@ -6,8 +6,7 @@
  *   - mqjs_stdlib.h       (included by the firmware's port glue)
  *
  * This is a trimmed version of upstream mqjs_stdlib.c (MIT, Bellard &
- * Gordon) with the host-only host-only features removed:
- *   - no `load()` — the embedded firmware has no filesystem
+ * Gordon) with the host-only event loop removed:
  *   - no `setTimeout`/`clearTimeout` — no event loop
  *
  * A minimal `litex` object is exposed to JavaScript so example scripts
@@ -372,15 +371,22 @@ static const JSClassDef js_performance_obj = JS_OBJECT_DEF("Performance", js_per
 /* ------------------------------------------------------------------ */
 
 static const JSPropDef js_litex[] = {
-    /* LEDs: litex.setLeds(n) / litex.getSwitches() when the CSRs exist */
+    /* Board IO: bindings degrade gracefully when the CSRs are absent */
     JS_CFUNC_DEF("setLeds",     1, js_litex_set_leds),
     JS_CFUNC_DEF("getSwitches", 0, js_litex_get_switches),
+    JS_CFUNC_DEF("getButtons",  0, js_litex_get_buttons),
+    JS_CFUNC_DEF("getIdentifier", 0, js_litex_get_identifier),
+    JS_CFUNC_DEF("getScratch",  0, js_litex_get_scratch),
+    JS_CFUNC_DEF("setScratch",  1, js_litex_set_scratch),
     /* Timing */
     JS_CFUNC_DEF("millis",      0, js_litex_millis),
     JS_CFUNC_DEF("delay",       1, js_litex_delay),
     /* CSR: raw access, useful for binding to any LiteX peripheral */
     JS_CFUNC_DEF("csrRead32",   1, js_litex_csr_read32),
     JS_CFUNC_DEF("csrWrite32",  2, js_litex_csr_write32),
+    /* SDCard/FatFS, when the SoC has SDCard support */
+    JS_CFUNC_DEF("readFile",    1, js_litex_read_file),
+    JS_CFUNC_DEF("load",        1, js_litex_load),
     /* System */
     JS_CFUNC_DEF("reboot",      0, js_litex_reboot),
     JS_PROP_END,

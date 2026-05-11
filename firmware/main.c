@@ -127,7 +127,12 @@ int main(void)
 #endif
     uart_init();
 
-    puts("\n--========= litex_mquickjs =========--");
+    puts("\n"
+         "   __  _______       _     __      ______              __   _ __      _  __\n"
+         "  /  |/  / __ \\__ __(_)___/ /____ / / __/ ___  ___    / /  (_) /____ | |/_/\n"
+         " / /|_/ / /_/ / // / / __/  '_/ // /\\ \\  / _ \\/ _ \\  / /__/ / __/ -_)>  <\n"
+         "/_/  /_/\\___\\_\\_,_/_/\\__/_/\\_\\\\___/___/  \\___/_//_/ /____/_/\\__/\\__/_/|_|\n");
+    puts("--========= mquickjs on LiteX =========--");
     printf("mquickjs heap:   %u bytes\n", (unsigned)sizeof(mqjs_heap));
     printf("CPU:             %s @ %u Hz\n",
            CONFIG_CPU_HUMAN_NAME, (unsigned)CONFIG_CLOCK_FREQUENCY);
@@ -160,7 +165,7 @@ int main(void)
     } else {
         puts("running embedded script...");
         rc = run_source(ctx, (const char *)user_script, user_script_len,
-                        "user_script.js", 0);
+                        "user_script.js", JS_EVAL_REPL);
     }
     /* Run GC before dumping so the numbers reflect live state rather
      * than the watermark at program exit. */

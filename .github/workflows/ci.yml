@@ -24,6 +24,8 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential \
             gcc-riscv64-unknown-elf \
+            libevent-dev \
+            libjson-c-dev \
             picolibc-riscv64-unknown-elf \
             verilator \
             meson \
@@ -35,6 +37,9 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install Python test dependencies
+        run: python3 -m pip install pytest
+
       - name: Install LiteX
         run: |
           mkdir -p $HOME/litex && cd $HOME/litex
@@ -45,8 +50,10 @@ jobs:
       - name: Cache litex_sim verilator build
         uses: actions/cache@v4
         with:
-          path: build/sim/gateware/obj_dir
-          key: vsim-${{ runner.os }}-${{ hashFiles('firmware/linker.ld', 'sim/gen_soc.py') }}
+          path: |
+            build/sim/gateware/obj_dir
+            build/sim/gateware/modules
+          key: vsim-v2-${{ runner.os }}-${{ hashFiles('firmware/linker.ld', 'sim/gen_soc.py') }}
 
       - name: Generate SoC (one-time, ~minutes)
         run: ./sim/gen_soc.py
@@ -64,6 +71,9 @@ jobs:
 
       - name: Run leds test
         run: python3 -m pytest -v -s test/test_leds.py
+
+      - name: Run SDCard loader parse test
+        run: python3 -m pytest -v -s test/test_sdcard_loader.py
 
       - name: Run fib test
         run: python3 -m pytest -v -s test/test_fib.py

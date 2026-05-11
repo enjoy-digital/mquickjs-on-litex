@@ -15,3 +15,6 @@ Verilator simulator (~2 min). Subsequent runs reuse the cached
 
 Set `LITEX_SIM_BUILD_DIR` to share a single simulator build directory
 between invocations (defaults to `<repo>/build/sim`).
+
+Small scripts that exist only to guard regressions live in
+`test/scripts/`; user-facing demos stay in `examples/`.

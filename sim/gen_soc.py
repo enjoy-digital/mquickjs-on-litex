@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate a LiteX/VexRiscv simulator SoC suitable for litex_mquickjs.
+Generate a LiteX/VexRiscv simulator SoC suitable for mquickjs on LiteX.
 
 Usage:
     sim/gen_soc.py [--output-dir PATH] [--ram-size BYTES] [--force]
