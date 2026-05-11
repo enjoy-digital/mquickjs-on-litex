@@ -89,6 +89,42 @@ Expected output starts with:
 [mqjs] done
 ```
 
+## Live Editing
+
+For the interactive demoscene workflow, add Ethernet to the video build.
+The live firmware serves a small browser editor from the board itself:
+
+```sh
+./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-live -- --with-ethernet --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
+./make.py live --build-dir build/ecpix5-live
+./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-live
+./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
+```
+
+Keep `board-run` open for the UART log, then open the board page:
+
+```sh
+xdg-open http://192.168.1.50/
+```
+
+Open `http://192.168.1.50/` if `xdg-open` is not available. The page
+sends compact JavaScript demos to the board over HTTP. Scripts can
+define `setup()` and `frame(t)` for live animation; the board keeps the
+frame loop running in mquickjs and draws through the same framebuffer API
+as the standalone examples.
+
+The page also exposes portable board utilities through the same JS API:
+identifier, switches/buttons, scratch register, LEDs, frame timing and
+FPS. On SDCard-capable SoCs, `Save main.js` and `Load main.js` let the
+browser turn the current live script into the standalone boot script.
+
+The host bridge remains useful while debugging Ethernet:
+
+```sh
+./make.py live --live-mode udp --build-dir build/ecpix5-live
+./tools/live_bridge.py --board 192.168.1.50
+```
+
 ## SDCard Boot
 
 For a standalone demo, let LiteX BIOS boot `boot.bin` from the card,

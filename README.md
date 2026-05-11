@@ -90,6 +90,20 @@ showcase playlist. It runs plasma, fire and tunnel from one firmware:
 ./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
 ```
 
+The live-editing step serves the browser UI directly from the board:
+
+```sh
+./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-live -- --with-ethernet --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
+./make.py live --build-dir build/ecpix5-live
+./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-live
+./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
+```
+
+Then open `http://192.168.1.50/`, edit JavaScript in the browser, and
+press `Run`. For debugging, the older host bridge is still available
+with `./make.py live --live-mode udp --build-dir build/ecpix5-live` and
+`./tools/live_bridge.py --board 192.168.1.50`.
+
 ## [> Files
 
 ```
@@ -103,10 +117,11 @@ Useful docs:
 
 - [docs/simulation.md](docs/simulation.md): dependencies and sim flow.
 - [docs/hardware.md](docs/hardware.md): board and SDCard flow.
+- [docs/architecture.md](docs/architecture.md): firmware and live HTTP architecture.
 - [docs/porting.md](docs/porting.md): firmware integration notes.
 - [docs/demoscene.md](docs/demoscene.md): framebuffer demo plan.
 
 ## [> License
 
-BSD-2-Clause for this repository. The mquickjs submodule keeps its
-upstream MIT license.
+BSD-2-Clause for this repository. The mquickjs and lwIP submodules keep
+their upstream licenses.

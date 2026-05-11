@@ -390,6 +390,7 @@ static const JSPropDef js_litex[] = {
     JS_CFUNC_DEF("csrWrite32",  2, js_litex_csr_write32),
     /* SDCard/FatFS, when the SoC has SDCard support */
     JS_CFUNC_DEF("readFile",    1, js_litex_read_file),
+    JS_CFUNC_DEF("writeFile",   2, js_litex_write_file),
     JS_CFUNC_DEF("load",        1, js_litex_load),
     /* System */
     JS_CFUNC_DEF("reboot",      0, js_litex_reboot),

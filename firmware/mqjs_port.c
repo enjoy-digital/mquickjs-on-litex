@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 #include <stdint.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -38,6 +39,31 @@ void mqjs_log_func(void *opaque, const void *buf, size_t buf_len)
         putchar(p[i]);
 }
 
+static JSWriteFunc *mqjs_print_func;
+
+void mqjs_set_print_func(JSWriteFunc *write_func)
+{
+    mqjs_print_func = write_func;
+}
+
+static void mqjs_print_write(const void *buf, size_t len)
+{
+    const char *p = (const char *)buf;
+
+    if (mqjs_print_func != NULL) {
+        mqjs_print_func(NULL, buf, len);
+        return;
+    }
+
+    for (size_t i = 0; i < len; i++)
+        putchar(p[i]);
+}
+
+static void mqjs_print_char(char c)
+{
+    mqjs_print_write(&c, 1);
+}
+
 /* ------------------------------------------------------------------ */
 /* print / console.log                                                */
 /* ------------------------------------------------------------------ */
@@ -47,19 +73,18 @@ JSValue js_print(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv)
     (void)this_val;
     for (int i = 0; i < argc; i++) {
         if (i != 0)
-            putchar(' ');
+            mqjs_print_char(' ');
         JSValue v = argv[i];
         if (JS_IsString(ctx, v)) {
             JSCStringBuf sb;
             size_t len;
             const char *s = JS_ToCStringLen(ctx, &len, v, &sb);
-            for (size_t j = 0; j < len; j++)
-                putchar(s[j]);
+            mqjs_print_write(s, len);
         } else {
             JS_PrintValueF(ctx, argv[i], JS_DUMP_LONG);
         }
     }
-    putchar('\n');
+    mqjs_print_char('\n');
     return JS_UNDEFINED;
 }
 
@@ -242,6 +267,18 @@ static int fatfs_ready;
 static FATFS fatfs;
 static char file_buf[64 * 1024 + 1];
 
+static void fs_error(char *err, size_t err_size, const char *fmt, ...)
+{
+    va_list ap;
+
+    if (err == NULL || err_size == 0)
+        return;
+
+    va_start(ap, fmt);
+    vsnprintf(err, err_size, fmt, ap);
+    va_end(ap);
+}
+
 static FRESULT ensure_fatfs(void)
 {
     FRESULT fr;
@@ -258,7 +295,13 @@ static FRESULT ensure_fatfs(void)
     return fr;
 }
 
-static JSValue read_file_to_string(JSContext *ctx, const char *path)
+int mqjs_fs_available(void)
+{
+    return 1;
+}
+
+int mqjs_fs_read_file(const char *path, const char **data, size_t *len,
+                      char *err, size_t err_size)
 {
     FRESULT fr;
     FIL file;
@@ -266,29 +309,100 @@ static JSValue read_file_to_string(JSContext *ctx, const char *path)
     FSIZE_t size;
 
     fr = ensure_fatfs();
-    if (fr != FR_OK)
-        return JS_ThrowError(ctx, JS_CLASS_ERROR, "FatFS mount failed (%d)", fr);
+    if (fr != FR_OK) {
+        fs_error(err, err_size, "FatFS mount failed (%d)", fr);
+        return -1;
+    }
 
     fr = f_open(&file, path, FA_READ);
-    if (fr != FR_OK)
-        return JS_ThrowError(ctx, JS_CLASS_ERROR, "cannot open %s (%d)", path, fr);
+    if (fr != FR_OK) {
+        fs_error(err, err_size, "cannot open %s (%d)", path, fr);
+        return -1;
+    }
 
     size = f_size(&file);
     if (size > sizeof(file_buf) - 1) {
         f_close(&file);
-        return JS_ThrowRangeError(ctx, "%s is too large (%lu bytes)",
-                                  path, (unsigned long)size);
+        fs_error(err, err_size, "%s is too large (%lu bytes)",
+                 path, (unsigned long)size);
+        return -1;
     }
 
     fr = f_read(&file, file_buf, (UINT)size, &br);
     f_close(&file);
-    if (fr != FR_OK)
-        return JS_ThrowError(ctx, JS_CLASS_ERROR, "read failed for %s (%d)", path, fr);
-    if (br != (UINT)size)
-        return JS_ThrowError(ctx, JS_CLASS_ERROR, "short read for %s", path);
+    if (fr != FR_OK) {
+        fs_error(err, err_size, "read failed for %s (%d)", path, fr);
+        return -1;
+    }
+    if (br != (UINT)size) {
+        fs_error(err, err_size, "short read for %s", path);
+        return -1;
+    }
     file_buf[size] = 0;
+    *data = file_buf;
+    *len  = (size_t)size;
 
-    return JS_NewStringLen(ctx, file_buf, (size_t)size);
+    return 0;
+}
+
+int mqjs_fs_write_file(const char *path, const char *data, size_t len,
+                       char *err, size_t err_size)
+{
+    FRESULT fr;
+    FIL file;
+    UINT bw;
+
+    fr = ensure_fatfs();
+    if (fr != FR_OK) {
+        fs_error(err, err_size, "FatFS mount failed (%d)", fr);
+        return -1;
+    }
+
+    fr = f_open(&file, path, FA_WRITE | FA_CREATE_ALWAYS);
+    if (fr != FR_OK) {
+        fs_error(err, err_size, "cannot open %s for write (%d)", path, fr);
+        return -1;
+    }
+
+    fr = f_write(&file, data, (UINT)len, &bw);
+    f_close(&file);
+    if (fr != FR_OK) {
+        fs_error(err, err_size, "write failed for %s (%d)", path, fr);
+        return -1;
+    }
+    if (bw != (UINT)len) {
+        fs_error(err, err_size, "short write for %s", path);
+        return -1;
+    }
+
+    return 0;
+}
+#else
+int mqjs_fs_available(void)
+{
+    return 0;
+}
+
+int mqjs_fs_read_file(const char *path, const char **data, size_t *len,
+                      char *err, size_t err_size)
+{
+    (void)path;
+    (void)data;
+    (void)len;
+    if (err != NULL && err_size != 0)
+        snprintf(err, err_size, "SDCard support is not present in this SoC");
+    return -1;
+}
+
+int mqjs_fs_write_file(const char *path, const char *data, size_t len,
+                       char *err, size_t err_size)
+{
+    (void)path;
+    (void)data;
+    (void)len;
+    if (err != NULL && err_size != 0)
+        snprintf(err, err_size, "SDCard support is not present in this SoC");
+    return -1;
 }
 #endif
 
@@ -298,18 +412,43 @@ JSValue js_litex_read_file(JSContext *ctx, JSValue *this_val, int argc, JSValue 
     if (argc < 1)
         return JS_ThrowTypeError(ctx, "readFile(path)");
 
-#if defined(CSR_SDCARD_BASE) || defined(CSR_SPISDCARD_BASE)
     JSCStringBuf sb;
     size_t len;
     const char *path = JS_ToCStringLen(ctx, &len, argv[0], &sb);
+    const char *data;
+    size_t data_len;
+    char err[96];
+
     if (!path)
         return JS_EXCEPTION;
     (void)len;
-    return read_file_to_string(ctx, path);
-#else
-    (void)argv;
-    return JS_ThrowError(ctx, JS_CLASS_ERROR, "SDCard support is not present in this SoC");
-#endif
+    if (mqjs_fs_read_file(path, &data, &data_len, err, sizeof(err)) != 0)
+        return JS_ThrowError(ctx, JS_CLASS_ERROR, "%s", err);
+
+    return JS_NewStringLen(ctx, data, data_len);
+}
+
+JSValue js_litex_write_file(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv)
+{
+    (void)this_val;
+    if (argc < 2)
+        return JS_ThrowTypeError(ctx, "writeFile(path, data)");
+
+    JSCStringBuf path_sb;
+    JSCStringBuf data_sb;
+    size_t path_len;
+    size_t data_len;
+    const char *path = JS_ToCStringLen(ctx, &path_len, argv[0], &path_sb);
+    const char *data = JS_ToCStringLen(ctx, &data_len, argv[1], &data_sb);
+    char err[96];
+
+    if (!path || !data)
+        return JS_EXCEPTION;
+    (void)path_len;
+    if (mqjs_fs_write_file(path, data, data_len, err, sizeof(err)) != 0)
+        return JS_ThrowError(ctx, JS_CLASS_ERROR, "%s", err);
+
+    return JS_UNDEFINED;
 }
 
 JSValue js_litex_load(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv)
@@ -318,29 +457,21 @@ JSValue js_litex_load(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv
     if (argc < 1)
         return JS_ThrowTypeError(ctx, "load(path)");
 
-#if defined(CSR_SDCARD_BASE) || defined(CSR_SPISDCARD_BASE)
     JSCStringBuf sb;
     size_t path_len;
     const char *path = JS_ToCStringLen(ctx, &path_len, argv[0], &sb);
+    const char *src;
+    size_t src_len;
+    char err[96];
+
     if (!path)
         return JS_EXCEPTION;
     (void)path_len;
 
-    JSValue src_val = read_file_to_string(ctx, path);
-    if (JS_IsException(src_val))
-        return src_val;
-
-    JSCStringBuf src_sb;
-    size_t src_len;
-    const char *src = JS_ToCStringLen(ctx, &src_len, src_val, &src_sb);
-    if (!src)
-        return JS_EXCEPTION;
+    if (mqjs_fs_read_file(path, &src, &src_len, err, sizeof(err)) != 0)
+        return JS_ThrowError(ctx, JS_CLASS_ERROR, "%s", err);
 
     return JS_Eval(ctx, src, src_len, path, 0);
-#else
-    (void)argv;
-    return JS_ThrowError(ctx, JS_CLASS_ERROR, "SDCard support is not present in this SoC");
-#endif
 }
 
 JSValue js_litex_reboot(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv)
@@ -412,7 +543,11 @@ static framebuffer_pixel_t framebuffer_color(uint32_t rgb)
 
     return (framebuffer_pixel_t)((r << 11) | (g << 5) | b);
 #else
-    return (framebuffer_pixel_t)rgb;
+    uint32_t r = (rgb >> 16) & 0xff;
+    uint32_t g = (rgb >>  8) & 0xff;
+    uint32_t b = (rgb >>  0) & 0xff;
+
+    return (framebuffer_pixel_t)((b << 16) | (g << 8) | r);
 #endif
 }
 
