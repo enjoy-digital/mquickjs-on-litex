@@ -41,7 +41,11 @@ jobs:
           python-version: '3.11'
 
       - name: Install Python test dependencies
-        run: python3 -m pip install pytest
+        run: |
+          # LiteX's setup helper installs the checked-out repositories with
+          # legacy editable installs (`pip install -e . --user`). Keep pip on
+          # a version that still supports this flow for setup.py-only repos.
+          python3 -m pip install --upgrade "pip<25.3" setuptools wheel pytest
 
       - name: Install LiteX
         run: |
