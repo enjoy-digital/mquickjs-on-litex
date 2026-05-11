@@ -55,6 +55,10 @@ jobs:
           git -C migen submodule update --init --recursive
 
           git clone https://github.com/enjoy-digital/litex.git
+          git clone https://github.com/enjoy-digital/litedram.git
+          git clone https://github.com/enjoy-digital/liteeth.git
+          git clone https://github.com/enjoy-digital/litescope.git
+          git clone https://github.com/litex-hub/litespi.git
           git clone https://github.com/litex-hub/pythondata-cpu-vexriscv.git
           git clone https://github.com/litex-hub/pythondata-misc-tapcfg.git
           git clone https://github.com/litex-hub/pythondata-software-compiler_rt.git
@@ -62,7 +66,9 @@ jobs:
 
           LITEX_PYTHONPATH="$(find "$HOME/litex" -mindepth 1 -maxdepth 1 -type d | sort | paste -sd: -)"
           export PYTHONPATH="${LITEX_PYTHONPATH}${PYTHONPATH:+:$PYTHONPATH}"
-          python3 -c "import litex, migen, pythondata_cpu_vexriscv, pythondata_software_picolibc"
+          python3 -c "import litex, migen, litedram, liteeth, litespi, litescope"
+          python3 -c "import pythondata_cpu_vexriscv, pythondata_misc_tapcfg"
+          python3 -c "import pythondata_software_compiler_rt, pythondata_software_picolibc"
           echo "PYTHONPATH=$PYTHONPATH" >> "$GITHUB_ENV"
 
       - name: Cache litex_sim verilator build
