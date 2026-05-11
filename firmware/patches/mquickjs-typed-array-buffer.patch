@@ -1,0 +1,47 @@
+# Patch applied to the vendored mquickjs sources at firmware build time.
+# mquickjs itself keeps its upstream MIT license.
+
+--- mquickjs.c
++++ mquickjs.c
+@@ -15263,6 +15263,29 @@ static JSObject *get_typed_array(JSContext *ctx, JSValue val)
+     return p;
+ }
+ 
++int JS_GetTypedArrayBuffer(JSContext *ctx, uint8_t **pdata,
++                           uint32_t *pbyte_length, int *pclass_id,
++                           JSValue val)
++{
++    JSObject *p, *pbuffer;
++    JSByteArray *arr;
++    int size_log2;
++
++    p = get_typed_array(ctx, val);
++    if (!p)
++        return -1;
++    size_log2 = typed_array_size_log2[p->class_id - JS_CLASS_UINT8C_ARRAY];
++    pbuffer = JS_VALUE_TO_PTR(p->u.typed_array.buffer);
++    arr = JS_VALUE_TO_PTR(pbuffer->u.array_buffer.byte_buffer);
++    if (pdata)
++        *pdata = arr->buf + (p->u.typed_array.offset << size_log2);
++    if (pbyte_length)
++        *pbyte_length = p->u.typed_array.len << size_log2;
++    if (pclass_id)
++        *pclass_id = p->class_id;
++    return 0;
++}
++
+ JSValue js_typed_array_get_length(JSContext *ctx, JSValue *this_val,
+                                   int argc, JSValue *argv, int magic)
+ {
+--- mquickjs.h
++++ mquickjs.h
+@@ -309,6 +309,9 @@ int JS_ToInt32(JSContext *ctx, int *pres, JSValue val);
+ int JS_ToUint32(JSContext *ctx, uint32_t *pres, JSValue val);
+ int JS_ToInt32Sat(JSContext *ctx, int *pres, JSValue val);
+ int JS_ToNumber(JSContext *ctx, double *pres, JSValue val);
++int JS_GetTypedArrayBuffer(JSContext *ctx, uint8_t **pdata,
++                           uint32_t *pbyte_length, int *pclass_id,
++                           JSValue val);
+ 
+ JSValue JS_GetException(JSContext *ctx);
+ int JS_StackCheck(JSContext *ctx, uint32_t len);

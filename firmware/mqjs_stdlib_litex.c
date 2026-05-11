@@ -382,6 +382,7 @@ static const JSPropDef js_litex[] = {
     JS_CFUNC_DEF("getScratch",  0, js_litex_get_scratch),
     JS_CFUNC_DEF("setScratch",  1, js_litex_set_scratch),
     /* Timing */
+    JS_CFUNC_DEF("clockFrequency", 0, js_litex_clock_frequency),
     JS_CFUNC_DEF("millis",      0, js_litex_millis),
     JS_CFUNC_DEF("delay",       1, js_litex_delay),
     /* CSR: raw access, useful for binding to any LiteX peripheral */
@@ -406,9 +407,12 @@ static const JSPropDef js_framebuffer[] = {
     JS_CGETSET_DEF("height", js_framebuffer_get_height, NULL),
     JS_CGETSET_DEF("depth",  js_framebuffer_get_depth,  NULL),
 
-    JS_CFUNC_DEF("clear",     1, js_framebuffer_clear),
-    JS_CFUNC_DEF("blit",      1, js_framebuffer_blit),
-    JS_CFUNC_DEF("blitScale", 6, js_framebuffer_blit_scale),
+    JS_CFUNC_DEF("clear",            1, js_framebuffer_clear),
+    JS_CFUNC_DEF("fillRect",         5, js_framebuffer_fill_rect),
+    JS_CFUNC_DEF("copyRect",         6, js_framebuffer_copy_rect),
+    JS_CFUNC_DEF("blit",             1, js_framebuffer_blit),
+    JS_CFUNC_DEF("blitScale",        6, js_framebuffer_blit_scale),
+    JS_CFUNC_DEF("blitIndexedScale", 7, js_framebuffer_blit_indexed_scale),
 
     JS_PROP_END,
 };

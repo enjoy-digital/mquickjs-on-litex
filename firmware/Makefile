@@ -84,14 +84,22 @@ MQJS_INC := -I$(GEN_DIR) -I$(FW_DIR) -I$(MQJS_DIR)
 CFLAGS   += $(MQJS_INC) $(EMBED_CFLAGS)
 
 # We need libgcc for a handful of soft-float / long-long helpers that
-# neither libcompiler_rt nor picolibc ship (`__extendsfdf2`,
-# `__truncdfsf2`, `__clzdi2`, ...). LiteX's CPUFLAGS uses the versioned
-# `-march=rv32i2p0_m` spelling which gcc's multilib matcher rejects
-# (only the un-versioned `rv32im` maps to a multilib directory). Resolve
-# it manually using an un-versioned flavour so the driver returns the
-# correct rv32im/ilp32 libgcc.a path. */
-TARGET_LIBGCC := $(shell $(TARGET_PREFIX)gcc -march=rv32im -mabi=ilp32 \
+# neither libcompiler_rt nor picolibc ship. LiteX's CPUFLAGS can use
+# versioned RISC-V ISA strings, which GCC's multilib matcher rejects.
+# Resolve libgcc with a compact ISA derived from the ABI instead.
+ifeq ($(filter $(NO_BUILDDIR_TARGETS),$(MAKECMDGOALS)),)
+TARGET_ABI     := $(shell echo "$(CPUFLAGS)" | sed -n 's/.*-mabi=\([^ ]*\).*/\1/p')
+TARGET_XLEN    := $(if $(findstring lp64,$(TARGET_ABI)),64,32)
+TARGET_RV_ARCH := rv$(TARGET_XLEN)im
+ifneq ($(findstring f,$(TARGET_ABI)),)
+TARGET_RV_ARCH := $(TARGET_RV_ARCH)af
+endif
+ifneq ($(findstring d,$(TARGET_ABI)),)
+TARGET_RV_ARCH := $(TARGET_RV_ARCH)d
+endif
+TARGET_LIBGCC  := $(shell $(TARGET_PREFIX)gcc -march=$(TARGET_RV_ARCH) -mabi=$(TARGET_ABI) \
                      -print-libgcc-file-name)
+endif
 
 # Silence warnings that aren't relevant for the vendored mquickjs C
 # files on this rv32 target (format typedef differences, intentionally
@@ -110,6 +118,8 @@ STDLIB_GEN  := $(GEN_DIR)/mqjs_stdlib_litex
 STDLIB_BUILD_C := $(GEN_DIR)/mquickjs_build_litex.c
 STDLIB_H    := $(GEN_DIR)/mqjs_stdlib.h
 ATOM_H      := $(GEN_DIR)/mquickjs_atom.h
+MQJS_PATCH  := $(FW_DIR)/patches/mquickjs-typed-array-buffer.patch
+MQJS_PATCHED_STAMP := $(GEN_DIR)/mquickjs-patched.stamp
 
 # Force 32-bit layout so the generated tables match the JSW=4 target
 # (RISC-V rv32). The generator itself is native.
@@ -149,17 +159,24 @@ endif
 $(BUILD_CONTEXT): FORCE | $(GEN_DIR)
 	@{ \
 	    echo "BUILD_DIRECTORY=$(BUILD_DIR)"; \
+	    echo "TRIPLE=$(TRIPLE)"; \
+	    echo "CPUFLAGS=$(CPUFLAGS)"; \
+	    echo "TARGET_ABI=$(TARGET_ABI)"; \
 	    echo "PACKAGES=$(PACKAGES)"; \
 	    echo "LIBS=$(LIBS)"; \
 	} | cmp -s - $@ || { \
 	    { \
 	        echo "BUILD_DIRECTORY=$(BUILD_DIR)"; \
+	        echo "TRIPLE=$(TRIPLE)"; \
+	        echo "CPUFLAGS=$(CPUFLAGS)"; \
+	        echo "TARGET_ABI=$(TARGET_ABI)"; \
 	        echo "PACKAGES=$(PACKAGES)"; \
 	        echo "LIBS=$(LIBS)"; \
 	    } > $@; \
 	}
 
-main.o mqjs_port.o: $(GENERATED_SOC_HEADERS) $(BUILD_CONTEXT)
+$(FW_OBJS): $(GENERATED_SOC_HEADERS) $(BUILD_CONTEXT)
+$(filter-out mquickjs.o,$(MQJS_OBJS)): $(BUILD_CONTEXT)
 
 %.bin: %.elf
 	$(OBJCOPY) -O binary $< $@
@@ -185,6 +202,14 @@ $(STDLIB_H): $(STDLIB_GEN)
 $(ATOM_H): $(STDLIB_GEN)
 	$< -a $(STDLIB_GEN_FLAGS) > $@
 
+$(MQJS_PATCHED_STAMP): $(MQJS_DIR)/mquickjs.c $(MQJS_DIR)/mquickjs.h $(MQJS_PATCH) | $(GEN_DIR)
+	cp $(MQJS_DIR)/mquickjs.c $(GEN_DIR)/mquickjs.c
+	cp $(MQJS_DIR)/mquickjs.h $(GEN_DIR)/mquickjs.h
+	patch -d $(GEN_DIR) -p0 < $(MQJS_PATCH)
+	touch $@
+
+$(GEN_DIR)/mquickjs.c $(GEN_DIR)/mquickjs.h: $(MQJS_PATCHED_STAMP)
+
 ifneq ($(SCRIPT),)
 # Always rebuild user_script.h when SCRIPT is supplied: the path is a
 # make variable that isn't tracked as a dependency, so regenerating
@@ -202,7 +227,8 @@ endif
 # Header dependencies.
 main.o:      $(STDLIB_H) $(ATOM_H) $(USER_SCRIPT_H)
 mqjs_port.o: $(STDLIB_H) $(ATOM_H)
-mquickjs.o:  $(ATOM_H) clean-mqjs-generated-headers
+mquickjs.o:  $(GEN_DIR)/mquickjs.c $(GEN_DIR)/mquickjs.h $(ATOM_H) \
+             clean-mqjs-generated-headers $(BUILD_CONTEXT)
 
 # --- Compile rules ------------------------------------------------------
 
@@ -216,6 +242,9 @@ libm.o    : CFLAGS += $(MQJS_EXTRA_CFLAGS)
 cutils.o  : CFLAGS += $(MQJS_EXTRA_CFLAGS)
 
 %.o: %.c
+	$(compile)
+
+mquickjs.o:
 	$(compile)
 
 %.o: %.S

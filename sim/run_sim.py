@@ -39,6 +39,7 @@ def check_output(cmd):
 def build_firmware(repo_root: Path, build_dir: Path, script: Path | None,
                    heap_size: int | None = None, memory_dump: bool = False) -> Path:
     fw_dir = repo_root / "firmware"
+    run(["make", "-C", str(fw_dir), "clean"])
     cmd = ["make", "-C", str(fw_dir), f"BUILD_DIRECTORY={build_dir}", "-j"]
     if script is not None:
         cmd.append(f"SCRIPT={script.resolve()}")

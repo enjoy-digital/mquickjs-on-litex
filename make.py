@@ -10,20 +10,22 @@ import os
 import sys
 import shutil
 import argparse
+import importlib
 import subprocess
 from pathlib import Path
 
 
-DEFAULT_SCRIPT  = Path("examples/hello.js")
-SIM_BUILD_DIR   = Path("build/sim")
-VIDEO_BUILD_DIR = Path("build/sim-video")
-BOARD_BUILD_DIR = Path("build/board")
-SIM_RUNNER      = Path("sim/run_sim.py")
-FIRMWARE_DIR    = Path("firmware")
-FIRMWARE_BIN    = FIRMWARE_DIR / "firmware.bin"
-SDCARD_LOADER   = Path("examples/sdcard/loader.js")
-SDCARD_MAIN     = Path("examples/sdcard/main.js")
-UART_BAUDRATE   = 115200
+DEFAULT_SCRIPT       = Path("examples/hello.js")
+DEFAULT_VIDEO_SCRIPT = Path("examples/showcase.js")
+SIM_BUILD_DIR        = Path("build/sim")
+VIDEO_BUILD_DIR      = Path("build/sim-video")
+BOARD_BUILD_DIR      = Path("build/board")
+SIM_RUNNER           = Path("sim/run_sim.py")
+FIRMWARE_DIR         = Path("firmware")
+FIRMWARE_BIN         = FIRMWARE_DIR / "firmware.bin"
+SDCARD_LOADER        = Path("examples/sdcard/loader.js")
+SDCARD_MAIN          = Path("examples/sdcard/main.js")
+UART_BAUDRATE        = 115200
 
 
 # Helpers ------------------------------------------------------------------------------------------
@@ -41,6 +43,38 @@ def run(cmd, cwd=None):
     cmd = [str(c) for c in cmd]
     print("[make.py] $ " + " ".join(cmd), flush=True)
     return subprocess.run(cmd, cwd=cwd).returncode
+
+
+def run_target_module(target, argv, video_framebuffer_format=None):
+    cmd = [sys.executable, "-m", target] + argv
+    print("[make.py] $ " + " ".join(cmd), flush=True)
+
+    if video_framebuffer_format is None:
+        return subprocess.run(cmd).returncode
+
+    from litex.soc.integration.soc_core import SoCCore
+
+    original_argv = sys.argv[:]
+    original_add_video_framebuffer = SoCCore.add_video_framebuffer
+
+    def add_video_framebuffer(self, *args, **kwargs):
+        kwargs["format"] = video_framebuffer_format
+        return original_add_video_framebuffer(self, *args, **kwargs)
+
+    try:
+        SoCCore.add_video_framebuffer = add_video_framebuffer
+        sys.argv = [target] + argv
+        module = importlib.import_module(target)
+        try:
+            rc = module.main()
+        except SystemExit as e:
+            rc = e.code
+        if rc is None:
+            return 0
+        return rc if isinstance(rc, int) else 1
+    finally:
+        sys.argv = original_argv
+        SoCCore.add_video_framebuffer = original_add_video_framebuffer
 
 
 def firmware_cmd(args, script=None):
@@ -61,6 +95,18 @@ def firmware_cmd(args, script=None):
         cmd.append("MEMORY_DUMP=1")
 
     return cmd
+
+
+def firmware_clean_cmd():
+    root = repo_root()
+    return ["make", "-C", str(root / FIRMWARE_DIR), "clean"]
+
+
+def build_firmware(args, script=None):
+    rc = run(firmware_clean_cmd())
+    if rc:
+        return rc
+    return run(firmware_cmd(args, script=script))
 
 
 def target_args(args):
@@ -175,19 +221,25 @@ def cmd_sim_video(args):
 
 
 def cmd_firmware(args):
-    return run(firmware_cmd(args))
+    return build_firmware(args)
 
 
 def cmd_board_build(args):
-    cmd = [
-        sys.executable, "-m", args.target,
+    target_argv = [
         "--build",
-        "--cpu-type=vexriscv",
+        f"--cpu-type={args.cpu_type}",
         "--libc-mode=full",
         "--timer-uptime",
         f"--output-dir={args.build_dir}",
-    ] + target_args(args)
-    return run(cmd)
+    ]
+    if args.cpu_variant is not None:
+        target_argv.append(f"--cpu-variant={args.cpu_variant}")
+    target_argv += target_args(args)
+    return run_target_module(
+        target                   = args.target,
+        argv                     = target_argv,
+        video_framebuffer_format = args.video_framebuffer_format,
+    )
 
 
 def cmd_board_load(args):
@@ -211,7 +263,7 @@ def cmd_board_run(args):
 def cmd_sdcard(args):
     root = repo_root()
 
-    rc = run(firmware_cmd(args, script=root / SDCARD_LOADER))
+    rc = build_firmware(args, script=root / SDCARD_LOADER)
     if rc:
         return rc
 
@@ -223,8 +275,7 @@ def cmd_sdcard(args):
 
 
 def cmd_clean(args):
-    root = repo_root()
-    return run(["make", "-C", str(root / FIRMWARE_DIR), "clean"])
+    return run(firmware_clean_cmd())
 
 
 # Parser -------------------------------------------------------------------------------------------
@@ -255,7 +306,9 @@ def main():
                      help="Print mquickjs heap stats.")
     sim.set_defaults(func=cmd_sim)
 
-    sim_repl = subparsers.add_parser("sim-repl", help="Run litex_sim and keep it alive for serial interaction.")
+    sim_repl = subparsers.add_parser(
+        "sim-repl",
+        help="Run litex_sim and keep it alive for serial interaction.")
     sim_repl.add_argument("--output-dir", type=Path, default=SIM_BUILD_DIR,
                           help="LiteX simulator output directory.")
     sim_repl.set_defaults(func=cmd_sim_repl)
@@ -264,7 +317,7 @@ def main():
         "sim-video",
         help="Run a JavaScript framebuffer demo in litex_sim.")
     sim_video.add_argument("script",        nargs="?",  type=Path,
-                           default=Path("examples/plasma.js"),
+                           default=DEFAULT_VIDEO_SCRIPT,
                            help="JavaScript source.")
     sim_video.add_argument("--output-dir",  type=Path,  default=VIDEO_BUILD_DIR,
                            help="Simulator output directory.")
@@ -278,24 +331,38 @@ def main():
                            help="Also enable simulated Ethernet.")
     sim_video.set_defaults(func=cmd_sim_video)
 
-    firmware = subparsers.add_parser("firmware", help="Build firmware for an existing LiteX build directory.")
+    firmware = subparsers.add_parser(
+        "firmware",
+        help="Build firmware for an existing LiteX build directory.")
     firmware.add_argument("script", nargs="?", type=Path, default=DEFAULT_SCRIPT,
                           help="JavaScript source.")
     add_build_options(firmware, SIM_BUILD_DIR)
     firmware.set_defaults(func=cmd_firmware)
 
     board_build = subparsers.add_parser("board-build", help="Build a LiteX-Boards target.")
-    board_build.add_argument("--target",    required=True,            help="LiteX-Boards target module.")
+    board_build.add_argument("--target",    required=True,
+                             help="LiteX-Boards target module.")
     board_build.add_argument("--build-dir", type=Path,                default=BOARD_BUILD_DIR,
                              help="Board build directory.")
-    board_build.add_argument("target_args", nargs=argparse.REMAINDER, help="Extra target arguments after --.")
+    board_build.add_argument("--cpu-type",  default="vexriscv",
+                             help="LiteX CPU type.")
+    board_build.add_argument("--cpu-variant", default=None,
+                             help="LiteX CPU variant.")
+    board_build.add_argument("--video-framebuffer-format",
+                             choices=["rgb888", "rgb565"], default=None,
+                             help="Force framebuffer format on targets that use "
+                                  "LiteX add_video_framebuffer().")
+    board_build.add_argument("target_args", nargs=argparse.REMAINDER,
+                             help="Extra target arguments after --.")
     board_build.set_defaults(func=cmd_board_build)
 
     board_load = subparsers.add_parser("board-load", help="Load a LiteX-Boards target bitstream.")
-    board_load.add_argument("--target",    required=True,            help="LiteX-Boards target module.")
+    board_load.add_argument("--target",    required=True,
+                            help="LiteX-Boards target module.")
     board_load.add_argument("--build-dir", type=Path,                default=BOARD_BUILD_DIR,
                             help="Board build directory.")
-    board_load.add_argument("target_args", nargs=argparse.REMAINDER, help="Extra target arguments after --.")
+    board_load.add_argument("target_args", nargs=argparse.REMAINDER,
+                            help="Extra target arguments after --.")
     board_load.set_defaults(func=cmd_board_load)
 
     board_run = subparsers.add_parser("board-run", help="Upload firmware with litex_term.")

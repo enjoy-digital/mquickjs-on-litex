@@ -65,22 +65,27 @@ The LambdaConcept ECPIX-5 uses the upstream
 
 The validated setup used the FT2232 UART on `/dev/ttyUSB2`.
 
-For HDMI output, enable the target framebuffer and use the plasma demo:
+For HDMI output, enable the target framebuffer and use the showcase
+playlist. This is the default hardware video demo and runs plasma, fire
+and tunnel from one firmware:
 
 ```sh
 ./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video -- --with-video-framebuffer --uart-baudrate=1000000 --uart-fifo-depth=512
-./make.py firmware examples/plasma.js --build-dir build/ecpix5-video
+./make.py firmware examples/showcase.js --build-dir build/ecpix5-video
 ./make.py board-load --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video
 ./make.py board-run --serial /dev/ttyUSB2 --baudrate 1000000
 ```
 
-Validated output:
+Expected output starts with:
 
 ```text
-[plasma] framebuffer = 640 x 480 x 32
-[plasma] rendering 32 x 24 tile x 8
-[plasma] frame checksum = 0x83cb42c0
-[plasma] done
+[showcase] framebuffer = 640 x 480 x 32
+[showcase] clock = <target clock> Hz
+[showcase] tile = 48 x 36 x 8
+[showcase] plasma frames = 24
+[showcase] fire frames = 24
+[showcase] tunnel frames = 24
+[showcase] done
 [mqjs] done
 ```
 
@@ -133,7 +138,30 @@ Start with the smallest script:
 Then try `examples/demo.js`. LED writes are no-ops when no LED CSR is
 present; switch/button reads return zero when those CSRs are absent. If
 the target has video, pass its framebuffer option after `--` and run
-`examples/plasma.js`.
+`./make.py sim-video` in simulation. For hardware, start with
+`examples/showcase.js`; it runs all visual demos by default. The
+individual `examples/plasma.js`, `examples/fire.js`, `examples/tunnel.js`
+and `examples/plasma_animated.js` scripts are useful when tuning one
+effect.
+
+`board-build` defaults to VexRiscv, but can forward another LiteX CPU
+cleanly:
+
+```sh
+./make.py board-build --target litex_boards.targets.<target_module> --build-dir build/<board> --cpu-type vexiiriscv --cpu-variant standard -- <target-specific options>
+```
+
+CPU-specific options still go after `--`. For example, this builds a
+FPU-capable VexiiRiscv experiment:
+
+```sh
+./make.py board-build --target litex_boards.targets.lambdaconcept_ecpix5 --build-dir build/ecpix5-video-vexii-fpu --cpu-type vexiiriscv --cpu-variant standard -- --with-video-framebuffer --sys-clk-freq=50000000 --uart-baudrate=1000000 --uart-fifo-depth=512 --with-isa f d --update-repo=no
+```
+
+On the ECPIX-5 test setup, the 75MHz VexiiRiscv F/D build routed but
+missed timing, while a 50MHz build passed timing. The firmware reached
+the JavaScript runtime but stalled before the animated plasma script
+started printing, so the validated demo path remains VexRiscv for now.
 
 For custom peripherals, add C bindings in `firmware/mqjs_port.c` and
 register the JavaScript entry points in `firmware/mqjs_stdlib_litex.c`.
